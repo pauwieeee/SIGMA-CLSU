@@ -1,0 +1,196 @@
+@import "tailwindcss";
+
+:root {
+  /* Backgrounds */
+  --bg-app: #F4F6F3;
+  --bg-secondary: #EDF1EC;
+  --bg-card: #FFFFFF;
+  --bg-login: #2E7D32;
+
+  /* Navigation */
+  --nav-header-dark: #0B2E13;
+  --nav-gradient-start: #3E7A2F;
+  --nav-gradient-end: #6FAE4E;
+  --sidebar-bg: #F7F9F6;
+  --menu-active-bg: #E4F0DE;
+  --menu-active-text: #2E5E22;
+  --menu-inactive-text: #4A4A4A;
+  --menu-hover-bg: #EAF3E5;
+
+  /* Text */
+  --text-primary: #1F2A1C;
+  --text-secondary: #444444;
+  --text-muted: #8A8F87;
+  --text-disabled: #9B9B9B;
+
+  /* Buttons */
+  --btn-primary-bg: #3B6E33;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-hover: #2E5827;
+  --btn-outline-border: #3B6E33;
+
+  /* Borders & Dividers */
+  --border-default: #E2E6E0;
+  --divider-light: #ECEFEA;
+  --input-border: #DCE2D8;
+
+  /* Icons */
+  --icon-default: #3B6E33;
+  --icon-muted: #8A8F87;
+
+  /* Status Badges */
+  --status-success-bg: #E4F5E0;
+  --status-success-text: #2E7D32;
+  --status-warning-bg: #FDF1D6;
+  --status-warning-text: #C08A00;
+  --status-error-text: #D9534F;
+
+  /* Distinct per-status tokens (Student Records status pills) */
+  --status-active-bg: #E4F5E0;
+  --status-active-text: #2E7D32;
+  --status-pending-bg: #FFF3E0;
+  --status-pending-text: #C08A00;
+  --status-incomplete-bg: #FDECEA;
+  --status-incomplete-text: #C0392B;
+  --status-renewal-bg: #FFF8E1;
+  --status-renewal-text: #B8860B;
+  --status-duplicate-bg: #FBE1DE;
+  --status-duplicate-text: #D9534F;
+
+  /* Charts */
+  --chart-primary: #5FA050;
+  --chart-secondary-line: #3B6E33;
+  --chart-bg: #FFFFFF;
+  --chart-grid: #EEF1EC;
+  --chart-axis-label: #8A8F87;
+  --tooltip-bg: #1F2A1C;
+  --tooltip-text: #FFFFFF;
+
+  /* Donut/Pie Slices */
+  --slice-government: #1F4E1A;
+  --slice-institutional: #5FA050;
+  --slice-private: #B7DDA6;
+
+  /* Brand Core */
+  --brand-deep: #1F4E1A;
+  --brand-mid: #3B6E33;
+  --brand-bright: #5FA050;
+  --brand-light: #B7DDA6;
+
+  /* Dashboard chart widgets (Scholars per Category / By Category Type) */
+  --widget-card-bg: #FFFFFF;
+  --widget-card-shadow: rgba(0, 0, 0, 0.08);
+  --widget-heading-text: #1F4E1A;
+
+  --bar-gradient-top: #7ED957;
+  --bar-gradient-bottom: #3FA047;
+  --bar-fill-flat: #5CB84F;
+  --bar-chart-bg: #FFFFFF;
+
+  --pie-government: #2E7D32;
+  --pie-institutional: #66BB4A;
+  --pie-private: #C5E8B7;
+
+  --legend-text: #333333;
+
+  /* Student avatar initials — one consistent style everywhere, never derived
+     from status/category/role. */
+  --avatar-bg: #D9EFD3;
+  --avatar-text: #2E5E22;
+  --avatar-border: transparent;
+}
+
+@theme {
+  /* Semantic tokens, aliased 1:1 onto the :root palette above so Tailwind
+     utilities (bg-*, text-*, border-*) resolve to var(--token) at runtime
+     instead of baking in literal hex values. */
+  --color-app-bg: var(--bg-app);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-card: var(--bg-card);
+  --color-login-bg: var(--bg-login);
+
+  --color-nav-dark: var(--nav-header-dark);
+  --color-nav-gradient-start: var(--nav-gradient-start);
+  --color-nav-gradient-end: var(--nav-gradient-end);
+  --color-sidebar: var(--sidebar-bg);
+  --color-menu-active-bg: var(--menu-active-bg);
+  --color-menu-active-text: var(--menu-active-text);
+  --color-menu-inactive: var(--menu-inactive-text);
+  --color-menu-hover: var(--menu-hover-bg);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+
+  --color-btn-primary: var(--btn-primary-bg);
+  --color-btn-primary-text: var(--btn-primary-text);
+  --color-btn-primary-hover: var(--btn-primary-hover);
+  --color-btn-outline-border: var(--btn-outline-border);
+
+  --color-border-default: var(--border-default);
+  --color-divider: var(--divider-light);
+  --color-input-border: var(--input-border);
+
+  --color-icon: var(--icon-default);
+  --color-icon-muted: var(--icon-muted);
+
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-error-text: var(--status-error-text);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-pending-text: var(--status-pending-text);
+
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-mid: var(--brand-mid);
+  --color-brand-bright: var(--brand-bright);
+  --color-brand-light: var(--brand-light);
+
+  /* Legacy clsu-* aliases kept so existing components pick up the new
+     palette automatically without a full rename pass. */
+  --color-clsu-dark: var(--nav-header-dark);
+  --color-clsu-green: var(--btn-primary-bg);
+  --color-clsu-mid: var(--brand-mid);
+  --color-clsu-light: var(--brand-bright);
+  --color-clsu-pale: var(--menu-active-bg);
+  --color-clsu-bg: var(--bg-app);
+
+  --font-sans: 'Segoe UI', system-ui, Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.avatar-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--avatar-bg);
+  color: var(--avatar-text);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}

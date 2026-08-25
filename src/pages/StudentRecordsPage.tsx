@@ -375,7 +375,7 @@ export default function StudentRecordsPage() {
         </div>
       </Card>
 
-      <StudentDetailModal studentId={viewingId} onClose={() => setViewingId(null)} />
+      <StudentDetailModal studentId={viewingId} onClose={() => setViewingId(null)} onChanged={refetch} />
 
       <BatchUpdateModal
         open={batchModalOpen}

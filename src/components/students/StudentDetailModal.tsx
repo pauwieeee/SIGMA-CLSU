@@ -12,9 +12,13 @@ const statusChoices = ['Active', 'For Renewal', 'Documents Incomplete', 'Pending
 interface Props {
   studentId: string | null
   onClose: () => void
+  /** Called after any edit inside this modal (status change, profile edit)
+   * so the page behind it (e.g. the Student Records table) can refetch —
+   * this modal's own refetch() only updates its own data, not the list. */
+  onChanged?: () => void
 }
 
-export function StudentDetailModal({ studentId, onClose }: Props) {
+export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
   const { student, history, flags, loading, refetch } = useStudentDetail(studentId)
   const [editing, setEditing] = useState(false)
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
@@ -28,6 +32,7 @@ export function StudentDetailModal({ studentId, onClose }: Props) {
     await (supabase as any).from('student_scholarships').update({ status: newStatus }).eq('id', historyId)
     await logActivity('update', 'student_scholarship', `Changed status of "${scholarshipName}" to "${newStatus}" for ${student?.full_name}.`, historyId)
     await refetch()
+    onChanged?.()
     setSavingStatusId(null)
   }
 
@@ -173,7 +178,10 @@ export function StudentDetailModal({ studentId, onClose }: Props) {
         <StudentFormModal
           student={student}
           onClose={() => setEditing(false)}
-          onSaved={refetch}
+          onSaved={() => {
+            refetch()
+            onChanged?.()
+          }}
         />
       )}
     </div>

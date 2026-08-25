@@ -1,0 +1,146 @@
+SIGMA — Class Diagram Spec
+For: Case Study #4 (COMSCI 3100), Section 3 — Class Diagram, Proposed System
+Draw this in draw.io / Lucidchart / StarUML / by hand. Everything needed is below.
+These are real tables from SIGMA's actual database, so attributes/types are accurate.
+
+============================================================
+CLASSES — box format: [ClassName] / attributes (+type name) / methods ()
+============================================================
+
+College
+  + id : UUID
+  + name : String
+  + code : String
+
+Program
+  + id : UUID
+  + name : String
+  + code : String
+  + degreeLevel : String
+
+Student
+  + id : UUID
+  + studentNumber : String
+  + lastName : String
+  + firstName : String
+  + yearLevel : String
+  + address : String
+  + contactNumber : String
+  + email : String
+  + gwa : Number
+  + participationOrg : String
+  + archivedAt : Date
+  + archive()
+  + restore()
+  + updateProfile()
+
+ScholarshipCategory
+  + id : UUID
+  + name : String
+
+ScholarshipAgency
+  + id : UUID
+  + name : String
+
+Scholarship
+  + id : UUID
+  + name : String
+  + level : String
+  + qualifications : String
+  + benefitsAmount : String
+  + coverageDeadline : String
+  + contactPerson : String
+  + contactEmail : String
+  + status : String
+  + startDate : Date
+  + endDate : Date
+  + isExpiringSoon : Boolean
+  + add()
+  + edit()
+  + archive()
+
+StudentScholarship          <-- this is an ASSOCIATION CLASS (see note below)
+  + id : UUID
+  + academicYear : String
+  + semester : String
+  + status : String
+  + grant()
+  + renew()
+  + updateStatus()
+
+DuplicateFlag
+  + id : UUID
+  + reason : String
+  + status : String
+  + resolvedAt : Date
+  + resolve()
+
+ActivityLog
+  + id : UUID
+  + action : String
+  + description : String
+  + actorEmail : String
+  + createdAt : Date
+
+Notification
+  + id : UUID
+  + type : String
+  + title : String
+  + isRead : Boolean
+  + markAsRead()
+
+AdminUser
+  + id : UUID
+  + email : String
+  + logIn()
+  + logOut()
+
+============================================================
+RELATIONSHIPS (draw as a line between the two classes, with multiplicity
+labels on each end, and an arrowhead pointing "toward the many side")
+============================================================
+
+College            "1" ------> "0..*"   Program            : offers
+Program             "1" ------> "0..*"   Student            : enrolls
+ScholarshipCategory "1" ------> "0..*"   Scholarship        : groups
+ScholarshipAgency  "0..1" -----> "0..*"  Scholarship        : administers
+Student              "1" ------> "0..*"  StudentScholarship : holds
+Scholarship          "1" ------> "0..*"  StudentScholarship : grantedVia
+Student              "1" ------> "0..*"  DuplicateFlag      : flaggedIn
+StudentScholarship   "1" ------> "0..*"  DuplicateFlag      : scholarshipA
+StudentScholarship   "1" ------> "0..*"  DuplicateFlag      : scholarshipB
+AdminUser            "1" ------> "0..*"  ActivityLog        : performs
+
+Note on "0..1" for ScholarshipAgency->Scholarship:
+  A scholarship doesn't always belong to an agency (e.g. an Institutional
+  scholarship stands alone), so the agency side is optional (0..1), while a
+  scholarship can only belong to ONE agency at most.
+
+============================================================
+IMPORTANT MODELING NOTE — why StudentScholarship is its own class
+============================================================
+Student and Scholarship are MANY-TO-MANY:
+  - one student can hold several scholarships
+  - one scholarship can cover many students
+In UML, a many-to-many relationship that also needs its own data (here:
+which academic year, which semester, and what status — Active / For Renewal
+/ Documents Incomplete / Pending Verification) must become its own class
+sitting BETWEEN the two, connected to both with a dashed line labeled
+"association class" if your tool supports it. That class is
+StudentScholarship. Don't draw a direct many-to-many line straight from
+Student to Scholarship — route everything through StudentScholarship.
+
+DuplicateFlag connects to StudentScholarship TWICE (scholarshipA and
+scholarshipB) because a duplicate flag is always about a PAIR of scholarship
+records the same student holds — e.g. "this student has an active record
+under both CHED-TES and Iskolar ng LandBank."
+
+============================================================
+Quick sanity check before you submit
+============================================================
+- 10 classes total                                          [ ]
+- StudentScholarship sits between Student and Scholarship
+  (no direct Student-to-Scholarship line)                   [ ]
+- DuplicateFlag has TWO connections to StudentScholarship
+  (scholarshipA, scholarshipB)                               [ ]
+- Every relationship line has multiplicity on both ends      [ ]

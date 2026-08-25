@@ -1,0 +1,112 @@
+<mxfile host="app.diagrams.net" modified="2026-08-23T00:00:00.000Z" agent="SIGMA" version="24.0.0" type="device">
+  <diagram name="SIGMA Schema" id="sigma-schema">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===================== COLUMN A ===================== -->
+        <mxCell id="t_students" value="&lt;b&gt;students&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;student_number : text&lt;br&gt;last_name : text&lt;br&gt;first_name : text&lt;br&gt;middle_initial : text&lt;br&gt;&lt;i&gt;program_id : uuid (FK)&lt;/i&gt;&lt;br&gt;yr_level : text&lt;br&gt;address : text&lt;br&gt;contact_number : text&lt;br&gt;email : text&lt;br&gt;gwa : numeric&lt;br&gt;participation_org : text&lt;br&gt;archived_at : timestamptz&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EAF2E3;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="80" y="40" width="260" height="280" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_student_scholarships" value="&lt;b&gt;student_scholarships&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;&lt;i&gt;student_id : uuid (FK)&lt;/i&gt;&lt;br&gt;&lt;i&gt;scholarship_id : uuid (FK)&lt;/i&gt;&lt;br&gt;academic_year : text&lt;br&gt;semester : text&lt;br&gt;status : text&lt;br&gt;start_date : date&lt;br&gt;end_date : date&lt;br&gt;archived_at : timestamptz&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#E3EEDF;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="80" y="380" width="260" height="210" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_duplicate_flags" value="&lt;b&gt;duplicate_flags&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;&lt;i&gt;student_id : uuid (FK)&lt;/i&gt;&lt;br&gt;&lt;i&gt;student_scholarship_id_a : uuid (FK)&lt;/i&gt;&lt;br&gt;&lt;i&gt;student_scholarship_id_b : uuid (FK)&lt;/i&gt;&lt;br&gt;reason : text&lt;br&gt;status : text&lt;br&gt;&lt;i&gt;resolved_by : uuid (FK)&lt;/i&gt;&lt;br&gt;resolved_at : timestamptz&lt;br&gt;created_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#F3E6E6;strokeColor=#8A3B3B;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="80" y="650" width="260" height="190" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== COLUMN B ===================== -->
+        <mxCell id="t_colleges" value="&lt;b&gt;colleges&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;name : text&lt;br&gt;code : text&lt;br&gt;created_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EAF2E3;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="40" width="240" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_programs" value="&lt;b&gt;programs&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;&lt;i&gt;college_id : uuid (FK)&lt;/i&gt;&lt;br&gt;name : text&lt;br&gt;code : text&lt;br&gt;degree_level : text&lt;br&gt;created_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EAF2E3;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="180" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_scholarship_categories" value="&lt;b&gt;scholarship_categories&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;name : text" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#E3EEDF;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="360" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_scholarship_agencies" value="&lt;b&gt;scholarship_agencies&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;&lt;i&gt;category_id : uuid (FK)&lt;/i&gt;&lt;br&gt;name : text" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#E3EEDF;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="420" y="470" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== COLUMN C ===================== -->
+        <mxCell id="t_scholarships" value="&lt;b&gt;scholarships&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;&lt;i&gt;category_id : uuid (FK)&lt;/i&gt;&lt;br&gt;&lt;i&gt;agency_id : uuid (FK, nullable)&lt;/i&gt;&lt;br&gt;name : text&lt;br&gt;code : text&lt;br&gt;description : text&lt;br&gt;level : text&lt;br&gt;qualifications : text&lt;br&gt;application_requirements : text&lt;br&gt;benefits_amount : text&lt;br&gt;coverage_deadline : text&lt;br&gt;contact_person : text&lt;br&gt;contact_email : text&lt;br&gt;status : text&lt;br&gt;start_date : date&lt;br&gt;end_date : date&lt;br&gt;is_expiring_soon : boolean&lt;br&gt;notes : text&lt;br&gt;archived_at : timestamptz&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#E3EEDF;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="760" y="40" width="280" height="380" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== COLUMN D ===================== -->
+        <mxCell id="t_auth_users" value="&lt;b&gt;auth.users&lt;/b&gt; (Supabase Auth)&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;email : text" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EDEDED;strokeColor=#888888;dashed=1;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="40" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_activity_logs" value="&lt;b&gt;activity_logs&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;&lt;i&gt;actor_id : uuid (FK, nullable)&lt;/i&gt;&lt;br&gt;actor_email : text&lt;br&gt;action : text&lt;br&gt;entity_type : text&lt;br&gt;entity_id : uuid&lt;br&gt;description : text&lt;br&gt;created_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EAF2E3;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="150" width="240" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_notifications" value="&lt;b&gt;notifications&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;type : text&lt;br&gt;title : text&lt;br&gt;message : text&lt;br&gt;is_read : boolean&lt;br&gt;related_entity_id : uuid&lt;br&gt;created_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EAF2E3;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="360" width="240" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="t_import_batches" value="&lt;b&gt;import_batches&lt;/b&gt;&lt;br&gt;&lt;b&gt;PK id&lt;/b&gt; : uuid&lt;br&gt;filename : text&lt;br&gt;&lt;i&gt;imported_by : uuid (FK, nullable)&lt;/i&gt;&lt;br&gt;row_count : integer&lt;br&gt;error_count : integer&lt;br&gt;status : text&lt;br&gt;error_log : jsonb&lt;br&gt;created_at : timestamptz" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=11;fontFamily=Consolas;fillColor=#EAF2E3;strokeColor=#2F6B45;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="550" width="240" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== RELATIONSHIPS ===================== -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;" edge="1" parent="1" source="t_programs" target="t_colleges">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;" edge="1" parent="1" source="t_students" target="t_programs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;" edge="1" parent="1" source="t_scholarship_agencies" target="t_scholarship_categories">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;" edge="1" parent="1" source="t_scholarships" target="t_scholarship_categories">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;dashed=1;" edge="1" parent="1" source="t_scholarships" target="t_scholarship_agencies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;" edge="1" parent="1" source="t_student_scholarships" target="t_students">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#2F6B45;" edge="1" parent="1" source="t_student_scholarships" target="t_scholarships">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#8A3B3B;" edge="1" parent="1" source="t_duplicate_flags" target="t_students">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#8A3B3B;" edge="1" parent="1" source="t_duplicate_flags" target="t_student_scholarships">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#8A3B3B;" edge="1" parent="1" source="t_duplicate_flags" target="t_student_scholarships">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="720" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#888888;dashed=1;" edge="1" parent="1" source="t_duplicate_flags" target="t_auth_users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#888888;dashed=1;" edge="1" parent="1" source="t_activity_logs" target="t_auth_users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#888888;dashed=1;" edge="1" parent="1" source="t_import_batches" target="t_auth_users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

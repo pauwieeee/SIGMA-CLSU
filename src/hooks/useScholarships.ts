@@ -21,6 +21,8 @@ export interface ScholarshipRow {
   coverage_deadline: string | null
   contact_person: string | null
   contact_email: string | null
+  min_gwa: number | null
+  min_units: number | null
 }
 
 export function useScholarships(categoryName: string, showArchived = false) {
@@ -34,7 +36,7 @@ export function useScholarships(categoryName: string, showArchived = false) {
     let query = supabase
       .from('scholarships')
       .select(
-        'id, name, code, description, status, start_date, end_date, notes, agency_id, is_expiring_soon, level, qualifications, application_requirements, benefits_amount, coverage_deadline, contact_person, contact_email, scholarship_agencies ( name ), scholarship_categories!inner ( name )'
+        'id, name, code, description, status, start_date, end_date, notes, agency_id, is_expiring_soon, level, qualifications, application_requirements, benefits_amount, coverage_deadline, contact_person, contact_email, min_gwa, min_units, scholarship_agencies ( name ), scholarship_categories!inner ( name )'
       )
       .eq('scholarship_categories.name', categoryName)
       .order('name')
@@ -74,6 +76,8 @@ export function useScholarships(categoryName: string, showArchived = false) {
         coverage_deadline: r.coverage_deadline,
         contact_person: r.contact_person,
         contact_email: r.contact_email,
+        min_gwa: r.min_gwa,
+        min_units: r.min_units,
       }))
     )
     setLoading(false)

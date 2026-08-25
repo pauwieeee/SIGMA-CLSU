@@ -8,6 +8,7 @@ export async function logActivity(action: string, entityType: string, descriptio
   const { data } = await supabase.auth.getUser()
   await (supabase as any).from('activity_logs').insert({
     actor_id: data.user?.id ?? null,
+    actor_email: data.user?.email ?? null,
     action,
     entity_type: entityType,
     entity_id: entityId ?? null,

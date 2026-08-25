@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useScholarships, type ScholarshipRow } from '@/hooks/useScholarships'
 import { ScholarshipFormModal } from '@/components/scholarships/ScholarshipFormModal'
+import { ScholarshipScholarsModal } from '@/components/scholarships/ScholarshipScholarsModal'
 import { supabase } from '@/lib/supabase'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -15,6 +16,7 @@ export default function ScholarshipsPage() {
   const { rows, loading, error, refetch } = useScholarships(activeTab, showArchived)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ScholarshipRow | null>(null)
+  const [viewingScholars, setViewingScholars] = useState<ScholarshipRow | null>(null)
 
   const headerRef = useRef<HTMLDivElement>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
@@ -151,6 +153,7 @@ export default function ScholarshipsPage() {
                 onEdit={openEdit}
                 onArchive={handleArchive}
                 onRestore={handleRestore}
+                onViewScholars={setViewingScholars}
               />
             ))}
 
@@ -171,6 +174,7 @@ export default function ScholarshipsPage() {
                     onEdit={openEdit}
                     onArchive={handleArchive}
                     onRestore={handleRestore}
+                    onViewScholars={setViewingScholars}
                   />
                 ))}
               </div>
@@ -189,7 +193,7 @@ export default function ScholarshipsPage() {
                 name: editing.name,
                 code: editing.code ?? '',
                 description: editing.description ?? '',
-                agency_id: editing.agency_id ?? '',
+                agency_name: editing.agency_name ?? '',
                 status: editing.status as any,
                 start_date: editing.start_date ?? '',
                 end_date: editing.end_date ?? '',
@@ -201,11 +205,19 @@ export default function ScholarshipsPage() {
                 coverage_deadline: editing.coverage_deadline ?? '',
                 contact_person: editing.contact_person ?? '',
                 contact_email: editing.contact_email ?? '',
+                min_gwa: editing.min_gwa != null ? String(editing.min_gwa) : '',
+                min_units: editing.min_units != null ? String(editing.min_units) : '',
               }
             : undefined
         }
         onClose={() => setModalOpen(false)}
         onSaved={refetch}
+      />
+
+      <ScholarshipScholarsModal
+        scholarshipId={viewingScholars?.id ?? null}
+        scholarshipName={viewingScholars?.name ?? ''}
+        onClose={() => setViewingScholars(null)}
       />
     </div>
   )
@@ -218,6 +230,7 @@ function ScholarshipRowView({
   onEdit,
   onArchive,
   onRestore,
+  onViewScholars,
 }: {
   row: ScholarshipRow
   sub: string
@@ -225,6 +238,7 @@ function ScholarshipRowView({
   onEdit: (row: ScholarshipRow) => void
   onArchive: (row: ScholarshipRow) => void
   onRestore: (row: ScholarshipRow) => void
+  onViewScholars: (row: ScholarshipRow) => void
 }) {
   const initials = row.name
     .split(' ')
@@ -260,6 +274,13 @@ function ScholarshipRowView({
           </button>
         ) : (
           <>
+            <button
+              onClick={() => onViewScholars(row)}
+              className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            >
+              View Scholars
+            </button>
             <button
               onClick={() => onEdit(row)}
               className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"

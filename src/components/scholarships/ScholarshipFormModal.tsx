@@ -16,7 +16,7 @@ interface ScholarshipFormValues {
   name: string
   code: string
   description: string
-  agency_id: string
+  agency_name: string
   status: ScholarshipStatus
   start_date: string
   end_date: string
@@ -28,13 +28,15 @@ interface ScholarshipFormValues {
   coverage_deadline: string
   contact_person: string
   contact_email: string
+  min_gwa: string
+  min_units: string
 }
 
 const emptyForm: ScholarshipFormValues = {
   name: '',
   code: '',
   description: '',
-  agency_id: '',
+  agency_name: '',
   status: 'Active',
   start_date: '',
   end_date: '',
@@ -46,6 +48,8 @@ const emptyForm: ScholarshipFormValues = {
   coverage_deadline: '',
   contact_person: '',
   contact_email: '',
+  min_gwa: '',
+  min_units: '',
 }
 
 interface Props {
@@ -87,6 +91,17 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
       setError('Scholarship name is required.')
       return
     }
+    const minGwaValue = form.min_gwa.trim() ? Number(form.min_gwa) : null
+    const minUnitsValue = form.min_units.trim() ? Number(form.min_units) : null
+    if (form.min_gwa.trim() && (Number.isNaN(minGwaValue) || minGwaValue! < 1 || minGwaValue! > 5)) {
+      setError('Minimum GWA must be a number between 1.00 and 5.00.')
+      return
+    }
+    if (form.min_units.trim() && (Number.isNaN(minUnitsValue) || minUnitsValue! < 0)) {
+      setError('Minimum units must be a positive number.')
+      return
+    }
+
     setSaving(true)
     setError(null)
 
@@ -101,10 +116,32 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
       setSaving(false)
       return
     }
+    const categoryId = (categoryRow as { id: string }).id
+
+    let agencyId: string | null = null
+    const agencyName = form.agency_name.trim()
+    if (agencyName) {
+      const existing = agencies.find((a) => a.name.toLowerCase() === agencyName.toLowerCase())
+      if (existing) {
+        agencyId = existing.id
+      } else {
+        const { data: newAgency, error: agencyError } = await (supabase as any)
+          .from('scholarship_agencies')
+          .insert({ category_id: categoryId, name: agencyName })
+          .select('id')
+          .single()
+        if (agencyError) {
+          setError(`Couldn't create agency "${agencyName}": ${agencyError.message}`)
+          setSaving(false)
+          return
+        }
+        agencyId = newAgency.id
+      }
+    }
 
     const payload = {
-      category_id: (categoryRow as { id: string }).id,
-      agency_id: form.agency_id || null,
+      category_id: categoryId,
+      agency_id: agencyId,
       name: form.name.trim(),
       code: form.code || null,
       description: form.description || null,
@@ -119,6 +156,8 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
       coverage_deadline: form.coverage_deadline || null,
       contact_person: form.contact_person || null,
       contact_email: form.contact_email || null,
+      min_gwa: minGwaValue,
+      min_units: minUnitsValue,
     }
 
     const isEdit = !!form.id
@@ -171,24 +210,22 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
                 ))}
               </select>
             </div>
-            {agencies.length > 0 && (
-              <div>
-                <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Agency (optional)</label>
-                <select
-                  value={form.agency_id}
-                  onChange={(e) => setForm((f) => ({ ...f, agency_id: e.target.value }))}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  style={{ borderColor: 'var(--input-border)' }}
-                >
-                  <option value="">Standalone (no agency group)</option>
-                  {agencies.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Agency (optional)</label>
+              <input
+                list="agency-suggestions"
+                value={form.agency_name}
+                onChange={(e) => setForm((f) => ({ ...f, agency_name: e.target.value }))}
+                placeholder="e.g. CHED — leave blank if standalone"
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: 'var(--input-border)' }}
+              />
+              <datalist id="agency-suggestions">
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.name} />
+                ))}
+              </datalist>
+            </div>
           </div>
 
           <div>
@@ -238,6 +275,32 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Minimum GWA (optional)</label>
+              <input
+                value={form.min_gwa}
+                onChange={(e) => setForm((f) => ({ ...f, min_gwa: e.target.value }))}
+                placeholder="e.g. 1.75"
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: 'var(--input-border)' }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Minimum Units Enrolled (optional)</label>
+              <input
+                value={form.min_units}
+                onChange={(e) => setForm((f) => ({ ...f, min_units: e.target.value }))}
+                placeholder="e.g. 15"
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: 'var(--input-border)' }}
+              />
+            </div>
+          </div>
+          <p className="-mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+            Set these for academic scholarships to auto-flag students who don't meet the requirement. Leave blank if this scholarship has no GWA/unit-load requirement.
+          </p>
 
           <div className="grid grid-cols-2 gap-3">
             <div>

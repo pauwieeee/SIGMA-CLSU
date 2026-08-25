@@ -1,0 +1,79 @@
+SIGMA — Use Case Diagram Spec
+For: Case Study #4 (COMSCI 3100), Section 2 — Use Case Diagram, Proposed System
+Draw this in draw.io / Lucidchart / StarUML / by hand. Everything needed is below.
+
+============================================================
+ACTOR (only one)
+============================================================
+Admin  (Admissions Staff / Office Head — SIGMA has a single admin role;
+        every account is created manually, no public sign-up)
+
+============================================================
+SYSTEM BOUNDARY BOX
+============================================================
+Label the box: "SIGMA System"
+Put all 12 use cases below inside it as ovals.
+
+============================================================
+USE CASES (12 ovals inside the system boundary)
+============================================================
+1.  Log In
+2.  Manage Student Records        (add / edit / archive / restore a student)
+3.  Import Students from File     (bulk add/update via CSV or Excel)
+4.  Manage Scholarship Records    (add / edit / archive / restore a scholarship)
+5.  View Duplicate Flags
+6.  Resolve Duplicate Flag
+7.  View Dashboard Analytics
+8.  Generate Reports              (export as PDF / Excel)
+9.  Ask SIGMA Assistant           (AI chat that answers questions about the data)
+10. Manage Notifications          (view, mark read, mark all read)
+11. Detect Duplicate Scholarship  (automatic — the system runs this itself)
+12. View Recent Activity Log
+
+============================================================
+ACTOR → USE CASE LINES (plain solid line, no label)
+============================================================
+Draw a solid line from Admin to EACH of these:
+  - Log In
+  - Manage Student Records
+  - Import Students from File
+  - Manage Scholarship Records
+  - View Duplicate Flags
+  - Resolve Duplicate Flag
+  - View Dashboard Analytics
+  - Generate Reports
+  - Ask SIGMA Assistant
+  - Manage Notifications
+  - View Recent Activity Log
+
+Do NOT draw a line from Admin to "Detect Duplicate Scholarship" —
+the admin never triggers this directly, the system does it automatically
+(that's why it only connects via <<include>> below).
+
+============================================================
+<<include>> RELATIONSHIPS (dashed arrow, arrowhead points to the included use case)
+============================================================
+Import Students from File   ..include..>   Manage Student Records
+   (reason: a bulk import is just many student records being added/updated at once)
+
+Manage Student Records      ..include..>   Detect Duplicate Scholarship
+   (reason: every time a student's scholarship record is saved, the system
+    automatically checks it for duplicates)
+
+Manage Scholarship Records  ..include..>   Detect Duplicate Scholarship
+   (same reason — duplicate detection runs on scholarship changes too)
+
+============================================================
+<<extend>> RELATIONSHIP (dashed arrow, arrowhead points to the base use case)
+============================================================
+Resolve Duplicate Flag      ..extend..>   View Duplicate Flags
+   (reason: resolving is an optional continuation of viewing — you can view
+    flags without resolving one, but resolving only happens from that screen)
+
+============================================================
+Quick sanity check before you submit
+============================================================
+- 1 actor, 12 use cases, 1 system boundary box            [ ]
+- 11 solid actor lines (all except "Detect Duplicate...")  [ ]
+- 3 <<include>> dashed arrows                               [ ]
+- 1 <<extend>> dashed arrow                                  [ ]

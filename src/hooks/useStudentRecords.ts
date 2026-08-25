@@ -13,6 +13,7 @@ export interface StudentRecordRow {
   academic_year: string | null
   semester: string | null
   status: string | null
+  isEnrolled: boolean | null
   hasDuplicate: boolean
   /** The specific student_scholarships row this table row is showing — the
    * target for batch status/term updates (a student may have several term
@@ -44,7 +45,7 @@ export function useStudentRecords(filters: Filters) {
         .select(
           `id, student_number, last_name, first_name, middle_initial, yr_level,
            programs ( name, colleges ( id, name ) ),
-           student_scholarships ( id, academic_year, semester, status,
+           student_scholarships ( id, academic_year, semester, status, is_enrolled,
              scholarships ( name, scholarship_categories ( id, name ) ) )`
         )
         .is('archived_at', null)
@@ -74,6 +75,7 @@ export function useStudentRecords(filters: Filters) {
         academic_year: latestScholarship?.academic_year ?? null,
         semester: latestScholarship?.semester ?? null,
         status: latestScholarship?.status ?? null,
+        isEnrolled: latestScholarship?.is_enrolled ?? null,
         hasDuplicate: duplicateStudentIds.has(s.id),
         studentScholarshipId: latestScholarship?.id ?? null,
       }

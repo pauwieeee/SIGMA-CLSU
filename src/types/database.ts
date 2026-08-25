@@ -75,6 +75,8 @@ export interface Scholarship {
   coverage_deadline: string | null
   contact_person: string | null
   contact_email: string | null
+  min_gwa: number | null
+  min_units: number | null
   archived_at: string | null
   created_at: string
   updated_at: string
@@ -89,6 +91,9 @@ export interface StudentScholarship {
   status: StudentScholarshipStatus
   start_date: string | null
   end_date: string | null
+  is_enrolled: boolean | null
+  enrollment_verified_at: string | null
+  units_enrolled: number | null
   archived_at: string | null
   created_at: string
   updated_at: string
@@ -109,6 +114,7 @@ export interface DuplicateFlag {
 export interface ActivityLog {
   id: string
   actor_id: string | null
+  actor_email: string | null
   action: string
   entity_type: string
   entity_id: string | null

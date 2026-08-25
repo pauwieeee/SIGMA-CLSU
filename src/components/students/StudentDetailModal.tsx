@@ -4,6 +4,10 @@ import { useStudentDetail } from '@/hooks/useStudentDetail'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Avatar } from '@/components/ui/Avatar'
 import { StudentFormModal } from '@/components/students/StudentFormModal'
+import { supabase } from '@/lib/supabase'
+import { logActivity } from '@/utils/logActivity'
+
+const statusChoices = ['Active', 'For Renewal', 'Documents Incomplete', 'Pending Verification', 'Inactive']
 
 interface Props {
   studentId: string | null
@@ -13,10 +17,19 @@ interface Props {
 export function StudentDetailModal({ studentId, onClose }: Props) {
   const { student, history, flags, loading, refetch } = useStudentDetail(studentId)
   const [editing, setEditing] = useState(false)
+  const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
 
   if (!studentId) return null
 
   const openFlags = flags.filter((f) => f.status === 'Open')
+
+  async function changeStatus(historyId: string, scholarshipName: string, newStatus: string) {
+    setSavingStatusId(historyId)
+    await (supabase as any).from('student_scholarships').update({ status: newStatus }).eq('id', historyId)
+    await logActivity('update', 'student_scholarship', `Changed status of "${scholarshipName}" to "${newStatus}" for ${student?.full_name}.`, historyId)
+    await refetch()
+    setSavingStatusId(null)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -88,17 +101,49 @@ export function StudentDetailModal({ studentId, onClose }: Props) {
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No scholarship records.</p>
               ) : (
                 <ul className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>
-                  {history.map((h) => (
-                    <li key={h.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      <div>
-                        <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{h.scholarship_name}</p>
-                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {h.category_name} · {h.academic_year} · {h.semester}
-                        </p>
-                      </div>
-                      <StatusBadge status={h.status} />
-                    </li>
-                  ))}
+                  {history.map((h) => {
+                    const belowGwaThreshold = h.min_gwa != null && student.gwa != null && student.gwa > h.min_gwa
+                    return (
+                      <li key={h.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                        <div>
+                          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{h.scholarship_name}</p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {h.category_name} · {h.academic_year} · {h.semester}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {h.is_enrolled === false && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}
+                            >
+                              Not Enrolled
+                            </span>
+                          )}
+                          {belowGwaThreshold && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: 'var(--status-pending-bg)', color: 'var(--status-pending-text)' }}
+                              title={`Requires GWA ${h.min_gwa!.toFixed(2)} or better`}
+                            >
+                              Below GWA Req.
+                            </span>
+                          )}
+                          <select
+                            value={h.status}
+                            disabled={savingStatusId === h.id}
+                            onChange={(e) => changeStatus(h.id, h.scholarship_name, e.target.value)}
+                            className="rounded-full border-0 px-2.5 py-1 text-xs font-medium disabled:opacity-60"
+                            style={{ background: 'var(--menu-active-bg)', color: 'var(--nav-header-dark)' }}
+                          >
+                            {statusChoices.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>

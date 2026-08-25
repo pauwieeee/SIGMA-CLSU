@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import type { ImportResult } from '@/utils/importStudents'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 import { BatchUpdateModal } from '@/components/students/BatchUpdateModal'
+import { EnrollmentVerificationModal } from '@/components/students/EnrollmentVerificationModal'
 import { ToastStack } from '@/components/ui/Toast'
 import { useToasts } from '@/hooks/useToasts'
 
@@ -61,6 +62,7 @@ export default function StudentRecordsPage() {
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const [batchModalOpen, setBatchModalOpen] = useState(false)
+  const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false)
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts()
 
   const colleges = useColleges()
@@ -137,6 +139,13 @@ export default function StudentRecordsPage() {
           className="hidden"
           onChange={handleFileSelected}
         />
+        <button
+          onClick={() => setEnrollmentModalOpen(true)}
+          className="self-start rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)]"
+          style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+        >
+          Verify Enrollment
+        </button>
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={importing}
@@ -339,8 +348,17 @@ export default function StudentRecordsPage() {
                 <div className="truncate px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                   {r.academic_year ? `${r.academic_year} · ${r.semester}` : '—'}
                 </div>
-                <div className="px-4 py-3">
+                <div className="flex items-center gap-1.5 px-4 py-3">
                   <StatusBadge status={displayStatus} />
+                  {r.isEnrolled === false && (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}
+                      title="Not found on the last verified enrollment list"
+                    >
+                      Not Enrolled
+                    </span>
+                  )}
                 </div>
                 <div className="px-4 py-3">
                   <button
@@ -374,6 +392,12 @@ export default function StudentRecordsPage() {
             failed > 0 ? 'error' : 'success'
           )
         }}
+      />
+
+      <EnrollmentVerificationModal
+        open={enrollmentModalOpen}
+        onClose={() => setEnrollmentModalOpen(false)}
+        onDone={refetch}
       />
 
       <ToastStack toasts={toasts} onDismiss={dismissToast} />

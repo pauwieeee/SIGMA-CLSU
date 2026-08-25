@@ -162,12 +162,17 @@ export default function DashboardPage() {
           ) : (
             <ul className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>
               {activity.map((a) => (
-                <li key={a.id} className="flex items-center justify-between py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--btn-primary-bg)' }} />
-                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{a.description}</span>
+                <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'var(--btn-primary-bg)' }} />
+                    <div className="min-w-0">
+                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{a.description}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {a.actor_email ?? 'Unknown admin'}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(a.created_at)}</span>
+                  <span className="shrink-0 text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(a.created_at)}</span>
                 </li>
               ))}
             </ul>

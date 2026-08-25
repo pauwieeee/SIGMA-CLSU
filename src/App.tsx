@@ -10,6 +10,7 @@ import ScholarshipsPage from '@/pages/ScholarshipsPage'
 import ReportsPage from '@/pages/ReportsPage'
 import AccountSettingsPage from '@/pages/AccountSettingsPage'
 import NotificationsPage from '@/pages/NotificationsPage'
+import ActivityLogPage from '@/pages/ActivityLogPage'
 
 function App() {
   return (
@@ -64,6 +65,16 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <NotificationsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/activity"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ActivityLogPage />
                 </AppLayout>
               </ProtectedRoute>
             }

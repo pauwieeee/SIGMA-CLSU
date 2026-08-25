@@ -1,4 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthProvider'
 import { useDashboardStats, useRecentActivity, useScholarsPerCategory } from '@/hooks/useDashboardData'
 import { StatCard } from '@/components/dashboard/StatCard'
@@ -147,7 +148,16 @@ export default function DashboardPage() {
         <DuplicateFlagsCard />
 
         <Card>
-          <CardTitle>Recent Activity</CardTitle>
+          <div className="mb-3 flex items-center justify-between">
+            <CardTitle>Recent Activity</CardTitle>
+            <Link
+              to="/activity"
+              className="text-xs font-semibold hover:underline"
+              style={{ color: 'var(--btn-primary-bg)' }}
+            >
+              View All
+            </Link>
+          </div>
           {activityLoading ? (
             <ul className="space-y-3">
               {[1, 2, 3].map((i) => (

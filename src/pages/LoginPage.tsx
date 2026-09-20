@@ -6,13 +6,25 @@ import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
 
 export default function LoginPage() {
-  const { session, signIn } = useAuth()
+  const { session, loading: authLoading, signIn } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: 'var(--bg-login)' }}>
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
+          style={{ borderColor: 'var(--btn-primary-bg)', borderTopColor: 'transparent' }}
+          aria-label="Restoring session"
+        />
+      </div>
+    )
+  }
 
   if (session) return <Navigate to="/" replace />
 
@@ -26,7 +38,7 @@ export default function LoginPage() {
       setError(error)
       return
     }
-    navigate('/')
+    navigate('/', { replace: true })
   }
 
   return (

@@ -44,11 +44,35 @@ function normalize(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-function includesEntity(question: string, entity: string): boolean {
+function includesEntity(question: string, entity: string, aliases: string[] = []): boolean {
   const q = ` ${normalize(question)} `
-  const name = normalize(entity)
-  if (!name) return false
-  return q.includes(` ${name} `) || name.split(' ').filter((part) => part.length > 2).every((part) => q.includes(` ${part} `))
+  return [entity, ...aliases].some((candidate) => {
+    const name = normalize(candidate)
+    if (!name) return false
+    return q.includes(` ${name} `) || name.split(' ').filter((part) => part.length > 2).every((part) => q.includes(` ${part} `))
+  })
+}
+
+function programAliases(name: string, code?: string | null): string[] {
+  const aliases = code ? [code] : []
+  if (code) {
+    // BSIT → IT, BSCE → CE. These are the short forms commonly used by
+    // staff when asking questions such as "list of scholars in IT".
+    const withoutDegreePrefix = code.replace(/^(BS|BA|MS|MA)/i, '')
+    if (withoutDegreePrefix.length >= 2) aliases.push(withoutDegreePrefix)
+  }
+
+  const specialization = name.match(/\bin\s+(.+)$/i)?.[1]
+  if (specialization) {
+    aliases.push(specialization)
+    const acronym = specialization
+      .split(/\s+/)
+      .filter((word) => !['and', 'of', 'the'].includes(word.toLowerCase()))
+      .map((word) => word[0])
+      .join('')
+    if (acronym.length >= 2) aliases.push(acronym)
+  }
+  return aliases
 }
 
 // Verified against this project's actual API key via direct generateContent
@@ -195,7 +219,7 @@ async function resolveIntent(question: string): Promise<QueryResult> {
       .select(
         `academic_year, semester,
          students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
-           programs!inner(name, colleges!inner(name))),
+           programs!inner(name, code, colleges!inner(name))),
          scholarships!inner(name, scholarship_categories!inner(name))`
       )
       .eq('status', 'Active')
@@ -215,17 +239,22 @@ async function resolveIntent(question: string): Promise<QueryResult> {
 
     let filtered = assignments.filter((row) => (!year || row.academic_year === year) && (!semester || row.semester === semester))
 
-    const entityNames = Array.from(
-      new Set(
-        assignments.flatMap((row) => [
-          row.students?.programs?.name,
-          row.students?.programs?.colleges?.name,
-          row.scholarships?.name,
-          row.scholarships?.scholarship_categories?.name,
-        ]).filter(Boolean)
-      )
-    ) as string[]
-    const matchedEntities = entityNames.filter((name) => includesEntity(question, name))
+    const entityAliases = new Map<string, Set<string>>()
+    function addEntity(name: string | undefined, aliases: string[] = []) {
+      if (!name) return
+      if (!entityAliases.has(name)) entityAliases.set(name, new Set())
+      for (const alias of aliases) entityAliases.get(name)!.add(alias)
+    }
+    for (const row of assignments) {
+      const program = row.students?.programs
+      addEntity(program?.name, programAliases(program?.name ?? '', program?.code))
+      addEntity(program?.colleges?.name)
+      addEntity(row.scholarships?.name)
+      addEntity(row.scholarships?.scholarship_categories?.name)
+    }
+    const matchedEntities = [...entityAliases.entries()]
+      .filter(([name, aliases]) => includesEntity(question, name, [...aliases]))
+      .map(([name]) => name)
     if (matchedEntities.length > 0) {
       filtered = filtered.filter((row) => {
         const values = [
@@ -236,6 +265,16 @@ async function resolveIntent(question: string): Promise<QueryResult> {
         ]
         return matchedEntities.some((entity) => values.includes(entity))
       })
+    }
+
+    const hasUnmatchedScope = matchedEntities.length === 0 && /\b(?:in|from|under|taking)\s+[a-z0-9]/i.test(question)
+    if (hasUnmatchedScope) {
+      return {
+        intent: 'unmatched_scholar_filter',
+        data: [],
+        answer:
+          "I couldn't match that program, college, scholarship, or category to SIGMA's records. Try its full name or official code, such as **Information Technology** or **BSIT**.",
+      }
     }
 
     const distinctStudents = new Map<string, any>()

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, Menu, Settings, X } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
 import { NotificationBell } from '@/components/layout/NotificationBell'
@@ -13,18 +13,9 @@ const topNav = [
   { label: 'Reports & Analytics', to: '/reports' },
 ]
 
-const sidebarNav = [
-  { label: 'Dashboard', to: '/' },
-  { label: 'Student Records', to: '/students' },
-  { label: 'Scholarship Categories', to: '/scholarships' },
-  { label: 'Reports & Analytics', to: '/reports' },
-  { label: 'Account Settings', to: '/settings' },
-]
-
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -51,14 +42,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="border-b" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <button
-              className="mr-1 rounded p-1 hover:bg-[var(--menu-hover-bg)] md:hidden"
-              style={{ color: 'var(--menu-inactive-text)' }}
-              onClick={() => setSidebarOpen((v) => !v)}
-              aria-label="Toggle navigation"
-            >
-              {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
             <img src={clsuLogo} alt="CLSU seal" className="h-9 w-9" />
             <div>
               <p className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--text-muted)' }}>
@@ -138,7 +121,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav
-          className="hidden px-6 md:flex"
+          className="flex overflow-x-auto px-2 sm:px-6"
           style={{ background: `linear-gradient(to right, var(--nav-gradient-start), var(--nav-gradient-end))` }}
         >
           {topNav.map((item) => (
@@ -147,7 +130,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `px-4 py-3 text-sm font-medium text-white/90 transition ${
+                `shrink-0 px-4 py-3 text-sm font-medium text-white/90 transition ${
                   isActive ? 'border-b-2 border-white font-semibold text-white' : 'hover:text-white'
                 }`
               }
@@ -158,58 +141,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
       </header>
 
-      <div className="mx-auto flex max-w-[1600px] items-start">
-        <aside className={`${sidebarOpen ? 'block' : 'hidden'} shrink-0 md:block`} style={{ margin: '20px 0 20px 20px' }}>
-          <div
-            className="rounded-xl"
-            style={{
-              width: 220,
-              padding: '12px 8px',
-              background: '#FFFFFF',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            }}
-          >
-            <ul className="space-y-1">
-              {sidebarNav.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    end={item.to === '/'}
-                    onClick={() => setSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center rounded-lg text-sm transition ${isActive ? 'font-semibold' : ''}`
-                    }
-                    style={({ isActive }) =>
-                      isActive
-                        ? {
-                            gap: 10,
-                            padding: '12px 16px',
-                            background: 'var(--menu-active-bg)',
-                            color: 'var(--menu-active-text)',
-                            borderLeft: '3px solid var(--menu-active-text)',
-                          }
-                        : { gap: 10, padding: '12px 16px', color: 'var(--menu-inactive-text)', borderLeft: '3px solid transparent' }
-                    }
-                    onMouseEnter={(e) => {
-                      if (e.currentTarget.getAttribute('aria-current') !== 'page') {
-                        e.currentTarget.style.background = 'var(--menu-hover-bg)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (e.currentTarget.getAttribute('aria-current') !== 'page') {
-                        e.currentTarget.style.background = ''
-                      }
-                    }}
-                  >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'currentColor' }} />
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
-
+      <div className="mx-auto max-w-[1600px]">
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
 

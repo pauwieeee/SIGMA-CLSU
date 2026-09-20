@@ -49,6 +49,18 @@ function includesEntity(question: string, entity: string, aliases: string[] = []
   return [entity, ...aliases].some((candidate) => {
     const name = normalize(candidate)
     if (!name) return false
+
+    // Two-letter program acronyms overlap with normal English words (for
+    // example BAIS previously produced the alias "IS"). Accept them only
+    // when the user types the uppercase acronym or uses it after a clear
+    // scope such as "in IT" / "department of IT".
+    if (/^[a-z]{2}$/.test(name)) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const uppercaseAcronym = new RegExp(`\\b${escaped.toUpperCase()}\\b`).test(question)
+      const scopedAcronym = new RegExp(`\\b(?:in|from|under|of)\\s+(?:dept(?:artment)?\\.?\\s+of\\s+)?${escaped}\\b`, 'i').test(question)
+      return uppercaseAcronym || scopedAcronym
+    }
+
     if (q.includes(` ${name} `)) return true
 
     const significantWords = name.split(' ').filter((part) => part.length > 2)
@@ -58,12 +70,6 @@ function includesEntity(question: string, entity: string, aliases: string[] = []
 
 function programAliases(name: string, code?: string | null): string[] {
   const aliases = code ? [code] : []
-  if (code) {
-    // BSIT → IT, BSCE → CE. These are the short forms commonly used by
-    // staff when asking questions such as "list of scholars in IT".
-    const withoutDegreePrefix = code.replace(/^(BS|BA|MS|MA)/i, '')
-    if (withoutDegreePrefix.length >= 2) aliases.push(withoutDegreePrefix)
-  }
 
   const specialization = name.match(/\bin\s+(.+)$/i)?.[1]
   if (specialization) {

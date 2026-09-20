@@ -49,7 +49,10 @@ function includesEntity(question: string, entity: string, aliases: string[] = []
   return [entity, ...aliases].some((candidate) => {
     const name = normalize(candidate)
     if (!name) return false
-    return q.includes(` ${name} `) || name.split(' ').filter((part) => part.length > 2).every((part) => q.includes(` ${part} `))
+    if (q.includes(` ${name} `)) return true
+
+    const significantWords = name.split(' ').filter((part) => part.length > 2)
+    return significantWords.length > 0 && significantWords.every((part) => q.includes(` ${part} `))
   })
 }
 

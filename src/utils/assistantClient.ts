@@ -21,6 +21,34 @@ export class AssistantError extends Error {
 interface QueryResult {
   intent: string
   data: unknown
+  answer?: string
+}
+
+function assertQuerySucceeded(error: { message: string } | null) {
+  if (error) throw new AssistantError('database_error', error.message)
+}
+
+function cleanCell(value: unknown): string {
+  return String(value ?? '—').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+}
+
+function formatTable(headers: string[], rows: unknown[][]): string {
+  return [
+    `| ${headers.join(' | ')} |`,
+    `| ${headers.map(() => '---').join(' | ')} |`,
+    ...rows.map((row) => `| ${row.map(cleanCell).join(' | ')} |`),
+  ].join('\n')
+}
+
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function includesEntity(question: string, entity: string): boolean {
+  const q = ` ${normalize(question)} `
+  const name = normalize(entity)
+  if (!name) return false
+  return q.includes(` ${name} `) || name.split(' ').filter((part) => part.length > 2).every((part) => q.includes(` ${part} `))
 }
 
 // Verified against this project's actual API key via direct generateContent
@@ -71,75 +99,206 @@ async function resolveIntent(question: string): Promise<QueryResult> {
   const q = question.toLowerCase()
 
   if (q.includes('duplicate')) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('duplicate_flags')
       .select('id, reason, students ( student_number, last_name, first_name )')
       .eq('status', 'Open')
-      .limit(20)
-    return { intent: 'duplicates', data }
+      .order('created_at', { ascending: false })
+      .limit(50)
+    assertQuerySucceeded(error)
+    const rows = (data ?? []) as any[]
+    const wantsCount = /how many|count|number|total/.test(q)
+    const answer = wantsCount
+      ? `**Open Duplicate Flags:** ${rows.length}`
+      : rows.length === 0
+        ? 'There are no open duplicate flags.'
+        : `${rows.length} open duplicate flag${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
+            ['Student ID', 'Student', 'Reason'],
+            rows.map((row) => [
+              row.students?.student_number,
+              `${row.students?.first_name ?? ''} ${row.students?.last_name ?? ''}`.trim(),
+              row.reason,
+            ])
+          )}\n\n### Summary\n**Total Open Flags:** ${rows.length}`
+    return { intent: 'duplicates', data: rows, answer }
   }
 
   if (q.includes('expiring') || q.includes('expire')) {
-    const { data } = await supabase
+    const today = new Date()
+    const cutoff = new Date(today.getTime() + 30 * 86400000)
+    const asDate = (date: Date) => date.toISOString().slice(0, 10)
+    const { data, error } = await supabase
       .from('scholarships')
       .select('name, end_date')
       .not('end_date', 'is', null)
-      .lte('end_date', new Date(Date.now() + 30 * 86400000).toISOString())
-      .gte('end_date', new Date().toISOString())
+      .lte('end_date', asDate(cutoff))
+      .gte('end_date', asDate(today))
       .is('archived_at', null)
-    return { intent: 'expiring', data }
+      .order('end_date')
+    assertQuerySucceeded(error)
+    const rows = (data ?? []) as { name: string; end_date: string | null }[]
+    const wantsCount = /how many|count|number|total/.test(q)
+    const answer = wantsCount
+      ? `**Scholarships Expiring Within 30 Days:** ${rows.length}`
+      : rows.length === 0
+        ? 'No scholarships are expiring within the next 30 days.'
+        : `${rows.length} scholarship${rows.length === 1 ? '' : 's'} will expire within 30 days.\n\n${formatTable(
+            ['Scholarship', 'End Date'],
+            rows.map((row) => [row.name, row.end_date])
+          )}`
+    return { intent: 'expiring', data: rows, answer }
   }
 
-  const collegeMatch = q.match(/(?:in|for)\s+([a-z\s]+?)(?:\?|$)/)
-  if (q.includes('how many') && collegeMatch) {
-    const { data } = await supabase
-      .from('students')
-      .select('id, programs!inner(colleges!inner(name))')
-      .ilike('programs.colleges.name', `%${collegeMatch[1].trim()}%`)
-    return { intent: 'count_by_college', data: { count: data?.length ?? 0 } }
+  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(q)
+
+  if (/\bscholarships?\b/.test(q) && !asksAboutPeople) {
+    const { data, error } = await supabase
+      .from('scholarships')
+      .select('name, status, end_date, scholarship_categories ( name ), scholarship_agencies ( name )')
+      .is('archived_at', null)
+      .order('name')
+    assertQuerySucceeded(error)
+    let rows = (data ?? []) as any[]
+    const statuses = ['Active', 'Expiring Soon', 'Inactive']
+    const matchedStatus = statuses.find((status) => q.includes(status.toLowerCase()))
+    if (matchedStatus) rows = rows.filter((row) => row.status === matchedStatus)
+    const categories = ['Government', 'Institutional', 'Private']
+    const matchedCategory = categories.find((category) => q.includes(category.toLowerCase()))
+    if (matchedCategory) {
+      rows = rows.filter((row) => row.scholarship_categories?.name === matchedCategory)
+    }
+    const filterLabel = [matchedStatus, matchedCategory].filter(Boolean).join(' ') || 'available'
+    const wantsCount = /how many|count|number|total/.test(q)
+    const answer = wantsCount
+      ? `**${filterLabel} Scholarships:** ${rows.length}`
+      : rows.length === 0
+        ? `No ${filterLabel.toLowerCase()} scholarships were found.`
+        : `${rows.length} ${filterLabel.toLowerCase()} scholarship${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
+            ['Scholarship', 'Category', 'Agency', 'Status', 'End Date'],
+            rows.slice(0, 50).map((row) => [
+              row.name,
+              row.scholarship_categories?.name,
+              row.scholarship_agencies?.name,
+              row.status,
+              row.end_date,
+            ])
+          )}${rows.length > 50 ? '\n\nShowing the first 50 records.' : ''}`
+    return { intent: 'scholarship_list', data: rows, answer }
   }
 
-  // "list/who are the scholars in <program or college>" — matches against
-  // both program names (e.g. "Information Technology") and college names
-  // (e.g. "College of Engineering"), since admins phrase this either way.
-  if ((q.includes('list') || q.includes('who are') || q.includes('names of')) && collegeMatch) {
-    const term = collegeMatch[1].trim()
-    const [{ data: matchedPrograms }, { data: matchedColleges }] = await Promise.all([
-      supabase.from('programs').select('id').ilike('name', `%${term}%`),
-      supabase.from('colleges').select('id').ilike('name', `%${term}%`),
-    ])
+  // A scholar means a distinct, non-archived student with an active,
+  // non-archived student_scholarships record. Fetching the relationship here
+  // prevents ordinary (non-scholar) students from being counted by mistake.
+  if (asksAboutPeople) {
+    const { data, error } = await supabase
+      .from('student_scholarships')
+      .select(
+        `academic_year, semester,
+         students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
+           programs!inner(name, colleges!inner(name))),
+         scholarships!inner(name, scholarship_categories!inner(name))`
+      )
+      .eq('status', 'Active')
+      .is('archived_at', null)
+      .is('students.archived_at', null)
+    assertQuerySucceeded(error)
 
-    let programIds = (matchedPrograms ?? []).map((p: { id: string }) => p.id)
-    if (matchedColleges && matchedColleges.length > 0) {
-      const { data: programsInColleges } = await supabase
-        .from('programs')
-        .select('id')
-        .in(
-          'college_id',
-          matchedColleges.map((c: { id: string }) => c.id)
-        )
-      programIds = [...programIds, ...((programsInColleges ?? []).map((p: { id: string }) => p.id))]
+    const assignments = (data ?? []) as any[]
+    const year = q.match(/\b(20\d{2}\s*[-–]\s*20\d{2})\b/)?.[1].replace(/\s|–/g, '-')
+    const semester = q.includes('1st semester') || q.includes('first semester')
+      ? '1st Semester'
+      : q.includes('2nd semester') || q.includes('second semester')
+        ? '2nd Semester'
+        : q.includes('summer')
+          ? 'Summer'
+          : null
+
+    let filtered = assignments.filter((row) => (!year || row.academic_year === year) && (!semester || row.semester === semester))
+
+    const entityNames = Array.from(
+      new Set(
+        assignments.flatMap((row) => [
+          row.students?.programs?.name,
+          row.students?.programs?.colleges?.name,
+          row.scholarships?.name,
+          row.scholarships?.scholarship_categories?.name,
+        ]).filter(Boolean)
+      )
+    ) as string[]
+    const matchedEntities = entityNames.filter((name) => includesEntity(question, name))
+    if (matchedEntities.length > 0) {
+      filtered = filtered.filter((row) => {
+        const values = [
+          row.students?.programs?.name,
+          row.students?.programs?.colleges?.name,
+          row.scholarships?.name,
+          row.scholarships?.scholarship_categories?.name,
+        ]
+        return matchedEntities.some((entity) => values.includes(entity))
+      })
     }
 
-    if (programIds.length === 0) return { intent: 'scholar_list', data: [] }
+    const distinctStudents = new Map<string, any>()
+    for (const row of filtered) {
+      const student = row.students
+      if (student?.id && !distinctStudents.has(student.id)) distinctStudents.set(student.id, row)
+    }
+    const scholarRows = [...distinctStudents.values()].sort((a, b) =>
+      String(a.students.last_name).localeCompare(String(b.students.last_name))
+    )
+    const filterLabel = [matchedEntities.join(' / '), year, semester].filter(Boolean).join(', ') || 'all active records'
 
-    const { data } = await supabase
-      .from('students')
-      .select('student_number, last_name, first_name, yr_level, programs ( name, colleges ( name ) )')
-      .in('program_id', programIds)
-      .is('archived_at', null)
-      .order('last_name')
-      .limit(50)
-    return { intent: 'scholar_list', data }
+    if (q.includes('per college') || q.includes('by college')) {
+      const collegeStudents = new Map<string, Set<string>>()
+      for (const row of filtered) {
+        const college = row.students?.programs?.colleges?.name ?? 'Unknown'
+        if (!collegeStudents.has(college)) collegeStudents.set(college, new Set())
+        collegeStudents.get(college)!.add(row.students.id)
+      }
+      const breakdown = [...collegeStudents.entries()].sort((a, b) => b[1].size - a[1].size)
+      const answer = breakdown.length === 0
+        ? 'No active scholars matched that question.'
+        : `${formatTable(['College', 'Active Scholars'], breakdown.map(([college, ids]) => [college, ids.size]))}\n\n### Summary\n**Total Active Scholars:** ${scholarRows.length}`
+      return { intent: 'scholars_per_college', data: breakdown, answer }
+    }
+
+    const wantsList = /list|show|who|names|which/.test(q)
+    const wantsCount = /how many|count|number|total/.test(q)
+    if (wantsList) {
+      const answer = scholarRows.length === 0
+        ? `No active scholars were found for ${filterLabel}.`
+        : `${scholarRows.length} active scholar${scholarRows.length === 1 ? '' : 's'} found for ${filterLabel}.\n\n${formatTable(
+            ['Student ID', 'Name', 'Program', 'College'],
+            scholarRows.slice(0, 50).map((row) => [
+              row.students.student_number,
+              `${row.students.first_name} ${row.students.last_name}`,
+              row.students.programs?.name,
+              row.students.programs?.colleges?.name,
+            ])
+          )}${scholarRows.length > 50 ? '\n\nShowing the first 50 records.' : ''}`
+      return { intent: 'scholar_list', data: scholarRows, answer }
+    }
+    if (wantsCount || q.includes('scholar')) {
+      return {
+        intent: 'scholar_count',
+        data: { count: scholarRows.length, filter: filterLabel },
+        answer: `**Active Scholars (${filterLabel}):** ${scholarRows.length}`,
+      }
+    }
   }
 
-  if (q.includes('per college') || q.includes('by college')) {
-    const { data } = await supabase.from('students').select('programs ( colleges ( name ) )')
-    return { intent: 'scholars_per_college', data }
+  if (/dashboard|overview|summary|statistics|stats/.test(q)) {
+    const { data, error } = await supabase.from('dashboard_stats').select('*').single()
+    assertQuerySucceeded(error)
+    return { intent: 'general_stats', data }
   }
 
-  const { data } = await supabase.from('dashboard_stats').select('*').single()
-  return { intent: 'general_stats', data }
+  return {
+    intent: 'unsupported',
+    data: null,
+    answer:
+      "I couldn't match that question to a reliable SIGMA report. Try asking for active scholars by college, program, scholarship, category, academic year, or semester; open duplicate flags; or scholarships expiring within 30 days.",
+  }
 }
 
 async function callGeminiWithFallback(prompt: string): Promise<string> {
@@ -246,6 +405,11 @@ Keep sentences short and conversational; no filler, no repeated preambles, no em
 
 export async function askAssistant(question: string): Promise<string> {
   const result = await resolveIntent(question)
+
+  // Known reports are formatted directly from database results. Gemini is
+  // only used for the general dashboard summary, preventing it from changing
+  // exact counts, names, filters, or dates returned by SIGMA.
+  if (result.answer) return result.answer
 
   const prompt = `${FORMATTING_INSTRUCTIONS}
 

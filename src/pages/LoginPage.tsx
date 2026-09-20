@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import watermark from '@/assets/clsu-seal-watermark.png'
@@ -123,9 +123,9 @@ export default function LoginPage() {
           </button>
 
           <div className="text-center">
-            <a href="#forgot-password" className="text-sm font-medium hover:underline" style={{ color: 'var(--btn-primary-bg)' }}>
+            <Link to="/forgot-password" className="text-sm font-medium hover:underline" style={{ color: 'var(--btn-primary-bg)' }}>
               Forgot password?
-            </a>
+            </Link>
           </div>
         </form>
 

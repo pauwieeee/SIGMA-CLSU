@@ -24,6 +24,11 @@ interface QueryResult {
   answer?: string
 }
 
+export interface AssistantConversationMessage {
+  role: 'assistant' | 'user'
+  text: string
+}
+
 function assertQuerySucceeded(error: { message: string } | null) {
   if (error) throw new AssistantError('database_error', error.message)
 }
@@ -128,10 +133,26 @@ function orderedChain(): string[] {
 // against the browser's already-authenticated Supabase client, so RLS
 // still governs exactly what data comes back.
 // ------------------------------------------------------------
-async function resolveIntent(question: string): Promise<QueryResult> {
-  const q = question.toLowerCase()
+function isFollowUpQuestion(question: string): boolean {
+  return /\b(it|that|those|them|they|there|these|this|same|previous|above)\b/i.test(question)
+    || /^(and|also|what about|how about|are|is|do|does|can|only)\b/i.test(question.trim())
+}
 
-  if (q.includes('duplicate')) {
+function questionWithContext(question: string, history: AssistantConversationMessage[]): string {
+  if (!isFollowUpQuestion(question)) return question
+  const previousUserQuestion = [...history].reverse().find((message) => message.role === 'user')?.text
+  return previousUserQuestion ? `${previousUserQuestion} ${question}` : question
+}
+
+async function resolveIntent(
+  question: string,
+  history: AssistantConversationMessage[] = []
+): Promise<QueryResult> {
+  const q = question.toLowerCase()
+  const contextualQuestion = questionWithContext(question, history)
+  const contextualQ = contextualQuestion.toLowerCase()
+
+  if (contextualQ.includes('duplicate')) {
     const { data, error } = await supabase
       .from('duplicate_flags')
       .select('id, reason, students ( student_number, last_name, first_name )')
@@ -156,7 +177,7 @@ async function resolveIntent(question: string): Promise<QueryResult> {
     return { intent: 'duplicates', data: rows, answer }
   }
 
-  if (q.includes('expiring') || q.includes('expire')) {
+  if (contextualQ.includes('expiring') || contextualQ.includes('expire')) {
     const today = new Date()
     const cutoff = new Date(today.getTime() + 30 * 86400000)
     const asDate = (date: Date) => date.toISOString().slice(0, 10)
@@ -182,9 +203,9 @@ async function resolveIntent(question: string): Promise<QueryResult> {
     return { intent: 'expiring', data: rows, answer }
   }
 
-  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(q)
+  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ)
 
-  if (/\bscholarships?\b/.test(q) && !asksAboutPeople) {
+  if (/\bscholarships?\b/.test(contextualQ) && !asksAboutPeople) {
     const { data, error } = await supabase
       .from('scholarships')
       .select('name, status, end_date, scholarship_categories ( name ), scholarship_agencies ( name )')
@@ -193,10 +214,10 @@ async function resolveIntent(question: string): Promise<QueryResult> {
     assertQuerySucceeded(error)
     let rows = (data ?? []) as any[]
     const statuses = ['Active', 'Expiring Soon', 'Inactive']
-    const matchedStatus = statuses.find((status) => q.includes(status.toLowerCase()))
+    const matchedStatus = statuses.find((status) => contextualQ.includes(status.toLowerCase()))
     if (matchedStatus) rows = rows.filter((row) => row.status === matchedStatus)
     const categories = ['Government', 'Institutional', 'Private']
-    const matchedCategory = categories.find((category) => q.includes(category.toLowerCase()))
+    const matchedCategory = categories.find((category) => contextualQ.includes(category.toLowerCase()))
     if (matchedCategory) {
       rows = rows.filter((row) => row.scholarship_categories?.name === matchedCategory)
     }
@@ -237,12 +258,12 @@ async function resolveIntent(question: string): Promise<QueryResult> {
     assertQuerySucceeded(error)
 
     const assignments = (data ?? []) as any[]
-    const year = q.match(/\b(20\d{2}\s*[-–]\s*20\d{2})\b/)?.[1].replace(/\s|–/g, '-')
-    const semester = q.includes('1st semester') || q.includes('first semester')
+    const year = contextualQ.match(/\b(20\d{2}\s*[-–]\s*20\d{2})\b/)?.[1].replace(/\s|–/g, '-')
+    const semester = contextualQ.includes('1st semester') || contextualQ.includes('first semester')
       ? '1st Semester'
-      : q.includes('2nd semester') || q.includes('second semester')
+      : contextualQ.includes('2nd semester') || contextualQ.includes('second semester')
         ? '2nd Semester'
-        : q.includes('summer')
+        : contextualQ.includes('summer')
           ? 'Summer'
           : null
 
@@ -262,7 +283,7 @@ async function resolveIntent(question: string): Promise<QueryResult> {
       addEntity(row.scholarships?.scholarship_categories?.name)
     }
     const matchedEntities = [...entityAliases.entries()]
-      .filter(([name, aliases]) => includesEntity(question, name, [...aliases]))
+      .filter(([name, aliases]) => includesEntity(contextualQuestion, name, [...aliases]))
       .map(([name]) => name)
     if (matchedEntities.length > 0) {
       filtered = filtered.filter((row) => {
@@ -276,7 +297,7 @@ async function resolveIntent(question: string): Promise<QueryResult> {
       })
     }
 
-    const hasUnmatchedScope = matchedEntities.length === 0 && /\b(?:in|from|under|taking)\s+[a-z0-9]/i.test(question)
+    const hasUnmatchedScope = matchedEntities.length === 0 && /\b(?:in|from|under|taking)\s+[a-z0-9]/i.test(contextualQuestion)
     if (hasUnmatchedScope) {
       return {
         intent: 'unmatched_scholar_filter',
@@ -341,12 +362,7 @@ async function resolveIntent(question: string): Promise<QueryResult> {
     return { intent: 'general_stats', data }
   }
 
-  return {
-    intent: 'unsupported',
-    data: null,
-    answer:
-      "I couldn't match that question to a reliable SIGMA report. Try asking for active scholars by college, program, scholarship, category, academic year, or semester; open duplicate flags; or scholarships expiring within 30 days.",
-  }
+  return { intent: 'conversation', data: null }
 }
 
 async function callGeminiWithFallback(prompt: string): Promise<string> {
@@ -451,15 +467,31 @@ Never dump raw JSON, field names like "student_number" or "programs.colleges.nam
 translate them into the plain labels above (Student ID, College, Status, Semester, Scholarships, Total, etc).
 Keep sentences short and conversational; no filler, no repeated preambles, no emoji except "⚠️".`
 
-export async function askAssistant(question: string): Promise<string> {
-  const result = await resolveIntent(question)
+export async function askAssistant(
+  question: string,
+  history: AssistantConversationMessage[] = []
+): Promise<string> {
+  const recentHistory = history.slice(-8)
+  const result = await resolveIntent(question, recentHistory)
 
   // Known reports are formatted directly from database results. Gemini is
   // only used for the general dashboard summary, preventing it from changing
   // exact counts, names, filters, or dates returned by SIGMA.
   if (result.answer) return result.answer
 
+  const conversation = recentHistory
+    .map((message) => `${message.role === 'user' ? 'Admin' : 'SIGMA Assistant'}: ${message.text}`)
+    .join('\n')
+
   const prompt = `${FORMATTING_INSTRUCTIONS}
+
+You are having a continuing conversation. Use the recent conversation to understand pronouns and follow-up
+questions. Be friendly and natural, but stay focused on SIGMA and scholarship administration. If the supplied
+data does not contain the answer, say what information is unavailable and suggest a supported SIGMA question.
+Never claim that you searched, changed, exported, or verified a record unless the supplied data proves it.
+
+Recent conversation:
+${conversation || '(none)'}
 
 Question: ${question}
 Data (intent: ${result.intent}): ${JSON.stringify(result.data)}`

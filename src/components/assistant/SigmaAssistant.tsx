@@ -1,14 +1,13 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Bot, MessageCircle, Send, X } from 'lucide-react'
-import { askAssistant, AssistantError } from '@/utils/assistantClient'
+import {
+  askAssistant,
+  AssistantError,
+  type AssistantConversationMessage,
+} from '@/utils/assistantClient'
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 
-interface ChatMessage {
-  role: 'assistant' | 'user'
-  text: string
-}
-
-const suggestedChips = ['Scholars per college', 'Expiring this month', 'Export duplicate list']
+const suggestedChips = ['Scholars per college', 'Expiring this month', 'Show duplicate list']
 
 function errorMessageFor(code: string): string {
   switch (code) {
@@ -26,6 +25,8 @@ function errorMessageFor(code: string): string {
       return "That question couldn't be sent — please try typing it again."
     case 'network_error':
       return "I couldn't reach the assistant service. Check your connection and try again."
+    case 'database_error':
+      return "I couldn't read the SIGMA records needed for that answer. Please try again."
     default:
       return 'The assistant is unavailable right now. Please try again shortly.'
   }
@@ -33,7 +34,7 @@ function errorMessageFor(code: string): string {
 
 export function SigmaAssistant() {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<AssistantConversationMessage[]>([
     {
       role: 'assistant',
       text: "Hi Sir/Ma'am 👋 I can help you look up students, scholarships, or duplicate flags. What do you need?",
@@ -41,6 +42,11 @@ export function SigmaAssistant() {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
   async function ask(question: string) {
     if (!question.trim()) return
@@ -49,7 +55,7 @@ export function SigmaAssistant() {
     setLoading(true)
 
     try {
-      const answer = await askAssistant(question)
+      const answer = await askAssistant(question, messages)
       setMessages((m) => [...m, { role: 'assistant', text: answer || "Sorry, I couldn't find an answer." }])
     } catch (err) {
       const code = err instanceof AssistantError ? err.code : 'network_error'
@@ -122,6 +128,7 @@ export function SigmaAssistant() {
             Thinking…
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="flex flex-wrap gap-2 border-t p-2" style={{ borderColor: 'var(--divider-light)' }}>

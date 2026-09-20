@@ -48,9 +48,6 @@ export default function LoginPage() {
       >
         <div className="flex flex-col items-center text-center">
           <img src={clsuLogo} alt="CLSU seal" className="h-16 w-16" />
-          <p className="mt-1.5 text-lg font-bold" style={{ color: 'var(--nav-header-dark)' }}>
-            CLSU
-          </p>
           <h2 className="mt-3 text-2xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             SIGMA Admin Login
           </h2>

@@ -107,7 +107,10 @@ export interface DuplicateFlag {
   reason: string
   status: DuplicateFlagStatus
   resolved_by: string | null
+  resolved_by_email: string | null
   resolved_at: string | null
+  resolution_type: string | null
+  resolution_notes: string | null
   created_at: string
 }
 

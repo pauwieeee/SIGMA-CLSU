@@ -1,8 +1,9 @@
 import { useDuplicateFlags } from '@/hooks/useDuplicateFlags'
 import { Card, CardTitle } from '@/components/ui/Card'
+import { Link } from 'react-router-dom'
 
 export function DuplicateFlagsCard() {
-  const { rows, loading, resolve } = useDuplicateFlags()
+  const { rows, loading } = useDuplicateFlags()
 
   return (
     <Card>
@@ -23,13 +24,13 @@ export function DuplicateFlagsCard() {
                   {r.scholarship_a} + {r.scholarship_b}
                 </p>
               </div>
-              <button
-                onClick={() => resolve(r.id)}
+              <Link
+                to="/reports"
                 className="shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
                 style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
               >
-                Mark Resolved
-              </button>
+                Review Case
+              </Link>
             </li>
           ))}
         </ul>

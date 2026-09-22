@@ -16,25 +16,33 @@ export interface DuplicateFlagRow {
   academic_year: string
   semester: string
   created_at: string
+  status: 'Open' | 'Resolved'
+  scholarship_a_status: string
+  scholarship_b_status: string
+  resolution_type: string | null
+  resolution_notes: string | null
+  resolved_by_email: string | null
+  resolved_at: string | null
 }
 
-export function useDuplicateFlags() {
+export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'All' = 'Open') {
   const { user } = useAuth()
   const [rows, setRows] = useState<DuplicateFlagRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchRows = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
+    let query = supabase
       .from('duplicate_flags')
       .select(
-        `id, student_id, reason, created_at,
+        `id, student_id, reason, status, created_at, resolution_type, resolution_notes, resolved_by_email, resolved_at,
          students ( student_number, last_name, first_name, programs ( name, colleges ( name ) ) ),
-         a:student_scholarship_id_a ( academic_year, semester, scholarships ( name ) ),
-         b:student_scholarship_id_b ( academic_year, semester, scholarships ( name ) )`
+         a:student_scholarship_id_a ( academic_year, semester, status, scholarships ( name ) ),
+         b:student_scholarship_id_b ( academic_year, semester, status, scholarships ( name ) )`
       )
-      .eq('status', 'Open')
       .order('created_at', { ascending: false })
+    if (status !== 'All') query = query.eq('status', status)
+    const { data, error } = await query
 
     if (!error && data) {
       setRows(
@@ -51,27 +59,43 @@ export function useDuplicateFlags() {
           academic_year: r.a?.academic_year ?? r.b?.academic_year ?? '—',
           semester: r.a?.semester ?? r.b?.semester ?? '—',
           created_at: r.created_at,
+          status: r.status,
+          scholarship_a_status: r.a?.status ?? '—',
+          scholarship_b_status: r.b?.status ?? '—',
+          resolution_type: r.resolution_type ?? null,
+          resolution_notes: r.resolution_notes ?? null,
+          resolved_by_email: r.resolved_by_email ?? null,
+          resolved_at: r.resolved_at ?? null,
         }))
       )
     }
     setLoading(false)
-  }, [])
+  }, [status])
 
   useEffect(() => {
     fetchRows()
   }, [fetchRows])
 
-  async function resolve(id: string) {
+  async function resolve(id: string, resolutionType: string, resolutionNotes: string) {
     const row = rows.find((r) => r.id === id)
     const { error } = await (supabase as any)
       .from('duplicate_flags')
-      .update({ status: 'Resolved', resolved_by: user?.id ?? null, resolved_at: new Date().toISOString() })
+      .update({
+        status: 'Resolved',
+        resolution_type: resolutionType,
+        resolution_notes: resolutionNotes,
+        resolved_by: user?.id ?? null,
+        resolved_by_email: user?.email ?? null,
+        resolved_at: new Date().toISOString(),
+      })
       .eq('id', id)
     if (error) throw error
     await logActivity(
       'resolve',
       'duplicate_flag',
-      row ? `Resolved duplicate flag for ${row.student_name} (${row.student_number}).` : 'Resolved a duplicate flag.',
+      row
+        ? `Resolved duplicate flag for ${row.student_name} (${row.student_number}): ${resolutionType}. ${resolutionNotes}`
+        : `Resolved a duplicate flag: ${resolutionType}. ${resolutionNotes}`,
       id
     )
     await fetchRows()

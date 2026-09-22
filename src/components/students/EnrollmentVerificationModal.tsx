@@ -9,23 +9,26 @@ interface Props {
   onDone: () => void
 }
 
-// Replaces the manual "VLOOKUP each student ID against the enrollment list"
-// step described by the Product Owner: paste the official enrollment list
-// for a term, and every active scholarship record for that term gets
-// automatically marked enrolled/not-enrolled instead of being checked by
-// hand, one ID at a time.
 export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
   const [academicYear, setAcademicYear] = useState('2025-2026')
   const [semester, setSemester] = useState('1st Semester')
   const [idList, setIdList] = useState('')
+  const [markUnlisted, setMarkUnlisted] = useState(false)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ checked: number; enrolled: number; notEnrolled: number } | null>(null)
+  const [result, setResult] = useState<{
+    activeRecords: number
+    enrolled: number
+    notEnrolled: number
+    unchanged: number
+    unmatchedIds: string[]
+  } | null>(null)
 
   if (!open) return null
 
   function close() {
     setIdList('')
+    setMarkUnlisted(false)
     setResult(null)
     setError(null)
     onClose()
@@ -61,29 +64,68 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
       return
     }
 
-    let enrolledCount = 0
-    let notEnrolledCount = 0
+    const activeRows = (rows ?? []) as any[]
+    const activeStudentNumbers = new Set(activeRows.map((row) => String(row.students?.student_number ?? '').trim()))
+    const matchedRows = activeRows.filter((row) => enrolledNumbers.has(String(row.students?.student_number ?? '').trim()))
+    const unmatchedIds = [...enrolledNumbers].filter((studentNumber) => !activeStudentNumbers.has(studentNumber))
+
+    if (matchedRows.length === 0) {
+      setError(
+        `None of the pasted IDs matched an active scholarship record for ${academicYear} ${semester}. Check the selected term and the student's scholarship status. No records were changed.`
+      )
+      setRunning(false)
+      return
+    }
+
+    const unlistedRows = activeRows.filter((row) => !enrolledNumbers.has(String(row.students?.student_number ?? '').trim()))
+    if (
+      markUnlisted
+      && !window.confirm(
+        `This complete-list update will mark ${unlistedRows.length} unlisted active scholarship record(s) as Not Enrolled. Continue?`
+      )
+    ) {
+      setRunning(false)
+      return
+    }
+
     const now = new Date().toISOString()
 
-    await Promise.all(
-      (rows ?? []).map(async (row: any) => {
-        const isEnrolled = enrolledNumbers.has(row.students?.student_number)
-        if (isEnrolled) enrolledCount++
-        else notEnrolledCount++
-        await (supabase as any)
+    const rowsToUpdate = markUnlisted ? activeRows : matchedRows
+    const updateResults = await Promise.all(
+      rowsToUpdate.map((row) =>
+        (supabase as any)
           .from('student_scholarships')
-          .update({ is_enrolled: isEnrolled, enrollment_verified_at: now })
+          .update({
+            is_enrolled: enrolledNumbers.has(String(row.students?.student_number ?? '').trim()),
+            enrollment_verified_at: now,
+          })
           .eq('id', row.id)
-      })
+      )
     )
+    const updateError = updateResults.find((update) => update.error)?.error
+    if (updateError) {
+      setError(updateError.message)
+      setRunning(false)
+      return
+    }
+
+    const enrolledCount = matchedRows.length
+    const notEnrolledCount = markUnlisted ? unlistedRows.length : 0
+    const unchangedCount = markUnlisted ? 0 : unlistedRows.length
 
     await logActivity(
       'verify_enrollment',
       'student_scholarship',
-      `Verified enrollment for ${academicYear} ${semester}: ${enrolledCount} enrolled, ${notEnrolledCount} not enrolled.`
+      `Verified enrollment for ${academicYear} ${semester}: ${enrolledCount} listed record(s) marked Enrolled, ${notEnrolledCount} unlisted record(s) marked Not Enrolled, ${unchangedCount} unchanged.`
     )
 
-    setResult({ checked: (rows ?? []).length, enrolled: enrolledCount, notEnrolled: notEnrolledCount })
+    setResult({
+      activeRecords: activeRows.length,
+      enrolled: enrolledCount,
+      notEnrolled: notEnrolledCount,
+      unchanged: unchangedCount,
+      unmatchedIds,
+    })
     setRunning(false)
     onDone()
   }
@@ -102,9 +144,8 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
 
         <div className="space-y-4 px-5 py-4">
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Paste the official enrollment list for a term (student ID numbers, one per line or comma-separated). Every
-            active scholarship record for that term gets checked against it — anyone not on the list is marked "Not
-            Enrolled."
+            Enter student IDs to verify them as enrolled for the selected term. By default, records not listed here
+            will not be changed.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
@@ -112,7 +153,10 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Academic Year</label>
               <select
                 value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
+                onChange={(e) => {
+                  setAcademicYear(e.target.value)
+                  setResult(null)
+                }}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
                 style={{ borderColor: 'var(--input-border)' }}
               >
@@ -124,7 +168,10 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Semester</label>
               <select
                 value={semester}
-                onChange={(e) => setSemester(e.target.value)}
+                onChange={(e) => {
+                  setSemester(e.target.value)
+                  setResult(null)
+                }}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
                 style={{ borderColor: 'var(--input-border)' }}
               >
@@ -138,13 +185,36 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
             <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Enrolled Student IDs</label>
             <textarea
               value={idList}
-              onChange={(e) => setIdList(e.target.value)}
+              onChange={(e) => {
+                setIdList(e.target.value)
+                setResult(null)
+                setError(null)
+              }}
               rows={6}
               placeholder={'e.g.\n24-0499\n23-0506\n22-1187'}
               className="w-full rounded-lg border px-3 py-2 font-mono text-sm"
               style={{ borderColor: 'var(--input-border)' }}
             />
           </div>
+
+          <label
+            className="flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm"
+            style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+          >
+            <input
+              type="checkbox"
+              checked={markUnlisted}
+              onChange={(event) => {
+                setMarkUnlisted(event.target.checked)
+                setResult(null)
+              }}
+              className="mt-0.5"
+            />
+            <span>
+              <strong>Complete official list:</strong> also mark active scholars not included above as Not Enrolled.
+              Use this only when the pasted list is complete.
+            </span>
+          </label>
 
           {error && (
             <p className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>
@@ -153,9 +223,19 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
           )}
 
           {result && (
-            <p className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>
-              Checked {result.checked} record(s) for {academicYear} {semester}: {result.enrolled} enrolled, {result.notEnrolled} not enrolled.
-            </p>
+            <div className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>
+              <p>
+                Verified {result.enrolled} matching record(s) as Enrolled for {academicYear} {semester}.
+                {result.notEnrolled > 0 ? ` ${result.notEnrolled} unlisted record(s) were marked Not Enrolled.` : ''}
+                {result.unchanged > 0 ? ` ${result.unchanged} unlisted record(s) were left unchanged.` : ''}
+              </p>
+              {result.unmatchedIds.length > 0 && (
+                <p className="mt-1">
+                  {result.unmatchedIds.length} pasted ID(s) had no active scholarship record for this term: {result.unmatchedIds.slice(0, 5).join(', ')}
+                  {result.unmatchedIds.length > 5 ? '…' : ''}
+                </p>
+              )}
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">

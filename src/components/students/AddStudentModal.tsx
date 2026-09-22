@@ -97,6 +97,11 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
       supabase.from('programs').select('id, name, college_id, colleges ( name )').order('name'),
       supabase.from('scholarships').select('id, name, scholarship_categories ( name )').is('archived_at', null).order('name'),
     ]).then(([programResult, scholarshipResult]) => {
+      if (programResult.error || scholarshipResult.error) {
+        setErrors({ form: programResult.error?.message ?? scholarshipResult.error?.message ?? 'Could not load form options.' })
+        setLoadingOptions(false)
+        return
+      }
       setPrograms((programResult.data ?? []).map((row: any) => ({
         id: row.id,
         name: row.name,
@@ -119,7 +124,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   }, [programs])
 
   const visiblePrograms = useMemo(
-    () => programs.filter((program) => program.collegeId === form.collegeId),
+    () => form.collegeId ? programs.filter((program) => program.collegeId === form.collegeId) : programs,
     [programs, form.collegeId],
   )
 
@@ -280,7 +285,25 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
                 <select value={form.collegeId} onChange={(e) => { update('collegeId', e.target.value); update('programId', '') }} className={controlClass} style={inputStyle(Boolean(errors.collegeId))}><option value="">Select college</option>{colleges.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
               </Field>
               <Field label="Program/Course" required error={errors.programId}>
-                <select value={form.programId} onChange={(e) => update('programId', e.target.value)} disabled={!form.collegeId} className={controlClass} style={inputStyle(Boolean(errors.programId))}><option value="">Select program</option>{visiblePrograms.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select>
+                <select
+                  value={form.programId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    const selectedProgram = programs.find((program) => program.id === id)
+                    update('programId', id)
+                    if (selectedProgram) update('collegeId', selectedProgram.collegeId)
+                  }}
+                  disabled={loadingOptions}
+                  className={controlClass}
+                  style={inputStyle(Boolean(errors.programId))}
+                >
+                  <option value="">{loadingOptions ? 'Loading programs…' : 'Select program'}</option>
+                  {visiblePrograms.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {form.collegeId ? program.name : `${program.name} — ${program.collegeName}`}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Year Level" required error={errors.yearLevel}><input value={form.yearLevel} onChange={(e) => update('yearLevel', e.target.value)} placeholder="Enter year level" className={controlClass} style={inputStyle(Boolean(errors.yearLevel))} /></Field>
               <Field label="Academic Year" error={errors.academicYear}><input value={form.academicYear} onChange={(e) => update('academicYear', e.target.value)} placeholder="e.g. 2026-2027" className={controlClass} style={inputStyle(Boolean(errors.academicYear))} /></Field>

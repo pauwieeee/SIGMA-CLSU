@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Bot, MessageCircle, Send, X } from 'lucide-react'
+import { Send, X } from 'lucide-react'
 import {
   askAssistant,
   AssistantError,
   type AssistantConversationMessage,
 } from '@/utils/assistantClient'
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
+import cobraMascot from '@/assets/cobra-assistant.png'
 
 const suggestedChips = ['Scholars per college', 'Expiring this month', 'Show duplicate list']
 
@@ -34,10 +35,11 @@ function errorMessageFor(code: string): string {
 
 export function SigmaAssistant() {
   const [open, setOpen] = useState(false)
+  const [showMascotIntro, setShowMascotIntro] = useState(false)
   const [messages, setMessages] = useState<AssistantConversationMessage[]>([
     {
       role: 'assistant',
-      text: "Hi Sir/Ma'am 👋 I can help you look up students, scholarships, or duplicate flags. What do you need?",
+      text: 'Hi! I am Cobra, your virtual assistant. How can I help you today?',
     },
   ])
   const [input, setInput] = useState('')
@@ -47,6 +49,19 @@ export function SigmaAssistant() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    if (sessionStorage.getItem('sigmaMascotIntroShown')) return
+
+    sessionStorage.setItem('sigmaMascotIntroShown', 'true')
+    const startTimer = window.setTimeout(() => setShowMascotIntro(true), 450)
+    const stopTimer = window.setTimeout(() => setShowMascotIntro(false), 5100)
+
+    return () => {
+      window.clearTimeout(startTimer)
+      window.clearTimeout(stopTimer)
+    }
+  }, [])
 
   async function ask(question: string) {
     if (!question.trim()) return
@@ -72,29 +87,37 @@ export function SigmaAssistant() {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Open SIGMA Assistant"
-        className="fixed right-6 bottom-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:bg-[var(--btn-primary-hover)]"
-        style={{ background: 'var(--btn-primary-bg)' }}
-      >
-        <MessageCircle size={24} />
-      </button>
+      <>
+        {showMascotIntro && (
+          <div className="sigma-mascot-intro" aria-hidden="true">
+            <div className="sigma-mascot-intro-bubble">Need help?<br />I&apos;m here!</div>
+            <img src={cobraMascot} alt="" />
+          </div>
+        )}
+        <button
+          onClick={() => {
+            setShowMascotIntro(false)
+            setOpen(true)
+          }}
+          aria-label="Open Cobra, the SIGMA AI Assistant"
+          className="sigma-chat-launcher fixed right-6 bottom-6 z-40"
+        >
+          <img src={cobraMascot} alt="" />
+          <span className="sigma-chat-sparkle" aria-hidden="true">✦</span>
+        </button>
+      </>
     )
   }
 
   return (
     <div
-      className="fixed right-6 bottom-6 z-40 flex h-[560px] w-[400px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border shadow-2xl"
+      className="fixed right-6 bottom-6 z-40 flex h-[min(560px,calc(100vh-3rem))] w-[400px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border shadow-2xl"
       style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}
     >
       <div className="flex items-center justify-between px-4 py-3" style={{ background: 'var(--nav-header-dark)' }}>
         <div className="flex items-center gap-2.5">
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-            style={{ background: 'rgba(255,255,255,0.15)' }}
-          >
-            <Bot size={17} className="text-white" />
+          <span className="sigma-chat-header-avatar">
+            <img src={cobraMascot} alt="Cobra mascot" />
           </span>
           <div>
             <p className="text-sm font-bold text-white">SIGMA Assistant</p>
@@ -107,19 +130,29 @@ export function SigmaAssistant() {
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === 'user' ? 'ml-auto text-white' : ''}`}
-            style={
-              m.role === 'user'
-                ? { background: 'var(--btn-primary-bg)' }
-                : { background: 'var(--menu-active-bg)', color: 'var(--text-primary)' }
-            }
-          >
-            {m.role === 'assistant' ? <AssistantMarkdown text={m.text} /> : m.text}
-          </div>
-        ))}
+        {messages.map((m, i) =>
+          m.role === 'user' ? (
+            <div
+              key={i}
+              className="ml-auto max-w-[85%] rounded-lg px-3 py-2 text-sm text-white"
+              style={{ background: 'var(--btn-primary-bg)' }}
+            >
+              {m.text}
+            </div>
+          ) : (
+            <div key={i} className="flex max-w-[92%] items-start gap-2">
+              <span className="sigma-chat-message-avatar">
+                <img src={cobraMascot} alt="" />
+              </span>
+              <div
+                className="rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'var(--menu-active-bg)', color: 'var(--text-primary)' }}
+              >
+                <AssistantMarkdown text={m.text} />
+              </div>
+            </div>
+          ),
+        )}
         {loading && (
           <div
             className="max-w-[70%] rounded-lg px-3 py-2 text-sm"

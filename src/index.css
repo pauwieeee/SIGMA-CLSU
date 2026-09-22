@@ -194,3 +194,253 @@ body {
   flex-shrink: 0;
   text-transform: uppercase;
 }
+
+/* SIGMA AI post-login transition */
+.sigma-login-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--nav-header-dark);
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.98) 0 24%, rgba(244, 252, 246, 0.94) 57%, rgba(221, 244, 226, 0.95) 100%);
+}
+
+.sigma-login-orbit {
+  position: absolute;
+  width: min(78vw, 900px);
+  aspect-ratio: 1;
+  border: 3px solid rgba(54, 168, 78, 0.13);
+  border-radius: 50%;
+  animation: sigmaOrbit 3.8s linear infinite;
+}
+
+.sigma-login-orbit-two {
+  width: min(92vw, 1100px);
+  border-width: 1px;
+  border-style: dashed;
+  animation-direction: reverse;
+  animation-duration: 5.5s;
+}
+
+.sigma-login-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(18px, 3vw, 34px);
+  animation: sigmaBrandEnter 650ms ease-out both;
+}
+
+.sigma-login-logo {
+  width: clamp(92px, 13vw, 150px);
+  height: clamp(92px, 13vw, 150px);
+  object-fit: contain;
+}
+
+.sigma-login-divider {
+  width: 1px;
+  height: clamp(82px, 11vw, 124px);
+  background: rgba(24, 117, 46, 0.55);
+}
+
+.sigma-login-wordmark {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  font-size: clamp(48px, 8vw, 92px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.sigma-login-wordmark span:first-child {
+  color: #075a27;
+}
+
+.sigma-login-wordmark span:nth-child(2) {
+  color: #45bd33;
+}
+
+.sigma-login-wordmark i {
+  position: absolute;
+  top: -0.42em;
+  right: -0.34em;
+  color: #45bd33;
+  font-size: 0.38em;
+  font-style: normal;
+  animation: sigmaTwinkle 900ms ease-in-out infinite alternate;
+}
+
+.sigma-login-brand p {
+  margin: 18px 0 0;
+  max-width: 340px;
+  color: #11652d;
+  font-size: clamp(15px, 2vw, 22px);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.sigma-loading-dots {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  margin-top: 54px;
+}
+
+.sigma-loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #40ac49;
+  animation: sigmaDot 900ms ease-in-out infinite alternate;
+}
+
+.sigma-loading-dots span:nth-child(2) { animation-delay: 140ms; opacity: 0.8; }
+.sigma-loading-dots span:nth-child(3) { animation-delay: 280ms; opacity: 0.6; }
+.sigma-loading-dots span:nth-child(4) { animation-delay: 420ms; opacity: 0.4; }
+
+.sigma-loading-label {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  color: #277a40;
+  font-size: 14px;
+}
+
+/* Cobra mascot launcher, introduction, and chat avatars */
+.sigma-chat-launcher {
+  width: 68px;
+  height: 68px;
+  overflow: visible;
+  padding: 3px;
+  border: 2px solid #97ec9d;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 35%, #3caa48, #07622d 72%);
+  box-shadow: 0 10px 28px rgba(1, 80, 33, 0.28), 0 0 0 7px rgba(96, 222, 111, 0.12);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  animation: sigmaLauncherPulse 2.8s ease-in-out infinite;
+}
+
+.sigma-chat-launcher:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 13px 30px rgba(1, 80, 33, 0.34), 0 0 0 9px rgba(96, 222, 111, 0.17);
+}
+
+.sigma-chat-launcher > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.18) translateY(2px);
+  filter: drop-shadow(0 3px 4px rgba(0, 48, 18, 0.25));
+}
+
+.sigma-chat-sparkle {
+  position: absolute;
+  top: -8px;
+  right: -5px;
+  color: #64d83e;
+  font-size: 24px;
+  text-shadow: 0 0 8px white;
+  animation: sigmaTwinkle 750ms ease-in-out infinite alternate;
+}
+
+.sigma-mascot-intro {
+  position: fixed;
+  right: 84px;
+  bottom: -190px;
+  z-index: 39;
+  width: 150px;
+  pointer-events: none;
+  animation: sigmaMascotJourney 4.5s cubic-bezier(.24,.75,.25,1) forwards;
+  filter: drop-shadow(0 10px 12px rgba(8, 80, 32, 0.18));
+}
+
+.sigma-mascot-intro > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sigma-mascot-intro-bubble {
+  position: absolute;
+  top: -28px;
+  right: 78px;
+  min-width: 116px;
+  padding: 9px 12px;
+  border: 1px solid #77d58b;
+  border-radius: 14px 14px 2px;
+  color: #075a27;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 7px 20px rgba(10, 91, 42, 0.12);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  opacity: 0;
+  animation: sigmaBubbleShow 4.5s ease forwards;
+}
+
+.sigma-chat-header-avatar,
+.sigma-chat-message-avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(183, 244, 190, 0.75);
+  border-radius: 50%;
+  background: radial-gradient(circle, #eaffed, #80d88d);
+}
+
+.sigma-chat-header-avatar { width: 36px; height: 36px; }
+.sigma-chat-message-avatar { width: 34px; height: 34px; }
+.sigma-chat-header-avatar img,
+.sigma-chat-message-avatar img { width: 115%; height: 115%; object-fit: contain; transform: translateY(2px); }
+
+@keyframes sigmaOrbit { to { transform: rotate(360deg); } }
+@keyframes sigmaBrandEnter {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes sigmaDot { to { transform: translateY(-5px); opacity: 1; } }
+@keyframes sigmaTwinkle { from { transform: scale(0.78) rotate(-8deg); opacity: 0.65; } to { transform: scale(1.15) rotate(8deg); opacity: 1; } }
+@keyframes sigmaLauncherPulse {
+  0%, 100% { box-shadow: 0 10px 28px rgba(1, 80, 33, 0.28), 0 0 0 5px rgba(96, 222, 111, 0.08); }
+  50% { box-shadow: 0 10px 28px rgba(1, 80, 33, 0.28), 0 0 0 10px rgba(96, 222, 111, 0.17); }
+}
+@keyframes sigmaMascotJourney {
+  0% { bottom: -190px; right: 104px; opacity: 0; transform: rotate(-7deg) scale(0.9); }
+  15% { bottom: -70px; opacity: 1; transform: rotate(-3deg) scale(0.95); }
+  38% { bottom: 24px; right: 102px; transform: rotate(4deg) scale(1); }
+  62% { bottom: 28px; right: 84px; transform: rotate(-2deg) scale(1); }
+  82% { bottom: 16px; right: 24px; opacity: 1; transform: rotate(0) scale(0.46); }
+  100% { bottom: 15px; right: 14px; opacity: 0; transform: scale(0.25); }
+}
+@keyframes sigmaBubbleShow {
+  0%, 30% { opacity: 0; transform: translateY(7px) scale(0.95); }
+  40%, 70% { opacity: 1; transform: translateY(0) scale(1); }
+  82%, 100% { opacity: 0; transform: translateY(5px) scale(0.94); }
+}
+
+@media (max-width: 640px) {
+  .sigma-login-brand { flex-direction: column; gap: 10px; text-align: center; }
+  .sigma-login-divider { width: 130px; height: 1px; }
+  .sigma-login-brand p { margin-top: 12px; }
+  .sigma-loading-dots { margin-top: 38px; }
+  .sigma-mascot-intro { right: 55px; width: 125px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sigma-login-orbit,
+  .sigma-login-brand,
+  .sigma-loading-dots span,
+  .sigma-login-wordmark i,
+  .sigma-chat-launcher,
+  .sigma-chat-sparkle { animation: none; }
+  .sigma-mascot-intro { display: none; }
+}

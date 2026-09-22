@@ -13,18 +13,40 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showLoginIntro, setShowLoginIntro] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     const { error } = await signIn(email, password)
-    setLoading(false)
     if (error) {
+      setLoading(false)
       setError(error)
       return
     }
+    setShowLoginIntro(true)
+    await new Promise((resolve) => setTimeout(resolve, 2400))
     navigate('/dashboard', { replace: true })
+  }
+
+  if (showLoginIntro) {
+    return (
+      <div className="sigma-login-intro" role="status" aria-label="Loading your dashboard">
+        <div className="sigma-login-orbit sigma-login-orbit-one" />
+        <div className="sigma-login-orbit sigma-login-orbit-two" />
+        <div className="sigma-login-brand">
+          <img src={clsuLogo} alt="Central Luzon State University" className="sigma-login-logo" />
+          <span className="sigma-login-divider" />
+          <div>
+            <div className="sigma-login-wordmark"><span>SIGMA</span><span>AI</span><i>✦</i></div>
+            <p>Your AI Assistant for Scholarship Management</p>
+          </div>
+        </div>
+        <div className="sigma-loading-dots" aria-hidden="true"><span /><span /><span /><span /></div>
+        <p className="sigma-loading-label">Loading your dashboard...</p>
+      </div>
+    )
   }
 
   if (authLoading) {

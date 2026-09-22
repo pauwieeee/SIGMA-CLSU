@@ -290,6 +290,9 @@ function ScholarshipRowView({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-3">
+        <span className="min-w-20 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+          {row.scholar_count.toLocaleString()} {row.scholar_count === 1 ? 'scholar' : 'scholars'}
+        </span>
         <StatusBadge status={row.is_expiring_soon && row.status === 'Active' ? 'Expiring Soon' : row.status} />
         {archivedView ? (
           <button

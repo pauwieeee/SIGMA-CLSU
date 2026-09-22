@@ -1,12 +1,25 @@
 export type ScholarshipCategoryName = 'Institutional' | 'Government' | 'Private'
 export type ScholarshipStatus = 'Active' | 'Expiring Soon' | 'Inactive' | 'Archived'
-export type StudentScholarshipStatus =
-  | 'Active'
-  | 'For Renewal'
-  | 'Documents Incomplete'
-  | 'Pending Verification'
-  | 'Inactive'
-export type Semester = '1st Semester' | '2nd Semester' | 'Summer'
+export const STUDENT_SCHOLARSHIP_STATUS_OPTIONS = [
+  'Active',
+  'For Renewal',
+  'Documents Incomplete',
+  'Pending Verification',
+  'Inactive',
+] as const
+export type StudentScholarshipStatus = (typeof STUDENT_SCHOLARSHIP_STATUS_OPTIONS)[number]
+
+export const SEMESTER_OPTIONS = ['1st Semester', '2nd Semester', 'Summer'] as const
+export type Semester = (typeof SEMESTER_OPTIONS)[number]
+
+export const STUDENT_YEAR_LEVEL_OPTIONS = [
+  '1st Year',
+  '2nd Year',
+  '3rd Year',
+  '4th Year',
+  '5th Year',
+  'Graduate',
+] as const
 export type DegreeLevel = 'Undergraduate' | 'Graduate'
 export type DuplicateFlagStatus = 'Open' | 'Resolved'
 

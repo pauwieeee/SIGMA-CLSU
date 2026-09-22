@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { supabase as typedSupabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
+import {
+  SEMESTER_OPTIONS,
+  STUDENT_SCHOLARSHIP_STATUS_OPTIONS,
+  STUDENT_YEAR_LEVEL_OPTIONS,
+} from '@/types/database'
+import { statusShortLabel } from '@/utils/statusStyle'
 
 const supabase = typedSupabase as any
 
@@ -43,12 +49,9 @@ const EMPTY_FORM: FormValues = {
   studentNumber: '', firstName: '', middleName: '', lastName: '', suffix: '',
   dateOfBirth: '', sex: '', email: '', contactNumber: '', collegeId: '', programId: '',
   yearLevel: '', academicYear: '', semester: '', scholarshipId: '', scholarshipType: '',
-  scholarshipStatus: 'Active', dateAwarded: '',
+  scholarshipStatus: '', dateAwarded: '',
 }
 
-const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', 'Graduate']
-const SEMESTERS = ['1st Semester', '2nd Semester', 'Summer']
-const SCHOLARSHIP_STATUSES = ['Active', 'For Renewal', 'Documents Incomplete', 'Pending Verification', 'Inactive']
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const STUDENT_NUMBER_PATTERN = /^[0-9]{2}-[0-9]{4}$/
 
@@ -131,8 +134,10 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   )
 
   const emailValid = !form.email.trim() || EMAIL_PATTERN.test(form.email.trim())
+  const yearLevelValid = STUDENT_YEAR_LEVEL_OPTIONS.includes(form.yearLevel.trim() as (typeof STUDENT_YEAR_LEVEL_OPTIONS)[number])
   const coreFieldsValid = STUDENT_NUMBER_PATTERN.test(form.studentNumber.trim())
-    && Boolean(form.firstName.trim() && form.lastName.trim() && form.collegeId && form.programId && form.yearLevel)
+    && Boolean(form.firstName.trim() && form.lastName.trim() && form.collegeId && form.programId)
+    && yearLevelValid
   const scholarshipFieldsValid = !form.scholarshipId || Boolean(form.academicYear.trim() && form.semester && form.scholarshipStatus)
   const canSubmit = coreFieldsValid && emailValid && scholarshipFieldsValid && !saving && !loadingOptions
 
@@ -149,9 +154,11 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     if (!form.lastName.trim()) next.lastName = 'Last name is required.'
     if (!form.collegeId) next.collegeId = 'College/Department is required.'
     if (!form.programId) next.programId = 'Program/Course is required.'
-    if (!form.yearLevel) next.yearLevel = 'Year level is required.'
+    if (!form.yearLevel.trim()) next.yearLevel = 'Year level is required.'
+    else if (!yearLevelValid) next.yearLevel = 'Enter 1st Year, 2nd Year, 3rd Year, 4th Year, 5th Year, or Graduate.'
     if (!emailValid) next.email = 'Enter a valid email address.'
     if (form.dateOfBirth && form.dateOfBirth > new Date().toISOString().slice(0, 10)) next.dateOfBirth = 'Date of birth cannot be in the future.'
+    if (form.dateAwarded && form.dateAwarded > new Date().toISOString().slice(0, 10)) next.dateAwarded = 'Date awarded cannot be in the future.'
     if (form.scholarshipId && !form.academicYear.trim()) next.academicYear = 'Academic year is required when a scholarship is selected.'
     if (form.scholarshipId && !form.semester) next.semester = 'Semester is required when a scholarship is selected.'
     return next
@@ -195,7 +202,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
         email: form.email.trim() || null,
         contact_number: form.contactNumber.trim() || null,
         program_id: form.programId,
-        yr_level: form.yearLevel,
+        yr_level: form.yearLevel.trim(),
       })
       .select('id')
       .single()
@@ -275,9 +282,9 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
               <Field label="Program/Course" required error={errors.programId}>
                 <select value={form.programId} onChange={(e) => update('programId', e.target.value)} disabled={!form.collegeId} className={controlClass} style={inputStyle(Boolean(errors.programId))}><option value="">Select program</option>{visiblePrograms.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}</select>
               </Field>
-              <Field label="Year Level" required error={errors.yearLevel}><select value={form.yearLevel} onChange={(e) => update('yearLevel', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.yearLevel))}><option value="">Select year level</option>{YEAR_LEVELS.map((value) => <option key={value}>{value}</option>)}</select></Field>
+              <Field label="Year Level" required error={errors.yearLevel}><input value={form.yearLevel} onChange={(e) => update('yearLevel', e.target.value)} placeholder="Enter year level" className={controlClass} style={inputStyle(Boolean(errors.yearLevel))} /></Field>
               <Field label="Academic Year" error={errors.academicYear}><input value={form.academicYear} onChange={(e) => update('academicYear', e.target.value)} placeholder="e.g. 2026-2027" className={controlClass} style={inputStyle(Boolean(errors.academicYear))} /></Field>
-              <Field label="Semester" error={errors.semester}><select value={form.semester} onChange={(e) => update('semester', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.semester))}><option value="">Select semester</option>{SEMESTERS.map((value) => <option key={value}>{value}</option>)}</select></Field>
+              <Field label="Semester" error={errors.semester}><select value={form.semester} onChange={(e) => update('semester', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.semester))}><option value="">Select semester</option>{SEMESTER_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
             </div>
           </section>
 
@@ -286,8 +293,8 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Scholarship Type"><select value={form.scholarshipType} onChange={(e) => { update('scholarshipType', e.target.value); update('scholarshipId', '') }} className={controlClass} style={inputStyle()}><option value="">All types</option>{scholarshipTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>
               <Field label="Scholarship Program"><select value={form.scholarshipId} onChange={(e) => { const id = e.target.value; update('scholarshipId', id); const selected = scholarships.find((item) => item.id === id); if (selected) update('scholarshipType', selected.categoryName) }} className={controlClass} style={inputStyle()}><option value="">No scholarship</option>{visibleScholarships.map((scholarship) => <option key={scholarship.id} value={scholarship.id}>{scholarship.name}</option>)}</select></Field>
-              <Field label="Scholarship Status"><select value={form.scholarshipStatus} onChange={(e) => update('scholarshipStatus', e.target.value)} disabled={!form.scholarshipId} className={controlClass} style={inputStyle()}>{SCHOLARSHIP_STATUSES.map((value) => <option key={value}>{value}</option>)}</select></Field>
-              <Field label="Date Awarded"><input type="date" value={form.dateAwarded} onChange={(e) => update('dateAwarded', e.target.value)} disabled={!form.scholarshipId} className={controlClass} style={inputStyle()} /></Field>
+              <Field label="Scholarship Status"><select value={form.scholarshipStatus} onChange={(e) => update('scholarshipStatus', e.target.value)} className={controlClass} style={inputStyle()}><option value="">Select status</option>{STUDENT_SCHOLARSHIP_STATUS_OPTIONS.map((value) => <option key={value} value={value}>{statusShortLabel(value)}</option>)}</select></Field>
+              <Field label="Date Awarded" error={errors.dateAwarded}><input type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateAwarded} onChange={(e) => update('dateAwarded', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.dateAwarded))} /></Field>
             </div>
           </section>
 

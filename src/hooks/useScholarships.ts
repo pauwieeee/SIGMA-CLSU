@@ -23,6 +23,7 @@ export interface ScholarshipRow {
   contact_email: string | null
   min_gwa: number | null
   min_units: number | null
+  scholar_count: number
 }
 
 export function useScholarships(categoryName: string, showArchived = false) {
@@ -43,16 +44,31 @@ export function useScholarships(categoryName: string, showArchived = false) {
 
     query = showArchived ? query.not('archived_at', 'is', null) : query.is('archived_at', null)
 
-    const { data, error } = await query
+    const [{ data, error }, { data: assignmentRows, error: assignmentError }] = await Promise.all([
+      query,
+      supabase
+        .from('student_scholarships')
+        .select('scholarship_id, student_id')
+        .is('archived_at', null),
+    ])
 
-    if (error) {
+    if (error || assignmentError) {
       // Surface the real failure instead of silently showing an empty list —
       // e.g. if is_expiring_soon doesn't exist yet because migration 0008
       // hasn't been run, this used to look identical to "no scholarships".
-      setError(error.message)
+      setError(error?.message ?? assignmentError?.message ?? 'Could not load scholarship totals.')
       setRows([])
       setLoading(false)
       return
+    }
+
+    const scholarsByScholarship = new Map<string, Set<string>>()
+    const assignments = (assignmentRows ?? []) as { scholarship_id: string; student_id: string }[]
+    for (const assignment of assignments) {
+      if (!scholarsByScholarship.has(assignment.scholarship_id)) {
+        scholarsByScholarship.set(assignment.scholarship_id, new Set())
+      }
+      scholarsByScholarship.get(assignment.scholarship_id)!.add(assignment.student_id)
     }
 
     setRows(
@@ -78,6 +94,7 @@ export function useScholarships(categoryName: string, showArchived = false) {
         contact_email: r.contact_email,
         min_gwa: r.min_gwa,
         min_units: r.min_units,
+        scholar_count: scholarsByScholarship.get(r.id)?.size ?? 0,
       }))
     )
     setLoading(false)

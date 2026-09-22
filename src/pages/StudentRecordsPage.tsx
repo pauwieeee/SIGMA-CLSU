@@ -83,6 +83,7 @@ export default function StudentRecordsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -101,6 +102,7 @@ export default function StudentRecordsPage() {
   }
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
+  const selectedCount = rows.reduce((count, row) => count + (selected.has(row.id) ? 1 : 0), 0)
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
@@ -115,23 +117,18 @@ export default function StudentRecordsPage() {
     })
   }
 
-  function exportSelected() {
+  async function exportSelectedPdf() {
     const selectedRows = rows.filter((r) => selected.has(r.id))
-    const header = 'Student Number,Name,College,Scholarship,Academic Year,Semester,Status\n'
-    const body = selectedRows
-      .map((r) =>
-        [r.student_number, r.full_name, r.college, r.scholarship ?? '', r.academic_year ?? '', r.semester ?? '', r.hasDuplicate ? 'Duplicate' : (r.status ?? '')]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(',')
-      )
-      .join('\n')
-    const blob = new Blob([header + body], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'sigma-selected-students.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    if (selectedRows.length === 0) return
+    setExportingPdf(true)
+    try {
+      const { exportStudentRecordsPdf } = await import('@/utils/exportStudentRecordsPdf')
+      await exportStudentRecordsPdf(selectedRows)
+    } catch (error) {
+      pushToast(`Could not export PDF: ${(error as Error).message}`, 'error')
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   return (
@@ -232,23 +229,26 @@ export default function StudentRecordsPage() {
             {rows.length.toLocaleString()} STUDENTS
           </p>
           <div className="flex gap-2">
+            <span className="self-center text-xs font-semibold" style={{ color: selected.size > 0 ? 'var(--btn-primary-bg)' : 'var(--text-muted)' }}>
+              {selectedCount.toLocaleString()} selected
+            </span>
             <button
               onClick={() => setBatchModalOpen(true)}
-              disabled={selected.size === 0}
-              title={selected.size === 0 ? 'Select students to enable' : undefined}
+              disabled={selectedCount === 0}
+              title={selectedCount === 0 ? 'Select students to enable' : undefined}
               className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
             >
               Batch Update
             </button>
             <button
-              onClick={exportSelected}
-              disabled={selected.size === 0}
-              title={selected.size === 0 ? 'Select students to enable' : undefined}
+              onClick={exportSelectedPdf}
+              disabled={selectedCount === 0 || exportingPdf}
+              title={selectedCount === 0 ? 'Select students to enable' : undefined}
               className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
             >
-              Export Selected
+              {exportingPdf ? 'Preparing PDF…' : 'Export as PDF'}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Search, Upload } from 'lucide-react'
+import { Plus, Search, Upload } from 'lucide-react'
 import { useStudentRecords } from '@/hooks/useStudentRecords'
 import { useColleges } from '@/hooks/useColleges'
 import { usePrograms } from '@/hooks/usePrograms'
@@ -11,6 +11,7 @@ import type { ImportResult } from '@/utils/importStudents'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 import { BatchUpdateModal } from '@/components/students/BatchUpdateModal'
 import { EnrollmentVerificationModal } from '@/components/students/EnrollmentVerificationModal'
+import { AddStudentModal } from '@/components/students/AddStudentModal'
 import { ToastStack } from '@/components/ui/Toast'
 import { useToasts } from '@/hooks/useToasts'
 
@@ -64,6 +65,7 @@ export default function StudentRecordsPage() {
   const [scrolled, setScrolled] = useState(false)
   const [batchModalOpen, setBatchModalOpen] = useState(false)
   const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false)
+  const [addStudentModalOpen, setAddStudentModalOpen] = useState(false)
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts()
 
   const colleges = useColleges()
@@ -91,6 +93,7 @@ export default function StudentRecordsPage() {
       const { importStudentsFile } = await import('@/utils/importStudents')
       const result = await importStudentsFile(file)
       setImportResult(result)
+      if (result.successCount > 0) await refetch()
     } finally {
       setImporting(false)
       e.target.value = ''
@@ -149,13 +152,21 @@ export default function StudentRecordsPage() {
           Verify Enrollment
         </button>
         <button
+          onClick={() => setAddStudentModalOpen(true)}
+          className="flex items-center gap-2 self-start rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)]"
+          style={{ borderColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-bg)' }}
+        >
+          <Plus size={16} />
+          Add Student
+        </button>
+        <button
           onClick={() => fileInputRef.current?.click()}
           disabled={importing}
           className="flex items-center gap-2 self-start rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
           style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
         >
           <Upload size={16} />
-          {importing ? 'Importing…' : 'Import CSV/Excel'}
+          {importing ? 'Importing…' : 'Import Students'}
         </button>
       </div>
 
@@ -380,6 +391,16 @@ export default function StudentRecordsPage() {
       </Card>
 
       <StudentDetailModal studentId={viewingId} onClose={() => setViewingId(null)} onChanged={refetch} />
+
+      <AddStudentModal
+        open={addStudentModalOpen}
+        onClose={() => setAddStudentModalOpen(false)}
+        onAdded={async (studentName) => {
+          setAddStudentModalOpen(false)
+          await refetch()
+          pushToast(`Student Added Successfully\n${studentName} has been added to Student Records.`)
+        }}
+      />
 
       <BatchUpdateModal
         open={batchModalOpen}

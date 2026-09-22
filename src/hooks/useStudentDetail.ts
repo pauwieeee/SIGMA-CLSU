@@ -52,7 +52,7 @@ export function useStudentDetail(studentId: string | null) {
     const [{ data: s }, { data: h }, { data: f }] = await Promise.all([
       supabase
         .from('students')
-        .select('id, student_number, last_name, first_name, middle_initial, yr_level, address, contact_number, email, gwa, participation_org, created_at, programs ( name, colleges ( name ) )')
+        .select('id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level, address, contact_number, email, gwa, participation_org, created_at, programs ( name, colleges ( name ) )')
         .eq('id', studentId)
         .single(),
       supabase
@@ -76,7 +76,7 @@ export function useStudentDetail(studentId: string | null) {
       setStudent({
         id: row.id,
         student_number: row.student_number,
-        full_name: `${row.last_name}, ${row.first_name}${row.middle_initial ? ' ' + row.middle_initial + '.' : ''}`,
+        full_name: `${row.last_name}${row.suffix ? ' ' + row.suffix : ''}, ${row.first_name}${row.middle_name ? ' ' + row.middle_name : row.middle_initial ? ' ' + row.middle_initial + '.' : ''}`,
         college: row.programs?.colleges?.name ?? '—',
         program: row.programs?.name ?? '—',
         yr_level: row.yr_level,

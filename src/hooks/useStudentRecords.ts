@@ -43,7 +43,7 @@ export function useStudentRecords(filters: Filters) {
       supabase
         .from('students')
         .select(
-          `id, student_number, last_name, first_name, middle_initial, yr_level,
+          `id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level,
            programs ( name, colleges ( id, name ) ),
            student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
              scholarships ( name, scholarship_categories ( id, name ) ) )`
@@ -72,7 +72,7 @@ export function useStudentRecords(filters: Filters) {
       return {
         id: s.id,
         student_number: s.student_number,
-        full_name: `${s.last_name}, ${s.first_name}${s.middle_initial ? ' ' + s.middle_initial + '.' : ''}`,
+        full_name: `${s.last_name}${s.suffix ? ' ' + s.suffix : ''}, ${s.first_name}${s.middle_name ? ' ' + s.middle_name : s.middle_initial ? ' ' + s.middle_initial + '.' : ''}`,
         college: s.programs?.colleges?.name ?? '—',
         program: s.programs?.name ?? '—',
         yr_level: s.yr_level,

@@ -32,6 +32,10 @@ export interface Student {
   last_name: string
   first_name: string
   middle_initial: string | null
+  middle_name: string | null
+  suffix: string | null
+  date_of_birth: string | null
+  sex: 'Female' | 'Male' | 'Prefer not to say' | null
   program_id: string
   yr_level: string
   address: string | null

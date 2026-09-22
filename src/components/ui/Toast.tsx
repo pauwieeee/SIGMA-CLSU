@@ -28,7 +28,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: numb
   return (
     <div
       role="status"
-      className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg"
+      className="flex items-center gap-2 whitespace-pre-line rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg"
       style={{
         background: isSuccess ? 'var(--status-success-bg)' : 'var(--status-incomplete-bg)',
         color: isSuccess ? 'var(--status-success-text)' : 'var(--status-incomplete-text)',

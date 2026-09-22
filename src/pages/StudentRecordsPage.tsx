@@ -16,13 +16,13 @@ import { AddStudentModal } from '@/components/students/AddStudentModal'
 import { ToastStack } from '@/components/ui/Toast'
 import { useToasts } from '@/hooks/useToasts'
 
-const statusOptions = ['Active', 'For Renewal', 'Documents Incomplete', 'Pending Verification', 'Inactive', 'Duplicate']
+const statusOptions = ['Active', 'Expiring Soon', 'Expired', 'For Renewal', 'Documents Incomplete', 'Pending Verification', 'Inactive', 'Needs Review']
 
 // Grid column template shared by the header row and every data row so they
 // always align — this is what makes the CSS Grid approach reliable for a
 // sticky header (native <table> sticky-thead has cross-browser quirks).
-const GRID_COLS = '40px minmax(220px,1fr) 220px minmax(200px,1fr) 160px 240px 100px'
-const GRID_MIN_WIDTH = 'min-w-[1180px]'
+const GRID_COLS = '40px minmax(220px,1fr) 220px minmax(200px,1fr) 160px 340px 100px'
+const GRID_MIN_WIDTH = 'min-w-[1280px]'
 
 function FilterSelect({
   value,
@@ -342,7 +342,7 @@ export default function StudentRecordsPage() {
           )}
 
           {rows.map((r) => {
-            const displayStatus = r.hasDuplicate ? 'Duplicate' : r.status ?? 'Closed'
+            const displayStatus = r.status ?? 'Closed'
             return (
               <div
                 key={r.id}
@@ -375,7 +375,7 @@ export default function StudentRecordsPage() {
                 <div className="truncate px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                   {r.academic_year ? `${r.academic_year} · ${r.semester}` : '—'}
                 </div>
-                <div className="grid min-w-0 grid-cols-[92px_100px] items-center gap-x-2 px-4 py-3">
+                <div className="grid min-w-0 grid-cols-[92px_100px_116px] items-center gap-x-2 px-4 py-3">
                   <div className="flex items-center">
                     <StatusBadge status={displayStatus} />
                   </div>
@@ -386,6 +386,15 @@ export default function StudentRecordsPage() {
                       title="Not found on the last verified enrollment list"
                     >
                       Not Enrolled
+                    </span>
+                  )}
+                  {r.hasDuplicate && (
+                    <span
+                      className="status-badge"
+                      style={{ background: 'var(--status-duplicate-bg)', color: 'var(--status-duplicate-text)' }}
+                      title="A possible duplicate record needs administrator review"
+                    >
+                      Needs Review
                     </span>
                   )}
                 </div>

@@ -10,7 +10,6 @@ import { CategoryPieLegend } from '@/components/dashboard/CategoryPieLegend'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
-import { useDuplicateFlagTrend, useScholarshipsAddedThisMonth, useScholarTrend } from '@/hooks/useTrends'
 import { getUserDisplayName } from '@/utils/userDisplayName'
 import { ActivityActor } from '@/components/activity/ActivityActor'
 
@@ -20,9 +19,6 @@ export default function DashboardPage() {
   const { data: categoryDataRaw, loading: chartLoading } = useScholarsPerCategory()
   const categoryData = sortByCategoryOrder(categoryDataRaw)
   const { data: activity, loading: activityLoading } = useRecentActivity()
-  const { data: scholarTrend } = useScholarTrend()
-  const { count: addedThisMonth } = useScholarshipsAddedThisMonth()
-  const { data: duplicateTrend } = useDuplicateFlagTrend()
 
   const displayName = getUserDisplayName(user)
 
@@ -37,50 +33,54 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Total Scholars"
-          loading={statsLoading}
-          value={stats?.total_scholars ?? 0}
-          detail={
-            !scholarTrend
-              ? undefined
-              : !scholarTrend.has_previous || scholarTrend.pct_change === null
-                ? 'No prior data'
-                : `${scholarTrend.pct_change >= 0 ? '↑' : '↓'} ${Math.abs(scholarTrend.pct_change)}% this A.Y.`
-          }
-          detailTone={scholarTrend?.pct_change != null && scholarTrend.pct_change < 0 ? 'bad' : 'good'}
-        />
-        <StatCard
-          label="Active Scholarships"
-          loading={statsLoading}
-          value={stats?.active_scholarships ?? 0}
-          detail={addedThisMonth == null ? undefined : `${addedThisMonth} added this month`}
-          detailTone="good"
-        />
-        <StatCard
-          label="Duplicate Flags"
-          loading={statsLoading}
-          value={stats?.duplicate_flags_open ?? 0}
-          detail={
-            !duplicateTrend
-              ? stats && stats.duplicate_flags_open > 0
-                ? 'Needs review'
-                : undefined
-              : !duplicateTrend.has_previous
-                ? 'No prior data'
-                : `${duplicateTrend.diff >= 0 ? '↑' : '↓'} ${Math.abs(duplicateTrend.diff)} vs last semester`
-          }
-          detailTone="bad"
-        />
-        <StatCard
-          label="Expiring Soon"
-          loading={statsLoading}
-          value={stats?.expiring_soon ?? 0}
-          detail="Within 30 days"
-          detailTone="warn"
-        />
-      </div>
+      <section className="space-y-3" aria-labelledby="student-overview-heading">
+        <h2 id="student-overview-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
+          Student Overview
+        </h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            label="Total Students"
+            loading={statsLoading}
+            value={stats?.total_scholars ?? 0}
+          />
+          <StatCard
+            label="Active Scholarships"
+            loading={statsLoading}
+            value={stats?.active_scholarships ?? 0}
+          />
+          <StatCard
+            label="Expiring Soon"
+            loading={statsLoading}
+            value={stats?.expiring_soon ?? 0}
+            detail="Within 30 days"
+            detailTone="warn"
+          />
+          <StatCard
+            label="Expired Scholarships"
+            loading={statsLoading}
+            value={stats?.expired_scholarships ?? 0}
+            detail="Past expiration date"
+            detailTone="bad"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3" aria-labelledby="enrollment-heading">
+        <h2 id="enrollment-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
+          Enrollment
+        </h2>
+        <div className="grid grid-cols-2 gap-4 lg:max-w-2xl">
+          <StatCard label="Enrolled" loading={statsLoading} value={stats?.enrolled_students ?? 0} />
+          <StatCard label="Not Enrolled" loading={statsLoading} value={stats?.not_enrolled_students ?? 0} />
+        </div>
+      </section>
+
+      <section className="space-y-3" aria-labelledby="data-review-heading">
+        <h2 id="data-review-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
+          Data Review
+        </h2>
+        <DuplicateFlagsCard />
+      </section>
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -146,8 +146,6 @@ export default function DashboardPage() {
             )}
           </WidgetCard>
         </div>
-
-        <DuplicateFlagsCard />
 
         <Card>
           <div className="mb-3 flex items-center justify-between">

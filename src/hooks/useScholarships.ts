@@ -106,3 +106,23 @@ export function useScholarships(categoryName: string, showArchived = false) {
 
   return { rows, loading, error, refetch: fetchRows }
 }
+
+export function useScholarshipTypeCounts(showArchived = false) {
+  const [counts, setCounts] = useState<Record<string, number>>({ Government: 0, Institutional: 0, Private: 0 })
+
+  const refetch = useCallback(async () => {
+    let query = supabase.from('scholarships').select('archived_at, scholarship_categories!inner(name)')
+    query = showArchived ? query.not('archived_at', 'is', null) : query.is('archived_at', null)
+    const { data, error } = await query
+    if (error) return
+    const next: Record<string, number> = { Government: 0, Institutional: 0, Private: 0 }
+    for (const row of (data ?? []) as any[]) {
+      const category = row.scholarship_categories?.name
+      if (category in next) next[category] += 1
+    }
+    setCounts(next)
+  }, [showArchived])
+
+  useEffect(() => { refetch() }, [refetch])
+  return { counts, refetch }
+}

@@ -19,7 +19,7 @@ interface ReportAssignment {
   semester: string
   status: string
   is_enrolled: boolean | null
-  scholarships: { name: string; scholarship_categories: { name: string } | null } | null
+  scholarships: { name: string; status: string; scholarship_categories: { name: string } | null } | null
   students: { programs: { colleges: { name: string } | null } | null } | null
 }
 
@@ -38,7 +38,7 @@ export function useReportAnalytics(filters: ReportFilters) {
     supabase
       .from('student_scholarships')
       .select(`student_id, academic_year, semester, status, is_enrolled,
-        scholarships!inner(name, scholarship_categories!inner(name)),
+        scholarships!inner(name, status, scholarship_categories!inner(name)),
         students!inner(programs!inner(colleges!inner(name)))`)
       .then(({ data, error }) => {
         if (!active) return
@@ -54,7 +54,7 @@ export function useReportAnalytics(filters: ReportFilters) {
     colleges: unique(rows.map((row) => row.students?.programs?.colleges?.name)),
     categories: unique(rows.map((row) => row.scholarships?.scholarship_categories?.name)),
     scholarships: unique(rows.map((row) => row.scholarships?.name)),
-    statuses: unique(rows.map((row) => row.status)),
+    statuses: unique(rows.map((row) => ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status)),
   }), [rows])
 
   const filtered = useMemo(() => rows.filter((row) => {
@@ -63,7 +63,8 @@ export function useReportAnalytics(filters: ReportFilters) {
     if (filters.college && row.students?.programs?.colleges?.name !== filters.college) return false
     if (filters.category && row.scholarships?.scholarship_categories?.name !== filters.category) return false
     if (filters.scholarship && row.scholarships?.name !== filters.scholarship) return false
-    if (filters.status && row.status !== filters.status) return false
+    const effectiveStatus = ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status
+    if (filters.status && effectiveStatus !== filters.status) return false
     if (filters.enrollment === 'Enrolled' && row.is_enrolled !== true) return false
     if (filters.enrollment === 'Not Enrolled' && row.is_enrolled !== false) return false
     if (filters.enrollment === 'Not Yet Verified' && row.is_enrolled !== null) return false

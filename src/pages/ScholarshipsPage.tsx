@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useScholarships, type ScholarshipRow } from '@/hooks/useScholarships'
+import { useScholarships, useScholarshipTypeCounts, type ScholarshipRow } from '@/hooks/useScholarships'
 import { ScholarshipFormModal } from '@/components/scholarships/ScholarshipFormModal'
 import { ScholarshipScholarsModal } from '@/components/scholarships/ScholarshipScholarsModal'
 import { supabase } from '@/lib/supabase'
@@ -16,6 +16,7 @@ export default function ScholarshipsPage() {
   const [activeTab, setActiveTab] = useState<ScholarshipCategoryName>('Government')
   const [showArchived, setShowArchived] = useState(false)
   const { rows, loading, error, refetch } = useScholarships(activeTab, showArchived)
+  const { counts: typeCounts, refetch: refetchTypeCounts } = useScholarshipTypeCounts(showArchived)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ScholarshipRow | null>(null)
   const [viewingScholars, setViewingScholars] = useState<ScholarshipRow | null>(null)
@@ -83,6 +84,7 @@ export default function ScholarshipsPage() {
       .eq('id', row.id)
     await logActivity('archive', 'scholarship', `Archived scholarship "${row.name}".`, row.id)
     refetch()
+    refetchTypeCounts()
   }
 
   async function handleRestore(row: ScholarshipRow) {
@@ -92,10 +94,27 @@ export default function ScholarshipsPage() {
       .eq('id', row.id)
     await logActivity('restore', 'scholarship', `Restored scholarship "${row.name}".`, row.id)
     refetch()
+    refetchTypeCounts()
   }
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Total scholarship programs by category">
+        {tabs.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setActiveTab(type)}
+            className="rounded-xl border p-5 text-left shadow-sm transition hover:bg-[var(--menu-hover-bg)]"
+            style={{ background: 'var(--bg-card)', borderColor: activeTab === type ? 'var(--btn-primary-bg)' : 'var(--border-default)' }}
+          >
+            <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>{type} Scholarship Types</p>
+            <p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{typeCounts[type] ?? 0}</p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{showArchived ? 'Archived scholarship programs' : 'Non-archived scholarship programs'}</p>
+          </button>
+        ))}
+      </div>
+
       {/* Single scroll container — the ONLY scrolling ancestor between the
           sticky header/tabs bar, the sticky agency labels, and the rows. */}
       <div
@@ -238,7 +257,10 @@ export default function ScholarshipsPage() {
             : undefined
         }
         onClose={() => setModalOpen(false)}
-        onSaved={refetch}
+        onSaved={() => {
+          refetch()
+          refetchTypeCounts()
+        }}
       />
 
       <ScholarshipScholarsModal

@@ -171,6 +171,9 @@ export interface DashboardStats {
   active_scholarships: number
   duplicate_flags_open: number
   expiring_soon: number
+  expired_scholarships: number
+  enrolled_students: number
+  not_enrolled_students: number
 }
 
 export interface ScholarsPerCategory {

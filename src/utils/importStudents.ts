@@ -41,7 +41,7 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
   for(const s of scholarships){scholarshipMap.set(norm(s.name),s);scholarshipById.set(s.id,s.name)}
   for(const s of students){studentMap.set(norm(s.student_number),s);studentNumberById.set(s.id,s.student_number)}
   const existing=new Set(assignments.map((a:any)=>keyOf(studentNumberById.get(a.student_id),scholarshipById.get(a.scholarship_id),a.academic_year,a.semester)))
-  const sameTerm=new Set(assignments.map((a:any)=>[studentNumberById.get(a.student_id),a.academic_year,a.semester].map(norm).join('|'))), seen=new Set<string>(), seenTerms=new Set<string>()
+  const seen=new Set<string>()
   const out:ImportPreview={filename:file.name,totalRows:rows.length,beforeStudentCount:countResult.count??0,newRecords:[],existingRecords:[],conflicts:[],invalidRecords:[]}
   rows.forEach((row,index)=>{
     const n=index+2, studentNumber=String(row['ID Number']??'').trim(), scholarshipName=String(row.Scholarship??'').trim(), year=String(row['Acad Year']??'').replace(/\s/g,''), semester=String(row.Semester??'').trim()
@@ -55,9 +55,8 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
     if(existing.has(key))return out.existingRecords.push({...base,classification:'existing',message:'Duplicate — already exists.'})
     const old=studentMap.get(norm(studentNumber)); if(old&&(norm(old.first_name)!==norm(row['First Name'])||norm(old.last_name)!==norm(row['Last Name'])))return invalid('Student ID exists with a different name; existing profile was not overwritten.')
     const payload={student_number:studentNumber,last_name:String(row['Last Name']).trim(),first_name:String(row['First Name']).trim(),middle_initial:String(row['M.I.']??'').trim()||null,program_id:program.id,yr_level:String(row['Yr Lvl']).trim(),address:String(row.Address??'').trim()||null,contact_number:String(row['Contact #']??'').trim()||null,email:String(row.Email??'').trim()||null,scholarship_id:scholarship.id,academic_year:year,semester,status:STATUSES[norm(row.Remarks)]??'Active'}
-    const item={...base,payload,classification:'new' as const,message:'Ready to add.'}, term=[studentNumber,year,semester].map(norm).join('|')
-    if(sameTerm.has(term)||seenTerms.has(term))out.conflicts.push({...item,classification:'conflict',message:'Another scholarship exists in this term; this row will be added and checked by duplicate rules.'});else out.newRecords.push(item)
-    seenTerms.add(term)
+    const item={...base,payload,classification:'new' as const,message:'Ready to add.'}
+    out.newRecords.push(item)
   }); return out
 }
 

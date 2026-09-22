@@ -125,6 +125,15 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
                               Not Enrolled
                             </span>
                           )}
+                          {h.status === 'Active' && h.is_enrolled === false && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' }}
+                              title="Active scholarship but currently not enrolled — administrator review required."
+                            >
+                              Review Required
+                            </span>
+                          )}
                           {h.term_closed_at && (
                             <span
                               className="rounded-full px-2 py-0.5 text-[10px] font-semibold"

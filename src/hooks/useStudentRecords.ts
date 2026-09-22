@@ -46,7 +46,7 @@ export function useStudentRecords(filters: Filters) {
           `id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level,
            programs ( name, colleges ( id, name ) ),
            student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
-             scholarships ( name, scholarship_categories ( id, name ) ) )`
+             scholarships ( name, status, scholarship_categories ( id, name ) ) )`
         )
         .is('archived_at', null)
         .order('last_name', { ascending: true }),
@@ -80,7 +80,9 @@ export function useStudentRecords(filters: Filters) {
         category: latestScholarship?.scholarships?.scholarship_categories?.name ?? null,
         academic_year: latestScholarship?.academic_year ?? null,
         semester: latestScholarship?.semester ?? null,
-        status: latestScholarship?.status ?? null,
+        status: ['Expired', 'Expiring Soon'].includes(latestScholarship?.scholarships?.status)
+          ? latestScholarship.scholarships.status
+          : latestScholarship?.status ?? null,
         isEnrolled: latestScholarship?.is_enrolled ?? null,
         hasDuplicate: duplicateStudentIds.has(s.id),
         studentScholarshipId: latestScholarship?.id ?? null,
@@ -109,8 +111,9 @@ export function useStudentRecords(filters: Filters) {
       if (filters.academicYear && r.academic_year !== filters.academicYear) return false
       if (filters.semester && r.semester !== filters.semester) return false
       if (filters.status) {
-        const displayStatus = r.hasDuplicate ? 'Duplicate' : r.status
-        if (displayStatus !== filters.status) return false
+        if (filters.status === 'Needs Review') {
+          if (!r.hasDuplicate) return false
+        } else if (r.status !== filters.status) return false
       }
       return true
     })

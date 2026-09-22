@@ -1,20 +1,18 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
 
 export default function LoginPage() {
-  const { session, signIn } = useAuth()
+  const { signIn } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
-  if (session) return <Navigate to="/" replace />
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -26,7 +24,7 @@ export default function LoginPage() {
       setError(error)
       return
     }
-    navigate('/')
+    navigate('/dashboard', { replace: true })
   }
 
   return (

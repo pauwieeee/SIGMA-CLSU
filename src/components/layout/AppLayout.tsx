@@ -7,7 +7,7 @@ import { NotificationBell } from '@/components/layout/NotificationBell'
 import clsuLogo from '@/assets/clsu-logo.png'
 
 const topNav = [
-  { label: 'Dashboard', to: '/' },
+  { label: 'Dashboard', to: '/dashboard' },
   { label: 'Student Records', to: '/students' },
   { label: 'Scholarships', to: '/scholarships' },
   { label: 'Reports & Analytics', to: '/reports' },
@@ -128,7 +128,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/dashboard'}
               className={({ isActive }) =>
                 `shrink-0 px-4 py-3 text-sm font-medium text-white/90 transition ${
                   isActive ? 'border-b-2 border-white font-semibold text-white' : 'hover:text-white'

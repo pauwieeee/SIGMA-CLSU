@@ -39,7 +39,7 @@ export function SigmaAssistant() {
   const [messages, setMessages] = useState<AssistantConversationMessage[]>([
     {
       role: 'assistant',
-      text: 'Hi! I am Cobra, your virtual assistant. How can I help you today?',
+      text: 'Hi! I am SIGMAI, your virtual assistant. How can I help you today?',
     },
   ])
   const [input, setInput] = useState('')
@@ -99,7 +99,7 @@ export function SigmaAssistant() {
             setShowMascotIntro(false)
             setOpen(true)
           }}
-          aria-label="Open Cobra, the SIGMA AI Assistant"
+          aria-label="Open SIGMAI virtual assistant"
           className="sigma-chat-launcher fixed right-6 bottom-6 z-40"
         >
           <img src={cobraMascot} alt="" />
@@ -120,7 +120,7 @@ export function SigmaAssistant() {
             <img src={cobraMascot} alt="Cobra mascot" />
           </span>
           <div>
-            <p className="text-sm font-bold text-white">SIGMA Assistant</p>
+            <p className="text-sm font-bold text-white">CHAT · SIGMAI</p>
             <p className="text-xs text-white/70">Ask about scholars, categories, or reports</p>
           </div>
         </div>
@@ -186,7 +186,7 @@ export function SigmaAssistant() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask SIGMA Assistant…"
+          placeholder="Type your message here..."
           className="flex-1 rounded-full border px-3 py-2 text-sm focus:outline-none"
           style={{ borderColor: 'var(--input-border)' }}
         />

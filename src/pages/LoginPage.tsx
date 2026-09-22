@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showLoginIntro, setShowLoginIntro] = useState(false)
+  const [loginIntroExiting, setLoginIntroExiting] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -26,20 +27,22 @@ export default function LoginPage() {
       return
     }
     setShowLoginIntro(true)
-    await new Promise((resolve) => setTimeout(resolve, 2400))
+    await new Promise((resolve) => setTimeout(resolve, 2050))
+    setLoginIntroExiting(true)
+    await new Promise((resolve) => setTimeout(resolve, 350))
     navigate('/dashboard', { replace: true })
   }
 
   if (showLoginIntro) {
     return (
-      <div className="sigma-login-intro" role="status" aria-label="Loading your dashboard">
+      <div className={`sigma-login-intro${loginIntroExiting ? ' sigma-login-intro-exiting' : ''}`} role="status" aria-label="Loading your dashboard">
         <div className="sigma-login-orbit sigma-login-orbit-one" />
         <div className="sigma-login-orbit sigma-login-orbit-two" />
         <div className="sigma-login-brand">
           <img src={clsuLogo} alt="Central Luzon State University" className="sigma-login-logo" />
           <span className="sigma-login-divider" />
-          <div>
-            <div className="sigma-login-wordmark"><span>SIGMA</span><span>AI</span><i>✦</i></div>
+          <div className="sigma-login-copy">
+            <div className="sigma-login-wordmark">SIGMAI<i>✦</i></div>
             <p>Your AI Assistant for Scholarship Management</p>
           </div>
         </div>

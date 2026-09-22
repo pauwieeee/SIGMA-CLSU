@@ -227,6 +227,10 @@ body {
     radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.98) 0 24%, rgba(244, 252, 246, 0.94) 57%, rgba(221, 244, 226, 0.95) 100%);
 }
 
+.sigma-login-intro-exiting {
+  animation: sigmaIntroExit 350ms ease-in-out forwards;
+}
+
 .sigma-login-orbit {
   position: absolute;
   width: min(78vw, 900px);
@@ -267,20 +271,16 @@ body {
 
 .sigma-login-wordmark {
   position: relative;
-  display: flex;
-  align-items: baseline;
+  display: inline-block;
   font-size: clamp(48px, 8vw, 92px);
   font-weight: 800;
   line-height: 0.95;
   letter-spacing: -0.055em;
-}
-
-.sigma-login-wordmark span:first-child {
-  color: #075a27;
-}
-
-.sigma-login-wordmark span:nth-child(2) {
-  color: #45bd33;
+  color: transparent;
+  background: linear-gradient(90deg, #075a27 0 70%, #45bd33 70% 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .sigma-login-wordmark i {
@@ -300,6 +300,12 @@ body {
   font-size: clamp(15px, 2vw, 22px);
   font-weight: 650;
   line-height: 1.35;
+}
+
+.sigma-login-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .sigma-loading-dots {
@@ -420,6 +426,10 @@ body {
 .sigma-chat-message-avatar img { width: 115%; height: 115%; object-fit: contain; transform: translateY(2px); }
 
 @keyframes sigmaOrbit { to { transform: rotate(360deg); } }
+@keyframes sigmaIntroExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 @keyframes sigmaBrandEnter {
   from { opacity: 0; transform: translateY(14px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -447,6 +457,7 @@ body {
 @media (max-width: 640px) {
   .sigma-login-brand { flex-direction: column; gap: 10px; text-align: center; }
   .sigma-login-divider { width: 130px; height: 1px; }
+  .sigma-login-copy { align-items: center; }
   .sigma-login-brand p { margin-top: 12px; }
   .sigma-loading-dots { margin-top: 38px; }
   .sigma-mascot-intro { right: 55px; width: 125px; }

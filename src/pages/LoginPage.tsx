@@ -4,6 +4,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
+import cobraMascot from '@/assets/cobra-assistant.png'
 
 export default function LoginPage() {
   const { session, loading: authLoading, signIn } = useAuth()
@@ -27,9 +28,11 @@ export default function LoginPage() {
       return
     }
     setShowLoginIntro(true)
-    await new Promise((resolve) => setTimeout(resolve, 2050))
+    await new Promise((resolve) => setTimeout(resolve, 3650))
     setLoginIntroExiting(true)
     await new Promise((resolve) => setTimeout(resolve, 350))
+    sessionStorage.setItem('sigmaMascotIntroShown', 'true')
+    sessionStorage.setItem('sigmaDashboardEntrance', 'true')
     navigate('/dashboard', { replace: true })
   }
 
@@ -44,6 +47,14 @@ export default function LoginPage() {
           <div className="sigma-login-copy">
             <div className="sigma-login-wordmark">SIGMAI<i>✦</i></div>
             <p>Your AI Assistant for Scholarship Management</p>
+          </div>
+        </div>
+        <div className="sigma-loader-mascot-space" aria-hidden="true">
+          <div className="sigma-loader-mascot-flight">
+            <span className="sigma-loader-mascot-ring sigma-loader-mascot-ring-one" />
+            <span className="sigma-loader-mascot-ring sigma-loader-mascot-ring-two" />
+            <span className="sigma-loader-mascot-trail" />
+            <img src={cobraMascot} alt="" />
           </div>
         </div>
         <div className="sigma-loading-dots" aria-hidden="true"><span /><span /><span /><span /></div>

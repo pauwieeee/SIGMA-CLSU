@@ -17,6 +17,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [enteringFromIntro] = useState(() => sessionStorage.getItem('sigmaDashboardEntrance') === 'true')
   const menuRef = useRef<HTMLDivElement>(null)
 
   async function handleLogout() {
@@ -24,6 +25,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
     await signOut()
     navigate('/login', { replace: true })
   }
+
+  useEffect(() => {
+    if (enteringFromIntro) sessionStorage.removeItem('sigmaDashboardEntrance')
+  }, [enteringFromIntro])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -44,7 +49,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       .join('') || 'SA'
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-app)' }}>
+    <div className={`min-h-screen${enteringFromIntro ? ' sigma-app-enter' : ''}`} style={{ background: 'var(--bg-app)' }}>
       <header className="border-b" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">

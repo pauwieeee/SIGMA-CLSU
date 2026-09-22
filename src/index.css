@@ -308,12 +308,82 @@ body {
   align-items: flex-start;
 }
 
+.sigma-loader-mascot-space {
+  width: 180px;
+  height: 170px;
+  flex: none;
+}
+
+.sigma-loader-mascot-flight {
+  position: fixed;
+  top: calc(50% + 38px);
+  left: 50%;
+  z-index: 3;
+  width: 150px;
+  height: 150px;
+  transform: translate(-50%, -50%);
+  animation: sigmaMascotFlyToLauncher 3.65s cubic-bezier(.22, 1, .36, 1) forwards;
+  will-change: top, left, transform, opacity, filter;
+}
+
+.sigma-loader-mascot-flight::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 3px solid #97ec9d;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 35%, #3caa48, #07622d 72%);
+  box-shadow: 0 0 28px rgba(58, 210, 86, 0.42);
+  content: '';
+  opacity: 0;
+  animation: sigmaMascotButtonMorph 3.65s ease-in-out forwards;
+}
+
+.sigma-loader-mascot-flight > img {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(6, 92, 37, 0.24));
+}
+
+.sigma-loader-mascot-ring {
+  position: absolute;
+  inset: -10px;
+  z-index: 0;
+  border: 2px solid rgba(80, 211, 102, 0.42);
+  border-radius: 50%;
+  animation: sigmaMascotRipple 1.45s ease-out infinite;
+}
+
+.sigma-loader-mascot-ring-two {
+  inset: -25px;
+  border-width: 1px;
+  animation-delay: 420ms;
+}
+
+.sigma-loader-mascot-trail {
+  position: absolute;
+  top: 55%;
+  right: 52%;
+  z-index: -2;
+  width: 115px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, rgba(69, 200, 82, 0.34));
+  filter: blur(9px);
+  opacity: 0;
+  transform: rotate(28deg);
+  animation: sigmaMascotTrail 3.65s ease-in-out forwards;
+}
+
 .sigma-loading-dots {
   position: relative;
   z-index: 1;
   display: flex;
   gap: 8px;
-  margin-top: 54px;
+  margin-top: 8px;
 }
 
 .sigma-loading-dots span {
@@ -426,6 +496,30 @@ body {
 .sigma-chat-message-avatar img { width: 115%; height: 115%; object-fit: contain; transform: translateY(2px); }
 
 @keyframes sigmaOrbit { to { transform: rotate(360deg); } }
+@keyframes sigmaMascotFlyToLauncher {
+  0% { top: calc(50% + 38px); left: 50%; opacity: 0; transform: translate(-50%, -50%) scale(.78); filter: brightness(1); }
+  12% { top: calc(50% + 38px); left: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  38% { top: calc(50% + 29px); left: 50%; transform: translate(-50%, -50%) scale(1.03) rotate(-1.5deg); }
+  52% { top: calc(50% + 42px); left: 50%; transform: translate(-50%, -50%) scale(.98) rotate(1.5deg); }
+  63% { top: calc(50% + 35px); left: 50%; transform: translate(-50%, -50%) scale(1) rotate(0); filter: brightness(1.04); }
+  78% { top: 72%; left: 73%; transform: translate(-50%, -50%) scale(.78) rotate(3deg); filter: brightness(1.12); }
+  92% { top: calc(100% - 58px); left: calc(100% - 58px); opacity: 1; transform: translate(-50%, -50%) scale(.48) rotate(0); filter: brightness(1.06); }
+  100% { top: calc(100% - 58px); left: calc(100% - 58px); opacity: 1; transform: translate(-50%, -50%) scale(.4534) rotate(0); filter: brightness(1); }
+}
+@keyframes sigmaMascotButtonMorph {
+  0%, 78% { opacity: 0; transform: scale(.7); }
+  94%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sigmaMascotRipple {
+  0% { opacity: .1; transform: scale(.82); }
+  55% { opacity: .65; }
+  100% { opacity: 0; transform: scale(1.22); }
+}
+@keyframes sigmaMascotTrail {
+  0%, 60% { opacity: 0; transform: rotate(28deg) scaleX(.25); }
+  72%, 88% { opacity: 1; transform: rotate(28deg) scaleX(1); }
+  100% { opacity: 0; transform: rotate(28deg) scaleX(.4); }
+}
 @keyframes sigmaIntroExit {
   from { opacity: 1; }
   to { opacity: 0; }
@@ -454,12 +548,22 @@ body {
   82%, 100% { opacity: 0; transform: translateY(5px) scale(0.94); }
 }
 
+.sigma-app-enter {
+  animation: sigmaAppEnter 420ms ease-out both;
+}
+
+@keyframes sigmaAppEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 640px) {
   .sigma-login-brand { flex-direction: column; gap: 10px; text-align: center; }
   .sigma-login-divider { width: 130px; height: 1px; }
   .sigma-login-copy { align-items: center; }
   .sigma-login-brand p { margin-top: 12px; }
-  .sigma-loading-dots { margin-top: 38px; }
+  .sigma-loader-mascot-space { height: 150px; }
+  .sigma-loading-dots { margin-top: 8px; }
   .sigma-mascot-intro { right: 55px; width: 125px; }
 }
 
@@ -471,4 +575,15 @@ body {
   .sigma-chat-launcher,
   .sigma-chat-sparkle { animation: none; }
   .sigma-mascot-intro { display: none; }
+  .sigma-loader-mascot-flight {
+    top: calc(50% + 38px);
+    left: 50%;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    animation: none;
+  }
+  .sigma-loader-mascot-flight::before,
+  .sigma-loader-mascot-ring,
+  .sigma-loader-mascot-trail,
+  .sigma-app-enter { animation: none; }
 }

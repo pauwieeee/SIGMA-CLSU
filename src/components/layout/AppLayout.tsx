@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, Settings } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
@@ -16,7 +16,12 @@ const topNav = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [backConfirmationOpen, setBackConfirmationOpen] = useState(
+    () => sessionStorage.getItem('sigmaBackConfirmationOpen') === 'true',
+  )
+  const [loggingOut, setLoggingOut] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -42,9 +47,55 @@ export function AppLayout({ children }: { children: ReactNode }) {
     sessionStorage.setItem('sigmaHistoryBoundaryInstalled', 'true')
   }, [])
 
+  useEffect(() => {
+    const protectedDestination = `${location.pathname}${location.search}${location.hash}`
+
+    function handleHistoryBoundary() {
+      const destination = window.location.pathname
+      if (destination !== '/' && destination !== '/login') return
+
+      const previousCount = Number(sessionStorage.getItem('sigmaPublicBackAttempts')) || 0
+      const count = previousCount + 1
+      sessionStorage.setItem('sigmaPublicBackAttempts', String(count))
+
+      if (count >= 3) {
+        sessionStorage.setItem('sigmaBackConfirmationOpen', 'true')
+        setBackConfirmationOpen(true)
+      }
+
+      // Restore the authenticated route immediately while the popstate event
+      // is still being handled, before the public/login screen can render.
+      navigate(protectedDestination)
+    }
+
+    window.addEventListener('popstate', handleHistoryBoundary)
+    return () => window.removeEventListener('popstate', handleHistoryBoundary)
+  }, [location.hash, location.pathname, location.search, navigate])
+
+  const displayName = (() => {
+    const metadata = user?.user_metadata
+    const savedName = metadata?.full_name ?? metadata?.display_name ?? metadata?.name
+    if (typeof savedName === 'string' && savedName.trim()) return savedName.trim()
+
+    const emailParts = (user?.email?.split('@')[0] ?? 'this account')
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+
+    return (emailParts.length === 2 ? emailParts.reverse() : emailParts).join(' ')
+  })()
+
+  function cancelBackConfirmation() {
+    sessionStorage.removeItem('sigmaPublicBackAttempts')
+    sessionStorage.removeItem('sigmaBackConfirmationOpen')
+    setBackConfirmationOpen(false)
+  }
+
   async function handleLogout() {
     setMenuOpen(false)
+    setLoggingOut(true)
     sessionStorage.removeItem('sigmaPublicBackAttempts')
+    sessionStorage.removeItem('sigmaBackConfirmationOpen')
     sessionStorage.removeItem('sigmaHistoryBoundaryInstalled')
     await signOut()
     navigate('/login', { replace: true })
@@ -174,6 +225,46 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       <SigmaAssistant />
+
+      {backConfirmationOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="back-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-2xl p-8 text-center shadow-2xl" style={{ background: 'var(--bg-card)' }}>
+            <img src={clsuLogo} alt="CLSU seal" className="mx-auto h-20 w-20 object-contain" />
+            <h2 id="back-confirm-title" className="mt-2 text-2xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+              Confirm
+            </h2>
+            <p className="mt-4 text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
+              You cannot create a new account because you are already logged in as <strong>{displayName}</strong>.
+            </p>
+            <div className="mt-7 flex gap-3">
+              <button
+                type="button"
+                onClick={cancelBackConfirmation}
+                disabled={loggingOut}
+                className="flex-1 rounded-lg border py-2.5 text-sm font-semibold disabled:opacity-60"
+                style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-60"
+                style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+              >
+                <LogOut size={16} />
+                {loggingOut ? 'Logging out...' : 'Log out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

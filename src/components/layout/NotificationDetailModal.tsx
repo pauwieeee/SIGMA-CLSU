@@ -1,4 +1,5 @@
-import { X } from 'lucide-react'
+import { ArrowRight, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import type { AppNotification } from '@/types/database'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 
@@ -8,7 +9,22 @@ interface Props {
 }
 
 export function NotificationDetailModal({ notification, onClose }: Props) {
+  const navigate = useNavigate()
   if (!notification) return null
+
+  const action = notification.type === 'duplicate_flag'
+    ? { label: 'Review Duplicate Case', path: `/reports?duplicateFlag=${notification.related_entity_id ?? ''}` }
+    : notification.type === 'expiring_soon'
+      ? { label: 'View and Edit Scholarship', path: `/scholarships?edit=${notification.related_entity_id ?? ''}` }
+      : notification.type === 'import_complete'
+        ? { label: 'View Student Records', path: '/students' }
+        : null
+
+  function openRelatedRecord() {
+    if (!action) return
+    onClose()
+    navigate(action.path)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -30,6 +46,16 @@ export function NotificationDetailModal({ notification, onClose }: Props) {
             {notification.message}
           </p>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(notification.created_at)}</p>
+          {action && (
+            <button
+              onClick={openRelatedRecord}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-[var(--btn-primary-hover)]"
+              style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+            >
+              {action.label}
+              <ArrowRight size={15} />
+            </button>
+          )}
         </div>
       </div>
     </div>

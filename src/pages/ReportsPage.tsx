@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Area,
   AreaChart,
@@ -29,6 +31,7 @@ import { useDuplicateFlagTrend } from '@/hooks/useTrends'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
 
 export default function ReportsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { stats, refetch: refetchStats } = useDashboardStats()
   const { data: duplicateTrend } = useDuplicateFlagTrend()
   const { data: categoryDataRaw, loading } = useScholarsPerCategory()
@@ -45,6 +48,15 @@ export default function ReportsPage() {
   const [exportingPdf, setExportingPdf] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
+  const [notificationFlagId, setNotificationFlagId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const duplicateFlagId = searchParams.get('duplicateFlag')
+    if (!duplicateFlagId) return
+    setNotificationFlagId(duplicateFlagId)
+    setDuplicateModalOpen(true)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   async function rescanDuplicates() {
     setScanning(true)
@@ -288,7 +300,10 @@ export default function ReportsPage() {
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
-              onClick={() => setDuplicateModalOpen(true)}
+              onClick={() => {
+                setNotificationFlagId(null)
+                setDuplicateModalOpen(true)
+              }}
               className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-[var(--btn-primary-hover)]"
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
@@ -311,7 +326,11 @@ export default function ReportsPage() {
 
       {duplicateModalOpen && (
         <DuplicateFlagsModal
-          onClose={() => setDuplicateModalOpen(false)}
+          focusFlagId={notificationFlagId}
+          onClose={() => {
+            setDuplicateModalOpen(false)
+            setNotificationFlagId(null)
+          }}
           onChanged={refetchStats}
         />
       )}

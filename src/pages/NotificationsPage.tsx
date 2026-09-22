@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNotifications } from '@/hooks/useNotifications'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import type { AppNotification } from '@/types/database'
+import { NotificationDetailModal } from '@/components/layout/NotificationDetailModal'
 
 function dateGroupLabel(isoDate: string): string {
   const date = new Date(isoDate)
@@ -29,6 +30,12 @@ function groupByDate(notifications: AppNotification[]): { label: string; items: 
 export default function NotificationsPage() {
   const { notifications, unreadCount, loading, markAllRead, markOneRead } = useNotifications(100)
   const groups = useMemo(() => groupByDate(notifications), [notifications])
+  const [viewing, setViewing] = useState<AppNotification | null>(null)
+
+  function openNotification(notification: AppNotification) {
+    markOneRead(notification.id)
+    setViewing(notification)
+  }
 
   return (
     <div className="space-y-4">
@@ -73,7 +80,7 @@ export default function NotificationsPage() {
                     return (
                       <li key={n.id}>
                         <button
-                          onClick={() => markOneRead(n.id)}
+                          onClick={() => openNotification(n)}
                           className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--menu-hover-bg)]"
                           style={unread ? { background: 'var(--menu-active-bg)' } : undefined}
                         >
@@ -105,6 +112,7 @@ export default function NotificationsPage() {
           </div>
         )}
       </div>
+      <NotificationDetailModal notification={viewing} onClose={() => setViewing(null)} />
     </div>
   )
 }

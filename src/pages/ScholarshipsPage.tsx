@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useScholarships, type ScholarshipRow } from '@/hooks/useScholarships'
 import { ScholarshipFormModal } from '@/components/scholarships/ScholarshipFormModal'
 import { ScholarshipScholarsModal } from '@/components/scholarships/ScholarshipScholarsModal'
@@ -11,12 +12,14 @@ import { logActivity } from '@/utils/logActivity'
 const tabs: ScholarshipCategoryName[] = ['Institutional', 'Government', 'Private']
 
 export default function ScholarshipsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<ScholarshipCategoryName>('Government')
   const [showArchived, setShowArchived] = useState(false)
   const { rows, loading, error, refetch } = useScholarships(activeTab, showArchived)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ScholarshipRow | null>(null)
   const [viewingScholars, setViewingScholars] = useState<ScholarshipRow | null>(null)
+  const notificationEditId = searchParams.get('edit')
 
   const headerRef = useRef<HTMLDivElement>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
@@ -24,6 +27,30 @@ export default function ScholarshipsPage() {
   useLayoutEffect(() => {
     if (headerRef.current) setHeaderHeight(headerRef.current.offsetHeight)
   }, [activeTab, showArchived])
+
+  useEffect(() => {
+    if (!notificationEditId) return
+    supabase
+      .from('scholarships')
+      .select('archived_at, scholarship_categories ( name )')
+      .eq('id', notificationEditId)
+      .single()
+      .then(({ data }) => {
+        const target = data as any
+        const category = target?.scholarship_categories?.name as ScholarshipCategoryName | undefined
+        if (category && tabs.includes(category)) setActiveTab(category)
+        setShowArchived(Boolean(target?.archived_at))
+      })
+  }, [notificationEditId])
+
+  useEffect(() => {
+    if (!notificationEditId || loading) return
+    const target = rows.find((row) => row.id === notificationEditId)
+    if (!target) return
+    setEditing(target)
+    setModalOpen(true)
+    setSearchParams({}, { replace: true })
+  }, [notificationEditId, loading, rows, setSearchParams])
 
   const grouped = useMemo(() => {
     const withAgency = rows.filter((r) => r.agency_name)

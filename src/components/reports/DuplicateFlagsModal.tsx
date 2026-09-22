@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, X } from 'lucide-react'
 import { useDuplicateFlags } from '@/hooks/useDuplicateFlags'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
@@ -6,9 +6,10 @@ import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 interface Props {
   onClose: () => void
   onChanged: () => void
+  focusFlagId?: string | null
 }
 
-export function DuplicateFlagsModal({ onClose, onChanged }: Props) {
+export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) {
   const { rows, loading, resolve, refetch } = useDuplicateFlags('All')
   const [tab, setTab] = useState<'Open' | 'Resolved'>('Open')
   const [resolvingId, setResolvingId] = useState<string | null>(null)
@@ -18,10 +19,17 @@ export function DuplicateFlagsModal({ onClose, onChanged }: Props) {
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const visibleRows = rows.filter((row) => row.status === tab)
+  const visibleRows = rows
+    .filter((row) => row.status === tab)
+    .sort((a, b) => Number(b.id === focusFlagId) - Number(a.id === focusFlagId))
   const openCount = rows.filter((row) => row.status === 'Open').length
   const resolvedCount = rows.filter((row) => row.status === 'Resolved').length
   const reviewingRow = rows.find((row) => row.id === reviewingId) ?? null
+
+  useEffect(() => {
+    const focused = rows.find((row) => row.id === focusFlagId)
+    if (focused) setTab(focused.status)
+  }, [focusFlagId, rows])
 
   function beginReview(id: string) {
     setReviewingId(id)
@@ -120,7 +128,14 @@ export function DuplicateFlagsModal({ onClose, onChanged }: Props) {
           ) : (
             <div className="space-y-3">
               {visibleRows.map((row) => (
-                <article key={row.id} className="rounded-lg border p-4" style={{ borderColor: 'var(--border-default)' }}>
+                <article
+                  key={row.id}
+                  className="rounded-lg border p-4"
+                  style={{
+                    borderColor: row.id === focusFlagId ? 'var(--btn-primary-bg)' : 'var(--border-default)',
+                    boxShadow: row.id === focusFlagId ? '0 0 0 1px var(--btn-primary-bg)' : undefined,
+                  }}
+                >
                   <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-2">

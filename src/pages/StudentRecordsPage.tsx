@@ -19,7 +19,8 @@ const statusOptions = ['Active', 'For Renewal', 'Documents Incomplete', 'Pending
 // Grid column template shared by the header row and every data row so they
 // always align — this is what makes the CSS Grid approach reliable for a
 // sticky header (native <table> sticky-thead has cross-browser quirks).
-const GRID_COLS = '40px minmax(200px,1fr) 220px minmax(160px,1fr) 140px 110px 90px'
+const GRID_COLS = '40px minmax(220px,1fr) 220px minmax(200px,1fr) 160px 240px 100px'
+const GRID_MIN_WIDTH = 'min-w-[1180px]'
 
 function FilterSelect({
   value,
@@ -105,7 +106,8 @@ export default function StudentRecordsPage() {
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
@@ -253,7 +255,7 @@ export default function StudentRecordsPage() {
               is applied directly to this single element with no <thead>/<tr>
               ambiguity. */}
           <div
-            className="sticky top-0 z-20 grid items-center border-b text-left text-xs font-semibold tracking-wide uppercase transition-shadow"
+            className={`sticky top-0 z-20 grid items-center border-b text-left text-xs font-semibold tracking-wide uppercase transition-shadow ${GRID_MIN_WIDTH}`}
             style={{
               gridTemplateColumns: GRID_COLS,
               borderColor: 'var(--border-default)',
@@ -270,12 +272,12 @@ export default function StudentRecordsPage() {
             <div className="px-4 py-3">Scholarship</div>
             <div className="px-4 py-3">A.Y. / Sem</div>
             <div className="px-4 py-3">Status</div>
-            <div className="px-4 py-3" />
+            <div className="px-4 py-3 text-center">Actions</div>
           </div>
 
           {loading &&
             Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="grid items-center border-b" style={{ gridTemplateColumns: GRID_COLS, borderColor: 'var(--divider-light)' }}>
+              <div key={i} className={`grid items-center border-b ${GRID_MIN_WIDTH}`} style={{ gridTemplateColumns: GRID_COLS, borderColor: 'var(--divider-light)' }}>
                 <div className="px-4 py-3">
                   <Skeleton className="h-4 w-4" />
                 </div>
@@ -319,7 +321,7 @@ export default function StudentRecordsPage() {
             return (
               <div
                 key={r.id}
-                className="grid items-center border-b text-sm hover:bg-[var(--menu-hover-bg)]"
+                className={`grid items-center border-b text-sm hover:bg-[var(--menu-hover-bg)] ${GRID_MIN_WIDTH}`}
                 style={{ gridTemplateColumns: GRID_COLS, borderColor: 'var(--divider-light)' }}
               >
                 <div className="flex h-full min-h-11 items-center justify-center">
@@ -348,11 +350,11 @@ export default function StudentRecordsPage() {
                 <div className="truncate px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                   {r.academic_year ? `${r.academic_year} · ${r.semester}` : '—'}
                 </div>
-                <div className="flex items-center gap-1.5 px-4 py-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 px-4 py-3">
                   <StatusBadge status={displayStatus} />
                   {r.isEnrolled === false && (
                     <span
-                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold"
                       style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}
                       title="Not found on the last verified enrollment list"
                     >
@@ -360,10 +362,10 @@ export default function StudentRecordsPage() {
                     </span>
                   )}
                 </div>
-                <div className="px-4 py-3">
+                <div className="flex items-center justify-center px-4 py-3">
                   <button
                     onClick={() => setViewingId(r.id)}
-                    className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
+                    className="min-w-16 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
                     style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
                   >
                     View

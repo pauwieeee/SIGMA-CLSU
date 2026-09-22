@@ -191,86 +191,27 @@ function studentName(row: any): string {
 
 function formatScholarList(assignments: any[], filterLabel: string): string {
   const rows = distinctScholarRows(assignments)
-  if (rows.length === 0) return `No scholars were found for ${filterLabel}.`
+  if (rows.length === 0) return `No matching scholars were found for ${filterLabel}.`
 
-  return `${rows.length} scholar${rows.length === 1 ? '' : 's'} found for ${filterLabel}.\n\n${formatTable(
-    ['Student ID', 'Name', 'Program', 'College'],
+  const scholarshipsByStudent = new Map<string, Set<string>>()
+  for (const assignment of assignments) {
+    const studentId = assignment.students?.id
+    const scholarship = assignment.scholarships?.name
+    if (!studentId || !scholarship) continue
+    if (!scholarshipsByStudent.has(studentId)) scholarshipsByStudent.set(studentId, new Set())
+    scholarshipsByStudent.get(studentId)!.add(scholarship)
+  }
+
+  return `### Matching Scholars\n${rows.length} matching scholar${rows.length === 1 ? '' : 's'} found for ${filterLabel}. Showing all ${rows.length} record${rows.length === 1 ? '' : 's'}.\n\n${formatTable(
+    ['Student ID', 'Name', 'Program', 'College', 'Scholarship'],
     rows.map((row) => [
       row.students.student_number,
       studentName(row),
       row.students.programs?.name,
       row.students.programs?.colleges?.name,
+      [...(scholarshipsByStudent.get(row.students.id) ?? [])].sort().join(', '),
     ])
   )}\n\n### Summary\n**Total Matching Scholars:** ${rows.length}`
-}
-
-function formatScholarshipsForContext(context: AssistantScholarContext): string {
-  const rows = [...context.assignments].sort((a, b) =>
-    studentName(a).localeCompare(studentName(b)) || String(a.scholarships?.name).localeCompare(String(b.scholarships?.name))
-  )
-  if (rows.length === 0) return "I couldn't find that information in the student records."
-
-  return `${formatTable(
-    ['Student ID', 'Name', 'Scholarship', 'Academic Year', 'Semester', 'Status'],
-    rows.map((row) => [
-      row.students?.student_number,
-      studentName(row),
-      row.scholarships?.name,
-      row.academic_year,
-      row.semester,
-      row.status,
-    ])
-  )}\n\n### Summary\n**Matching Scholars:** ${context.studentIds.length}`
-}
-
-function formatEnrollmentForContext(context: AssistantScholarContext): string {
-  const rows = [...context.assignments].sort((a, b) => studentName(a).localeCompare(studentName(b)))
-  if (rows.length === 0) return "I couldn't find that information in the student records."
-
-  return `${formatTable(
-    ['Student ID', 'Name', 'Scholarship', 'Academic Year', 'Semester', 'Enrollment'],
-    rows.map((row) => [
-      row.students?.student_number,
-      studentName(row),
-      row.scholarships?.name,
-      row.academic_year,
-      row.semester,
-      row.is_enrolled === true ? 'Enrolled' : row.is_enrolled === false ? 'Not Enrolled' : 'Not Yet Verified',
-    ])
-  )}\n\n### Summary\n**Matching Scholars:** ${context.studentIds.length}`
-}
-
-function resolveScholarFollowUp(question: string, context: AssistantScholarContext): QueryResult | null {
-  if (!isFollowUpQuestion(question)) return null
-  const q = normalize(question)
-
-  if (/\b(first|first one)\b/.test(q)) {
-    const first = distinctScholarRows(context.assignments)[0]
-    if (!first) return { intent: 'scholar_follow_up', data: [], answer: "I couldn't find that information in the student records.", context }
-    return {
-      intent: 'scholar_follow_up',
-      data: first,
-      answer: `### ${studentName(first)}\nStudent ID: ${first.students.student_number}\nProgram: ${first.students.programs?.name ?? 'Not available'}\nCollege: ${first.students.programs?.colleges?.name ?? 'Not available'}\nScholarship: ${first.scholarships?.name ?? 'Not available'}\nStatus: ${first.status ?? 'Not available'}`,
-      context,
-    }
-  }
-
-  if (/\b(enrolled|enrollment)\b/.test(q)) {
-    return { intent: 'scholar_enrollment_follow_up', data: context.assignments, answer: formatEnrollmentForContext(context), context }
-  }
-  if (/\b(scholarship|scholarships|grant|grants)\b/.test(q)) {
-    return { intent: 'scholar_scholarship_follow_up', data: context.assignments, answer: formatScholarshipsForContext(context), context }
-  }
-  if (/\b(who|names|list|show|they|them|those|these)\b/.test(q)) {
-    return { intent: 'scholar_list_follow_up', data: context.assignments, answer: formatScholarList(context.assignments, context.filterLabel), context }
-  }
-  if (/\b(how many|count|number|total)\b/.test(q)) {
-    return { intent: 'scholar_count_follow_up', data: context.studentIds, answer: `**Matching Scholars (${context.filterLabel}):** ${context.studentIds.length}`, context }
-  }
-  if (/\b(year|semester|term|status)\b/.test(q)) {
-    return { intent: 'scholar_details_follow_up', data: context.assignments, answer: formatScholarshipsForContext(context), context }
-  }
-  return null
 }
 
 async function resolveIntent(
@@ -281,11 +222,6 @@ async function resolveIntent(
   const q = question.toLowerCase()
   const contextualQuestion = questionWithContext(question, history)
   const contextualQ = contextualQuestion.toLowerCase()
-
-  if (previousContext?.kind === 'scholars') {
-    const followUp = resolveScholarFollowUp(question, previousContext)
-    if (followUp) return followUp
-  }
 
   if (contextualQ.includes('duplicate')) {
     const { data, error } = await supabase
@@ -383,7 +319,7 @@ async function resolveIntent(
       return {
         intent: 'ambiguous_scholar_query',
         data: null,
-        answer: 'Which scholars would you like me to show — all active scholars, or scholars from a specific college, program, scholarship, academic year, or semester?',
+        answer: 'Which scholars would you like me to show — all scholars, or scholars from a specific college, program, scholarship, academic year, semester, or status?',
       }
     }
 
@@ -408,6 +344,15 @@ async function resolveIntent(
         : contextualQ.includes('summer')
           ? 'Summer'
           : null
+    const yearMatches = [...contextualQuestion.matchAll(/\b(20\d{2}\s*-\s*20\d{2})\b/g)]
+    const appliedYear = yearMatches.at(-1)?.[1].replace(/\s/g, '-') ?? year
+    const semesterMatches = [...contextualQuestion.matchAll(/\b(1st|first|2nd|second)\s+semester\b|\bsummer\b/gi)]
+    const latestSemester = semesterMatches.at(-1)?.[0].toLowerCase()
+    const appliedSemester = latestSemester?.includes('1st') || latestSemester?.includes('first')
+      ? '1st Semester'
+      : latestSemester?.includes('2nd') || latestSemester?.includes('second')
+        ? '2nd Semester'
+        : latestSemester === 'summer' ? 'Summer' : semester
 
     const statusMatchers: [string, RegExp][] = [
       ['For Renewal', /\b(?:for\s+)?renewal\b/i],
@@ -416,11 +361,15 @@ async function resolveIntent(
       ['Inactive', /\binactive\b/i],
       ['Active', /\bactive\b/i],
     ]
-    const requestedStatus = statusMatchers.find(([, pattern]) => pattern.test(contextualQuestion))?.[0] ?? 'Active'
+    const requestedStatuses = statusMatchers.flatMap(([status, pattern]) => {
+      const matches = [...contextualQuestion.matchAll(new RegExp(pattern.source, 'gi'))]
+      return matches.map((match) => ({ status, index: match.index ?? -1 }))
+    }).sort((a, b) => a.index - b.index)
+    const requestedStatus = requestedStatuses.at(-1)?.status ?? null
     let filtered = assignments.filter((row) =>
-      row.status === requestedStatus
-      && (!year || row.academic_year === year)
-      && (!semester || row.semester === semester)
+      (!requestedStatus || row.status === requestedStatus)
+      && (!appliedYear || row.academic_year === appliedYear)
+      && (!appliedSemester || row.semester === appliedSemester)
     )
 
     type EntityType = 'program' | 'college' | 'scholarship' | 'category'
@@ -436,15 +385,25 @@ async function resolveIntent(
       const program = row.students?.programs
       addEntity('program', program?.name, programAliases(program?.name ?? '', program?.code))
       addEntity('college', program?.colleges?.name, program?.colleges?.code ? [program.colleges.code] : [])
-      addEntity('scholarship', row.scholarships?.name)
+      const scholarshipName = row.scholarships?.name as string | undefined
+      const scholarshipAliases = scholarshipName && /\bDOST(?:-SEI)?\b/i.test(scholarshipName)
+        ? ['DOST', 'DOST-SEI', 'DOST Scholarship', 'DOST-SEI Scholarship']
+        : []
+      addEntity('scholarship', scholarshipName, scholarshipAliases)
       addEntity('category', row.scholarships?.scholarship_categories?.name)
     }
-    const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => ({
-      type,
-      names: [...entityAliases[type].entries()]
-        .filter(([name, aliases]) => includesEntity(contextualQuestion, name, [...aliases]))
-        .map(([name]) => name),
-    })).filter((match) => match.names.length > 0)
+    const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => {
+      const entities = [...entityAliases[type].entries()]
+      const directNames = entities
+        .filter(([name]) => includesEntity(contextualQuestion, name))
+        .map(([name]) => name)
+      const names = type === 'scholarship' && directNames.length > 0
+        ? directNames
+        : entities
+            .filter(([name, aliases]) => includesEntity(contextualQuestion, name, [...aliases]))
+            .map(([name]) => name)
+      return { type, names }
+    }).filter((match) => match.names.length > 0)
 
     if (matchedByType.length > 0) {
       filtered = filtered.filter((row) => matchedByType.every(({ type, names }) => {
@@ -468,7 +427,7 @@ async function resolveIntent(
     }
 
     const scholarRows = distinctScholarRows(filtered)
-    const filterLabel = [requestedStatus, matchedEntities.join(' / '), year, semester].filter(Boolean).join(', ')
+    const filterLabel = [requestedStatus, matchedEntities.join(' / '), appliedYear, appliedSemester].filter(Boolean).join(', ') || 'all scholar records'
     const scholarContext: AssistantScholarContext = {
       kind: 'scholars',
       filterLabel,
@@ -485,12 +444,12 @@ async function resolveIntent(
       }
       const breakdown = [...collegeStudents.entries()].sort((a, b) => b[1].size - a[1].size)
       const answer = breakdown.length === 0
-        ? 'No active scholars matched that question.'
-        : `${formatTable(['College', 'Active Scholars'], breakdown.map(([college, ids]) => [college, ids.size]))}\n\n### Summary\n**Total Active Scholars:** ${scholarRows.length}`
+        ? `No matching scholars were found for ${filterLabel}.`
+        : `${formatTable(['College', 'Matching Scholars'], breakdown.map(([college, ids]) => [college, ids.size]))}\n\n### Summary\n**Total Matching Scholars:** ${scholarRows.length}`
       return { intent: 'scholars_per_college', data: breakdown, answer, context: scholarContext }
     }
 
-    const wantsList = /list|show|who|names|which/.test(q)
+    const wantsList = /list|show|who|names|which|give me|\ball\b/.test(q)
     const wantsCount = /how many|count|number|total/.test(q)
     if (wantsList) {
       return { intent: 'scholar_list', data: scholarRows, answer: formatScholarList(filtered, filterLabel), context: scholarContext }

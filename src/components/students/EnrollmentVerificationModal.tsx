@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
+import { normalizeStudentNumber } from '@/utils/studentNumber'
 
 interface Props {
   open: boolean
@@ -35,7 +36,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
     const enrolledNumbers = new Set(
       idList
         .split(/[\s,]+/)
-        .map((s) => s.trim())
+        .map(normalizeStudentNumber)
         .filter(Boolean)
     )
 
@@ -67,7 +68,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
 
     await Promise.all(
       (rows ?? []).map(async (row: any) => {
-        const isEnrolled = enrolledNumbers.has(row.students?.student_number)
+        const isEnrolled = enrolledNumbers.has(normalizeStudentNumber(row.students?.student_number))
         if (isEnrolled) enrolledCount++
         else notEnrolledCount++
         await (supabase as any)

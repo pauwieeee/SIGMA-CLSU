@@ -1,17 +1,9 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { getUserDisplayName } from '@/utils/userDisplayName'
-
-const passwordChecks = [
-  { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
-  { label: 'At least one uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
-  { label: 'At least one lowercase letter', test: (value: string) => /[a-z]/.test(value) },
-  { label: 'At least one number', test: (value: string) => /\d/.test(value) },
-  { label: 'At least one special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
-]
 
 function formatPasswordChangedAt(value: unknown) {
   if (typeof value !== 'string') return 'Not recorded yet'
@@ -38,12 +30,9 @@ export default function AccountSettingsPage() {
 
   useEffect(() => setPreferredUsername(getUserDisplayName(user, '')), [user])
 
-  const passwordIsStrong = useMemo(
-    () => passwordChecks.every((requirement) => requirement.test(newPassword)),
-    [newPassword],
-  )
+  const passwordIsValid = newPassword.length >= 8
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword
-  const canUpdatePassword = Boolean(currentPassword && passwordIsStrong && passwordsMatch && !updatingPassword)
+  const canUpdatePassword = Boolean(currentPassword && passwordIsValid && confirmPassword && passwordsMatch && !updatingPassword)
   const profileHasChanges = preferredUsername.trim() !== getUserDisplayName(user, '')
 
   async function saveProfile(e: FormEvent) {
@@ -82,8 +71,8 @@ export default function AccountSettingsPage() {
       setPasswordError('New password and confirmation password do not match.')
       return
     }
-    if (!passwordIsStrong) {
-      setPasswordError('The new password does not meet all security requirements.')
+    if (!passwordIsValid) {
+      setPasswordError('Password must contain at least 8 characters.')
       return
     }
     if (!user?.email) {
@@ -187,9 +176,12 @@ export default function AccountSettingsPage() {
                   </div>
                 </div>
               ))}
-              <ul className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                {passwordChecks.map((requirement) => { const met = requirement.test(newPassword); return <li key={requirement.label} style={{ color: met ? 'var(--status-complete-text)' : 'var(--text-muted)' }}>{met ? '✓' : '○'} {requirement.label}</li> })}
-              </ul>
+              <div className="space-y-1 text-xs">
+                <p className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Password requirements</p>
+                <p style={{ color: passwordIsValid ? 'var(--status-complete-text)' : 'var(--status-incomplete-text)' }}>
+                  {passwordIsValid ? '✓' : '✕'} At least 8 characters
+                </p>
+              </div>
               {confirmPassword && !passwordsMatch && <p className="text-xs" style={{ color: 'var(--status-incomplete-text)' }}>New password and confirmation password do not match.</p>}
               {passwordError && <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{passwordError}</p>}
               <div className="flex gap-3 pt-2">

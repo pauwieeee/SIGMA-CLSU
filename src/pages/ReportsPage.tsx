@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Archive, ChevronDown, Download, Eye, FileText, RefreshCw } from 'lucide-react'
+import { Archive, Download, Eye, RefreshCw } from 'lucide-react'
 import { useDashboardStats, useScholarsPerCategory } from '@/hooks/useDashboardData'
 import { useScholarsTrend } from '@/hooks/useScholarsTrend'
 import { useColleges } from '@/hooks/useColleges'
@@ -45,7 +45,6 @@ export default function ReportsPage() {
   const [semester, setSemester] = useState('')
   const [college, setCollege] = useState('')
   const [category, setCategory] = useState('')
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
@@ -119,21 +118,7 @@ export default function ReportsPage() {
     }
   }
 
-  function exportCsv() {
-    const header = 'Category,Scholar Count\n'
-    const body = categoryData.map((c) => `${c.category_name},${c.scholar_count}`).join('\n')
-    const blob = new Blob([header + body], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'sigma-scholars-per-category.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-    setExportMenuOpen(false)
-  }
-
   async function exportPdf() {
-    setExportMenuOpen(false)
     setExportingPdf(true)
     try {
       const { exportReportPdf } = await import('@/utils/exportReportPdf')
@@ -208,42 +193,15 @@ export default function ReportsPage() {
               {closingTerm ? 'Closing Semester…' : 'Close & Archive Semester'}
             </button>
 
-            <div className="relative">
             <button
-              onClick={() => setExportMenuOpen((v) => !v)}
+              onClick={exportPdf}
               disabled={exportingPdf}
               className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
               <Download size={16} />
-              {exportingPdf ? 'Preparing PDF…' : 'Export Report'}
-              <ChevronDown size={14} />
+              {exportingPdf ? 'Preparing PDF…' : 'Export as PDF'}
             </button>
-
-            {exportMenuOpen && (
-              <div
-                className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-lg border shadow-lg"
-                style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}
-              >
-                <button
-                  onClick={exportCsv}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-[var(--menu-hover-bg)]"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <Download size={14} />
-                  Export as CSV
-                </button>
-                <button
-                  onClick={exportPdf}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-[var(--menu-hover-bg)]"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <FileText size={14} />
-                  Export as PDF
-                </button>
-              </div>
-            )}
-            </div>
           </div>
         </div>
       </Card>

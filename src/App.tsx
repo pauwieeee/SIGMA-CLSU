@@ -13,12 +13,14 @@ import ReportsPage from '@/pages/ReportsPage'
 import AccountSettingsPage from '@/pages/AccountSettingsPage'
 import NotificationsPage from '@/pages/NotificationsPage'
 import ActivityLogPage from '@/pages/ActivityLogPage'
+import { AuthenticatedHistoryBoundary } from '@/components/layout/AuthenticatedHistoryBoundary'
 
 function App() {
   return (
     <ConfigGate>
     <BrowserRouter>
       <AuthProvider>
+        <AuthenticatedHistoryBoundary />
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />

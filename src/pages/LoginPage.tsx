@@ -1,56 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, LogOut } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
-import { getUserDisplayName } from '@/utils/userDisplayName'
 
 export default function LoginPage() {
-  const { session, user, loading: authLoading, signIn, signOut } = useAuth()
+  const { session, loading: authLoading, signIn } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const handledAuthenticatedVisit = useRef(false)
-
-  useEffect(() => {
-    if (authLoading || !session || handledAuthenticatedVisit.current) return
-    handledAuthenticatedVisit.current = true
-
-    const previousCount = Number(sessionStorage.getItem('sigmaPublicBackAttempts')) || 0
-    const count = previousCount + 1
-    sessionStorage.setItem('sigmaPublicBackAttempts', String(count))
-
-    if (count >= 3) {
-      setShowConfirmation(true)
-      return
-    }
-
-    // Push the authenticated destination so Back remains usable. If the user
-    // tries to cross into the public area again, this guard runs again.
-    navigate('/dashboard')
-  }, [authLoading, navigate, session])
-
-  const displayName = getUserDisplayName(user, 'this account')
-
-  function cancelConfirmation() {
-    sessionStorage.removeItem('sigmaPublicBackAttempts')
-    setShowConfirmation(false)
-    navigate('/dashboard', { replace: true })
-  }
-
-  async function confirmLogout() {
-    setLoading(true)
-    sessionStorage.removeItem('sigmaPublicBackAttempts')
-    sessionStorage.removeItem('sigmaHistoryBoundaryInstalled')
-    await signOut()
-    navigate('/login', { replace: true })
-    setLoading(false)
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -62,12 +24,10 @@ export default function LoginPage() {
       setError(error)
       return
     }
-    sessionStorage.removeItem('sigmaPublicBackAttempts')
-    sessionStorage.removeItem('sigmaHistoryBoundaryInstalled')
-    navigate('/dashboard')
+    navigate('/dashboard', { replace: true })
   }
 
-  if (authLoading || session) {
+  if (authLoading) {
     return (
       <div
         className="relative flex min-h-screen items-center justify-center overflow-hidden p-4"
@@ -81,58 +41,12 @@ export default function LoginPage() {
       >
         <div className="absolute inset-0" style={{ background: 'var(--bg-login)', opacity: 0.15 }} />
 
-        {showConfirmation ? (
-          <div
-            className="relative z-10 w-full max-w-md rounded-2xl p-8 shadow-2xl"
-            style={{ background: 'var(--bg-card)' }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="authenticated-confirm-title"
-          >
-            <img src={clsuLogo} alt="CLSU seal" className="mx-auto h-20 w-20 object-contain" />
-            <h1
-              id="authenticated-confirm-title"
-              className="mt-2 text-center text-2xl font-bold"
-              style={{ color: 'var(--nav-header-dark)' }}
-            >
-              Confirm
-            </h1>
-            <p className="mt-4 text-center text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
-              You cannot create a new account because you are already logged in as{' '}
-              <strong>{displayName}</strong>.
-            </p>
-            <div className="mt-7 flex gap-3">
-              <button
-                type="button"
-                onClick={cancelConfirmation}
-                disabled={loading}
-                className="flex-1 rounded-lg border py-2.5 text-sm font-semibold disabled:opacity-60"
-                style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmLogout}
-                disabled={loading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-60"
-                style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
-              >
-                <LogOut size={16} />
-                {loading ? 'Logging out...' : 'Log out'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="relative z-10 h-9 w-9 animate-spin rounded-full border-4 border-white/40 border-t-white"
-            role="status"
-            aria-label="Restoring authenticated session"
-          />
-        )}
+        <div className="relative z-10 h-9 w-9 animate-spin rounded-full border-4 border-white/40 border-t-white" role="status" aria-label="Restoring authenticated session" />
       </div>
     )
   }
+
+  if (session) return <Navigate to="/dashboard" replace />
 
   return (
     <div

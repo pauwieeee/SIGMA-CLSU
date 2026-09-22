@@ -134,14 +134,27 @@ function orderedChain(): string[] {
 // still governs exactly what data comes back.
 // ------------------------------------------------------------
 function isFollowUpQuestion(question: string): boolean {
-  return /\b(it|that|those|them|they|there|these|this|same|previous|above)\b/i.test(question)
+  return /\b(it|that|those|them|they|their|there|these|this|same|previous|above)\b/i.test(question)
     || /^(and|also|what about|how about|are|is|do|does|can|only)\b/i.test(question.trim())
 }
 
 function questionWithContext(question: string, history: AssistantConversationMessage[]): string {
   if (!isFollowUpQuestion(question)) return question
-  const previousUserQuestion = [...history].reverse().find((message) => message.role === 'user')?.text
-  return previousUserQuestion ? `${previousUserQuestion} ${question}` : question
+
+  const userQuestions = history.filter((message) => message.role === 'user').map((message) => message.text)
+  if (userQuestions.length === 0) return question
+
+  // Keep the complete chain from the latest standalone question. Using only
+  // the immediately previous message loses the original filter after a
+  // sequence such as "How many are in IT?" → "Who are they?" → "What year?".
+  let contextStart = 0
+  for (let i = userQuestions.length - 1; i >= 0; i--) {
+    if (!isFollowUpQuestion(userQuestions[i])) {
+      contextStart = i
+      break
+    }
+  }
+  return [...userQuestions.slice(contextStart), question].join(' ')
 }
 
 async function resolveIntent(
@@ -249,7 +262,7 @@ async function resolveIntent(
       .select(
         `academic_year, semester,
          students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
-           programs!inner(name, code, colleges!inner(name))),
+           programs!inner(name, code, colleges!inner(name, code))),
          scholarships!inner(name, scholarship_categories!inner(name))`
       )
       .eq('status', 'Active')
@@ -278,7 +291,7 @@ async function resolveIntent(
     for (const row of assignments) {
       const program = row.students?.programs
       addEntity(program?.name, programAliases(program?.name ?? '', program?.code))
-      addEntity(program?.colleges?.name)
+      addEntity(program?.colleges?.name, program?.colleges?.code ? [program.colleges.code] : [])
       addEntity(row.scholarships?.name)
       addEntity(row.scholarships?.scholarship_categories?.name)
     }

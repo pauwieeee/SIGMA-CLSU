@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
 import { NotificationBell } from '@/components/layout/NotificationBell'
@@ -17,7 +17,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [backLogoutOpen, setBackLogoutOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const backPressCount = useRef(0)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -28,6 +31,37 @@ export function AppLayout({ children }: { children: ReactNode }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    const guardState = { ...window.history.state, sigmaBackGuard: true }
+    window.history.pushState(guardState, '', window.location.href)
+
+    function handleBrowserBack() {
+      window.history.pushState(guardState, '', window.location.href)
+
+      if (backLogoutOpen) return
+
+      backPressCount.current += 1
+      if (backPressCount.current >= 3) {
+        backPressCount.current = 0
+        setBackLogoutOpen(true)
+      }
+    }
+
+    window.addEventListener('popstate', handleBrowserBack)
+    return () => window.removeEventListener('popstate', handleBrowserBack)
+  }, [backLogoutOpen])
+
+  function cancelBackLogout() {
+    backPressCount.current = 0
+    setBackLogoutOpen(false)
+  }
+
+  async function confirmBackLogout() {
+    setLoggingOut(true)
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   const initials =
     user?.email
@@ -146,6 +180,60 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       <SigmaAssistant />
+
+      {backLogoutOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="back-logout-title"
+        >
+          <div
+            className="relative w-full max-w-sm rounded-2xl p-7 text-center shadow-2xl"
+            style={{ background: 'var(--bg-card)' }}
+          >
+            <button
+              type="button"
+              onClick={cancelBackLogout}
+              aria-label="Close logout confirmation"
+              className="absolute right-4 top-4 rounded-full p-1"
+              style={{ color: 'var(--icon-muted)' }}
+            >
+              <X size={20} />
+            </button>
+
+            <img src={clsuLogo} alt="CLSU seal" className="mx-auto h-20 w-20 object-contain" />
+            <h2 id="back-logout-title" className="mt-2 text-xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+              Do you want to log out?
+            </h2>
+            <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              You pressed the browser Back button three times. Logging out will end your current session.
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={cancelBackLogout}
+                disabled={loggingOut}
+                className="flex-1 rounded-lg border py-2.5 text-sm font-semibold disabled:opacity-60"
+                style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBackLogout}
+                disabled={loggingOut}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-60"
+                style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+              >
+                <LogOut size={16} />
+                {loggingOut ? 'Logging out...' : 'Log Out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

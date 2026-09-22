@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthProvider'
 import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import clsuLogo from '@/assets/clsu-logo.png'
+import { getUserDisplayName } from '@/utils/userDisplayName'
 
 const topNav = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -72,18 +73,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('popstate', handleHistoryBoundary)
   }, [location.hash, location.pathname, location.search, navigate])
 
-  const displayName = (() => {
-    const metadata = user?.user_metadata
-    const savedName = metadata?.full_name ?? metadata?.display_name ?? metadata?.name
-    if (typeof savedName === 'string' && savedName.trim()) return savedName.trim()
-
-    const emailParts = (user?.email?.split('@')[0] ?? 'this account')
-      .split(/[._-]+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-
-    return (emailParts.length === 2 ? emailParts.reverse() : emailParts).join(' ')
-  })()
+  const displayName = getUserDisplayName(user, 'this account')
 
   function cancelBackConfirmation() {
     sessionStorage.removeItem('sigmaPublicBackAttempts')

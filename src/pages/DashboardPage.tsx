@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend, useScholarshipsAddedThisMonth, useScholarTrend } from '@/hooks/useTrends'
+import { getUserDisplayName } from '@/utils/userDisplayName'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -22,7 +23,7 @@ export default function DashboardPage() {
   const { count: addedThisMonth } = useScholarshipsAddedThisMonth()
   const { data: duplicateTrend } = useDuplicateFlagTrend()
 
-  const displayName = user?.email?.split('@')[0] ?? 'Admin'
+  const displayName = getUserDisplayName(user)
 
   return (
     <div className="space-y-6">

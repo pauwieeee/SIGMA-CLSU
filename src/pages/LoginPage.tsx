@@ -4,6 +4,7 @@ import { Eye, EyeOff, LogOut } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
+import { getUserDisplayName } from '@/utils/userDisplayName'
 
 export default function LoginPage() {
   const { session, user, loading: authLoading, signIn, signOut } = useAuth()
@@ -34,20 +35,7 @@ export default function LoginPage() {
     navigate('/dashboard')
   }, [authLoading, navigate, session])
 
-  const displayName = (() => {
-    const metadata = user?.user_metadata
-    const savedName = metadata?.full_name ?? metadata?.display_name ?? metadata?.name
-    if (typeof savedName === 'string' && savedName.trim()) return savedName.trim()
-
-    const emailParts = (user?.email?.split('@')[0] ?? 'this account')
-      .split(/[._-]+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-
-    // CLSU addresses commonly use surname.firstname; present that as a
-    // natural display name when profile metadata is unavailable.
-    return (emailParts.length === 2 ? emailParts.reverse() : emailParts).join(' ')
-  })()
+  const displayName = getUserDisplayName(user, 'this account')
 
   function cancelConfirmation() {
     sessionStorage.removeItem('sigmaPublicBackAttempts')

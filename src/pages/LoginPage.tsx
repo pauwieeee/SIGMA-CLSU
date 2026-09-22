@@ -58,6 +58,7 @@ export default function LoginPage() {
   async function confirmLogout() {
     setLoading(true)
     sessionStorage.removeItem('sigmaPublicBackAttempts')
+    sessionStorage.removeItem('sigmaHistoryBoundaryInstalled')
     await signOut()
     navigate('/login', { replace: true })
     setLoading(false)
@@ -74,6 +75,7 @@ export default function LoginPage() {
       return
     }
     sessionStorage.removeItem('sigmaPublicBackAttempts')
+    sessionStorage.removeItem('sigmaHistoryBoundaryInstalled')
     navigate('/dashboard')
   }
 

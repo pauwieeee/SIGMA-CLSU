@@ -19,9 +19,33 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  useEffect(() => {
+    if (sessionStorage.getItem('sigmaHistoryBoundaryInstalled') === 'true') return
+
+    const currentUrl = window.location.href
+    const currentState = window.history.state ?? {}
+    const currentIndex = typeof currentState.idx === 'number' ? currentState.idx : 0
+
+    // When an authenticated page is the tab's first history entry, Back would
+    // leave SIGMA before React can protect the login boundary. Turn that entry
+    // into the boundary and restore the current page directly above it.
+    window.history.replaceState(
+      { ...currentState, idx: currentIndex - 1, sigmaAuthBoundary: true },
+      '',
+      '/login',
+    )
+    window.history.pushState(
+      { ...currentState, idx: currentIndex, sigmaAuthenticatedPage: true },
+      '',
+      currentUrl,
+    )
+    sessionStorage.setItem('sigmaHistoryBoundaryInstalled', 'true')
+  }, [])
+
   async function handleLogout() {
     setMenuOpen(false)
     sessionStorage.removeItem('sigmaPublicBackAttempts')
+    sessionStorage.removeItem('sigmaHistoryBoundaryInstalled')
     await signOut()
     navigate('/login', { replace: true })
   }

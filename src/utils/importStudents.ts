@@ -2,217 +2,71 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { supabase as typedSupabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
-
-// The generated Database type only declares Row shapes precisely; insert/upsert
-// payloads here are validated manually against the schema instead.
 const supabase = typedSupabase as any
 
-// Expected columns, matching the sample sheet:
-// ID Number, Last Name, First Name, M.I., Degree, Yr Lvl, Address, Contact #,
-// Email, Acad Year, Semester, Type of Scholarship, Scholarship, Remarks
+export interface ImportRow { 'ID Number': string; 'Last Name': string; 'First Name': string; 'M.I.': string; Degree: string; 'Yr Lvl': string; Address: string; 'Contact #': string; Email: string; 'Acad Year': string; Semester: string; 'Type of Scholarship': string; Scholarship: string; Remarks: string }
+export type ImportClassification = 'new' | 'existing' | 'conflict' | 'invalid'
+export interface ImportPreviewItem { row: number; classification: ImportClassification; message: string; studentNumber: string; studentName: string; academicYear: string; semester: string; scholarship: string; payload?: Record<string, string | null> }
+export interface ImportPreview { filename: string; totalRows: number; beforeStudentCount: number; newRecords: ImportPreviewItem[]; existingRecords: ImportPreviewItem[]; conflicts: ImportPreviewItem[]; invalidRecords: ImportPreviewItem[] }
+export interface ImportResult { totalRows: number; addedCount: number; existingCount: number; conflictCount: number; invalidCount: number; beforeStudentCount: number; afterStudentCount: number; errors: { row: number; message: string }[] }
 
-export interface ImportRow {
-  'ID Number': string
-  'Last Name': string
-  'First Name': string
-  'M.I.': string
-  Degree: string
-  'Yr Lvl': string
-  Address: string
-  'Contact #': string
-  Email: string
-  'Acad Year': string
-  Semester: string
-  'Type of Scholarship': string
-  Scholarship: string
-  Remarks: string
+const REQUIRED = ['ID Number','Last Name','First Name','Degree','Yr Lvl','Acad Year','Semester','Scholarship']
+const YEARS = new Set(['1st Year','2nd Year','3rd Year','4th Year','5th Year','Graduate'])
+const SEMESTERS = new Set(['1st Semester','2nd Semester','Summer'])
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const STATUSES: Record<string,string> = { active:'Active','for renewal':'For Renewal',renewal:'For Renewal','documents incomplete':'Documents Incomplete',incomplete:'Documents Incomplete','pending verification':'Pending Verification',pending:'Pending Verification',inactive:'Inactive' }
+const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/[–—]/g,'-').replace(/\s+/g,' ')
+const keyOf = (student: unknown, scholarship: unknown, year: unknown, semester: unknown) => [student,scholarship,year,semester].map(norm).join('|')
+
+async function parse(file: File) {
+  if (!/\.(csv|xlsx|xls)$/i.test(file.name)) throw new Error('Select a CSV, XLSX, or XLS file.')
+  if (/\.csv$/i.test(file.name)) return new Promise<{rows:ImportRow[];headers:string[]}>((resolve,reject) => Papa.parse<ImportRow>(file,{ header:true,skipEmptyLines:true,complete:r=>resolve({rows:r.data,headers:r.meta.fields??[]}),error:reject }))
+  const workbook = XLSX.read(await file.arrayBuffer()); const sheet = workbook.Sheets[workbook.SheetNames[0]]
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet,{header:1,defval:''})
+  return { headers:(matrix[0]??[]).map(String), rows:XLSX.utils.sheet_to_json<ImportRow>(sheet,{defval:''}) }
 }
 
-export interface ImportResult {
-  totalRows: number
-  successCount: number
-  errorCount: number
-  errors: { row: number; message: string }[]
+export async function previewStudentsFile(file: File): Promise<ImportPreview> {
+  const { rows, headers } = await parse(file); const missing = REQUIRED.filter(h=>!headers.includes(h))
+  if (missing.length) throw new Error(`Missing required header${missing.length>1?'s':''}: ${missing.join(', ')}`)
+  const [programResult, scholarshipResult, studentResult, assignmentResult, countResult] = await Promise.all([
+    supabase.from('programs').select('id,name,code'), supabase.from('scholarships').select('id,name,scholarship_categories(name)').is('archived_at',null),
+    supabase.from('students').select('id,student_number,first_name,last_name'), supabase.from('student_scholarships').select('student_id,scholarship_id,academic_year,semester'),
+    supabase.from('students').select('*',{count:'exact',head:true}).is('archived_at',null),
+  ])
+  for (const result of [programResult,scholarshipResult,studentResult,assignmentResult]) if (result.error) throw new Error(result.error.message)
+  const programs = programResult.data??[], scholarships = scholarshipResult.data??[], students = studentResult.data??[], assignments = assignmentResult.data??[]
+  const programMap=new Map<string,any>(), scholarshipMap=new Map<string,any>(), studentMap=new Map<string,any>(), studentNumberById=new Map<string,string>(), scholarshipById=new Map<string,string>()
+  for(const p of programs){programMap.set(norm(p.name),p);if(p.code)programMap.set(norm(p.code),p)}
+  for(const s of scholarships){scholarshipMap.set(norm(s.name),s);scholarshipById.set(s.id,s.name)}
+  for(const s of students){studentMap.set(norm(s.student_number),s);studentNumberById.set(s.id,s.student_number)}
+  const existing=new Set(assignments.map((a:any)=>keyOf(studentNumberById.get(a.student_id),scholarshipById.get(a.scholarship_id),a.academic_year,a.semester)))
+  const sameTerm=new Set(assignments.map((a:any)=>[studentNumberById.get(a.student_id),a.academic_year,a.semester].map(norm).join('|'))), seen=new Set<string>(), seenTerms=new Set<string>()
+  const out:ImportPreview={filename:file.name,totalRows:rows.length,beforeStudentCount:countResult.count??0,newRecords:[],existingRecords:[],conflicts:[],invalidRecords:[]}
+  rows.forEach((row,index)=>{
+    const n=index+2, studentNumber=String(row['ID Number']??'').trim(), scholarshipName=String(row.Scholarship??'').trim(), year=String(row['Acad Year']??'').replace(/\s/g,''), semester=String(row.Semester??'').trim()
+    const base={row:n,studentNumber,studentName:`${row['First Name']??''} ${row['Last Name']??''}`.trim(),academicYear:year,semester,scholarship:scholarshipName}
+    const invalid=(message:string)=>out.invalidRecords.push({...base,classification:'invalid',message}); const program=programMap.get(norm(row.Degree)), scholarship=scholarshipMap.get(norm(scholarshipName))
+    if(!studentNumber)return invalid('Student ID is missing.'); if(!/^\d{2}-\d{4}$/.test(studentNumber))return invalid(`Invalid Student ID "${studentNumber}"; expected 00-0000.`)
+    if(!String(row['First Name']??'').trim()||!String(row['Last Name']??'').trim())return invalid('First Name and Last Name are required.'); if(!program)return invalid(`Unknown program "${row.Degree??''}".`)
+    if(!YEARS.has(String(row['Yr Lvl']??'').trim()))return invalid(`Invalid year level "${row['Yr Lvl']??''}".`); if(!/^20\d{2}-20\d{2}$/.test(year))return invalid('Academic Year format must be YYYY-YYYY.')
+    if(!SEMESTERS.has(semester))return invalid(`Invalid semester "${semester}".`); if(!scholarship)return invalid(`Unknown scholarship "${scholarshipName}".`); if(String(row.Email??'').trim()&&!EMAIL.test(String(row.Email).trim()))return invalid(`Invalid email "${row.Email}".`)
+    const key=keyOf(studentNumber,scholarshipName,year,semester); if(seen.has(key))return out.existingRecords.push({...base,classification:'existing',message:'Duplicate within uploaded file.'}); seen.add(key)
+    if(existing.has(key))return out.existingRecords.push({...base,classification:'existing',message:'Duplicate — already exists.'})
+    const old=studentMap.get(norm(studentNumber)); if(old&&(norm(old.first_name)!==norm(row['First Name'])||norm(old.last_name)!==norm(row['Last Name'])))return invalid('Student ID exists with a different name; existing profile was not overwritten.')
+    const payload={student_number:studentNumber,last_name:String(row['Last Name']).trim(),first_name:String(row['First Name']).trim(),middle_initial:String(row['M.I.']??'').trim()||null,program_id:program.id,yr_level:String(row['Yr Lvl']).trim(),address:String(row.Address??'').trim()||null,contact_number:String(row['Contact #']??'').trim()||null,email:String(row.Email??'').trim()||null,scholarship_id:scholarship.id,academic_year:year,semester,status:STATUSES[norm(row.Remarks)]??'Active'}
+    const item={...base,payload,classification:'new' as const,message:'Ready to add.'}, term=[studentNumber,year,semester].map(norm).join('|')
+    if(sameTerm.has(term)||seenTerms.has(term))out.conflicts.push({...item,classification:'conflict',message:'Another scholarship exists in this term; this row will be added and checked by duplicate rules.'});else out.newRecords.push(item)
+    seenTerms.add(term)
+  }); return out
 }
 
-function parseFile(file: File): Promise<ImportRow[]> {
-  return new Promise((resolve, reject) => {
-    if (file.name.endsWith('.csv')) {
-      Papa.parse<ImportRow>(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (res) => resolve(res.data),
-        error: reject,
-      })
-    } else {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const workbook = XLSX.read(e.target?.result, { type: 'binary' })
-        const sheet = workbook.Sheets[workbook.SheetNames[0]]
-        resolve(XLSX.utils.sheet_to_json<ImportRow>(sheet))
-      }
-      reader.onerror = reject
-      reader.readAsBinaryString(file)
-    }
-  })
-}
-
-const remarksToStatus: Record<string, string> = {
-  Active: 'Active',
-  'For renewal': 'For Renewal',
-  'Documents incomplete': 'Documents Incomplete',
-  'Pending verification': 'Pending Verification',
-}
-
-// Normalizes away the kind of formatting drift that shows up across
-// different exports of "the same" sheet: en/em dashes vs hyphens, extra
-// whitespace, case.
-function normalize(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[‒–—]/g, '-') // – — → -
-    .replace(/\s+/g, ' ')
-}
-
-// Older exports of the sample sheet use short-form degree names ("BS
-// Agriculture") while the programs table stores full official titles
-// ("Bachelor of Science in Agriculture"). Builds a lookup that accepts
-// either, plus each program's short `code` (e.g. "BSA"), plus a
-// startsWith fallback for names that were also abbreviated at the tail
-// (e.g. "...Sustainable Dev" vs "...Sustainable Development").
-function buildProgramLookup(programs: { id: string; name: string; code: string | null }[]) {
-  const byExact = new Map<string, string>()
-  const byCode = new Map<string, string>()
-  const fullNames: { normalized: string; id: string }[] = []
-
-  const prefixExpansions: [RegExp, string][] = [
-    [/^bachelor of science in /, 'bs '],
-    [/^bachelor of arts in /, 'ba '],
-  ]
-
-  for (const p of programs) {
-    const normalizedFull = normalize(p.name)
-    byExact.set(normalizedFull, p.id)
-    fullNames.push({ normalized: normalizedFull, id: p.id })
-
-    if (p.code) byCode.set(p.code.trim().toLowerCase(), p.id)
-
-    for (const [pattern, replacement] of prefixExpansions) {
-      if (pattern.test(normalizedFull)) {
-        byExact.set(normalizedFull.replace(pattern, replacement), p.id)
-      }
-    }
-  }
-
-  return function resolve(rawDegree: string): string | null {
-    const input = normalize(String(rawDegree ?? ''))
-    if (!input) return null
-
-    const exact = byExact.get(input) ?? byCode.get(input)
-    if (exact) return exact
-
-    // Fallback: a full program name that starts with the (possibly
-    // truncated) input, as long as exactly one program matches.
-    const candidates = fullNames.filter((f) => f.normalized.startsWith(input))
-    if (candidates.length === 1) return candidates[0].id
-
-    return null
-  }
-}
-
-export async function importStudentsFile(file: File): Promise<ImportResult> {
-  const rows = await parseFile(file)
-  const errors: ImportResult['errors'] = []
-  let successCount = 0
-
-  const { data: programs } = await supabase.from('programs').select('id, name, code')
-  const { data: scholarships } = await supabase.from('scholarships').select('id, name')
-  const programList = (programs ?? []) as { id: string; name: string; code: string | null }[]
-  const scholarshipList = (scholarships ?? []) as { id: string; name: string }[]
-  const resolveProgramId = buildProgramLookup(programList)
-  const scholarshipByName = new Map(scholarshipList.map((s) => [normalize(s.name), s.id]))
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]
-    const rowNum = i + 2 // account for header row
-
-    try {
-      const studentNumber = String(row['ID Number'] ?? '').trim()
-      if (!/^[0-9]{2}-[0-9]{4}$/.test(studentNumber)) {
-        throw new Error(`Invalid student number "${studentNumber}"`)
-      }
-
-      const programId = resolveProgramId(row.Degree)
-      if (!programId) throw new Error(`Unknown program "${row.Degree}"`)
-
-      const { data: student, error: studentError } = await supabase
-        .from('students')
-        .upsert(
-          {
-            student_number: studentNumber,
-            last_name: row['Last Name'],
-            first_name: row['First Name'],
-            middle_initial: row['M.I.'] || null,
-            program_id: programId,
-            yr_level: row['Yr Lvl'],
-            address: row.Address || null,
-            contact_number: row['Contact #'] || null,
-            email: row.Email || null,
-          },
-          { onConflict: 'student_number' }
-        )
-        .select('id')
-        .single()
-
-      if (studentError || !student) throw new Error(studentError?.message ?? 'Failed to upsert student')
-
-      const scholarshipId = scholarshipByName.get(normalize(String(row.Scholarship ?? '')))
-      if (!scholarshipId) throw new Error(`Unknown scholarship "${row.Scholarship}"`)
-
-      const remark = String(row.Remarks ?? '').trim()
-      const status = remarksToStatus[remark] ?? (remark.toLowerCase().startsWith('duplicate') ? 'Active' : 'Active')
-
-      const { error: linkError } = await supabase.from('student_scholarships').upsert(
-        {
-          student_id: student.id,
-          scholarship_id: scholarshipId,
-          academic_year: row['Acad Year'],
-          semester: row.Semester,
-          status,
-        },
-        { onConflict: 'student_id,scholarship_id,academic_year,semester' }
-      )
-
-      if (linkError) throw new Error(linkError.message)
-
-      successCount++
-    } catch (err) {
-      errors.push({ row: rowNum, message: (err as Error).message })
-    }
-  }
-
-  await supabase.from('import_batches').insert({
-    filename: file.name,
-    row_count: rows.length,
-    error_count: errors.length,
-    status: errors.length === rows.length ? 'Failed' : 'Completed',
-    error_log: errors,
-  })
-
-  await supabase.from('notifications').insert({
-    type: 'import_complete',
-    title: 'Import complete',
-    message: `${file.name}: ${successCount} of ${rows.length} rows imported${errors.length ? `, ${errors.length} failed` : ''}.`,
-  })
-
-  if (successCount > 0) {
-    await logActivity(
-      'import',
-      'student',
-      `Imported ${successCount} student record(s) from ${file.name}${errors.length ? ` (${errors.length} failed)` : ''}.`
-    )
-  }
-
-  return { totalRows: rows.length, successCount, errorCount: errors.length, errors }
+export async function commitStudentsImport(preview: ImportPreview): Promise<ImportResult> {
+  const candidates=[...preview.newRecords,...preview.conflicts]; const {data,error}=await supabase.rpc('import_student_records',{p_rows:candidates.map(i=>i.payload)}); if(error)throw new Error(error.message)
+  const result=data?.[0]??{added:0,skipped:0}, added=Number(result.added??0), skipped=Number(result.skipped??0)
+  const after=(await supabase.from('students').select('*',{count:'exact',head:true}).is('archived_at',null)).count??preview.beforeStudentCount
+  await supabase.from('import_batches').insert({filename:preview.filename,row_count:preview.totalRows,error_count:preview.invalidRecords.length,status:'Completed',error_log:preview.invalidRecords})
+  await supabase.from('notifications').insert({type:'import_complete',title:'Import complete',message:`${preview.filename}: ${added} added, ${preview.existingRecords.length+skipped} duplicates, ${preview.conflicts.length} conflicts, ${preview.invalidRecords.length} invalid.`})
+  await logActivity('import','student',`Imported ${preview.filename}: ${preview.totalRows} rows; ${added} added, ${preview.existingRecords.length+skipped} duplicates, ${preview.conflicts.length} conflicts, ${preview.invalidRecords.length} invalid.`)
+  return {totalRows:preview.totalRows,addedCount:added,existingCount:preview.existingRecords.length+skipped,conflictCount:preview.conflicts.length,invalidCount:preview.invalidRecords.length,beforeStudentCount:preview.beforeStudentCount,afterStudentCount:after,errors:preview.invalidRecords.map(i=>({row:i.row,message:i.message}))}
 }

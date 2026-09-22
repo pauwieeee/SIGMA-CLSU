@@ -7,7 +7,8 @@ import { Card } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Skeleton } from '@/components/ui/Skeleton'
-import type { ImportResult } from '@/utils/importStudents'
+import type { ImportPreview, ImportResult } from '@/utils/importStudents'
+import { ImportPreviewModal } from '@/components/students/ImportPreviewModal'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 import { BatchUpdateModal } from '@/components/students/BatchUpdateModal'
 import { EnrollmentVerificationModal } from '@/components/students/EnrollmentVerificationModal'
@@ -83,6 +84,7 @@ export default function StudentRecordsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [exportingPdf, setExportingPdf] = useState(false)
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -91,14 +93,26 @@ export default function StudentRecordsPage() {
     setImporting(true)
     setImportResult(null)
     try {
-      const { importStudentsFile } = await import('@/utils/importStudents')
-      const result = await importStudentsFile(file)
-      setImportResult(result)
-      if (result.successCount > 0) await refetch()
+      const { previewStudentsFile } = await import('@/utils/importStudents')
+      setImportPreview(await previewStudentsFile(file))
+    } catch (error) {
+      pushToast((error as Error).message, 'error')
     } finally {
       setImporting(false)
       e.target.value = ''
     }
+  }
+
+  async function confirmImport() {
+    if (!importPreview || importing) return
+    setImporting(true)
+    try {
+      const { commitStudentsImport } = await import('@/utils/importStudents')
+      const result = await commitStudentsImport(importPreview)
+      setImportResult(result); setImportPreview(null); await refetch()
+      pushToast(`Import completed — ${result.addedCount} new record(s) added.`)
+    } catch (error) { pushToast(`Import failed: ${(error as Error).message}`, 'error') }
+    finally { setImporting(false) }
   }
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
@@ -170,13 +184,13 @@ export default function StudentRecordsPage() {
       {importResult && (
         <Card
           style={{
-            borderColor: importResult.errorCount > 0 ? 'var(--status-warning-text)' : 'var(--btn-primary-bg)',
-            background: importResult.errorCount > 0 ? 'var(--status-warning-bg)' : 'var(--status-success-bg)',
+            borderColor: importResult.invalidCount > 0 ? 'var(--status-warning-text)' : 'var(--btn-primary-bg)',
+            background: importResult.invalidCount > 0 ? 'var(--status-warning-bg)' : 'var(--status-success-bg)',
           }}
         >
           <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Imported {importResult.successCount} of {importResult.totalRows} rows.
-            {importResult.errorCount > 0 && ` ${importResult.errorCount} row(s) failed.`}
+            Import completed: {importResult.addedCount} added, {importResult.existingCount} existing skipped, {importResult.conflictCount} conflict(s) reviewed, and {importResult.invalidCount} invalid.
+            {' '}Student Records: {importResult.beforeStudentCount} → {importResult.afterStudentCount}.
           </p>
           {importResult.errors.length > 0 && (
             <ul className="mt-2 max-h-32 space-y-0.5 overflow-y-auto text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -391,6 +405,8 @@ export default function StudentRecordsPage() {
       </Card>
 
       <StudentDetailModal studentId={viewingId} onClose={() => setViewingId(null)} onChanged={refetch} />
+
+      {importPreview && <ImportPreviewModal preview={importPreview} processing={importing} onCancel={() => setImportPreview(null)} onConfirm={confirmImport} />}
 
       <AddStudentModal
         open={addStudentModalOpen}

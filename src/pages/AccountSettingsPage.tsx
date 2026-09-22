@@ -178,8 +178,8 @@ export default function AccountSettingsPage() {
               ))}
               <div className="space-y-1 text-xs">
                 <p className="font-semibold" style={{ color: 'var(--text-secondary)' }}>Password requirements</p>
-                <p style={{ color: passwordIsValid ? 'var(--status-complete-text)' : 'var(--status-incomplete-text)' }}>
-                  {passwordIsValid ? '✓' : '✕'} At least 8 characters
+                <p style={{ color: newPassword.length === 0 ? 'var(--text-muted)' : passwordIsValid ? 'var(--status-complete-text)' : 'var(--status-incomplete-text)' }}>
+                  {newPassword.length === 0 ? '' : passwordIsValid ? '✓ ' : '✕ '}At least 8 characters
                 </p>
               </div>
               {confirmPassword && !passwordsMatch && <p className="text-xs" style={{ color: 'var(--status-incomplete-text)' }}>New password and confirmation password do not match.</p>}

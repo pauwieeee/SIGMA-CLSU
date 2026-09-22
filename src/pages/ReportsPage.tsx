@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChevronDown, Download, FileText, RefreshCw } from 'lucide-react'
+import { ChevronDown, Download, Eye, FileText, RefreshCw } from 'lucide-react'
 import { useDashboardStats, useScholarsPerCategory } from '@/hooks/useDashboardData'
 import { useScholarsTrend } from '@/hooks/useScholarsTrend'
 import { useColleges } from '@/hooks/useColleges'
@@ -26,6 +26,7 @@ import { useToasts } from '@/hooks/useToasts'
 import { supabase } from '@/lib/supabase'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend } from '@/hooks/useTrends'
+import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
 
 export default function ReportsPage() {
   const { stats, refetch: refetchStats } = useDashboardStats()
@@ -43,6 +44,7 @@ export default function ReportsPage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
 
   async function rescanDuplicates() {
     setScanning(true)
@@ -272,7 +274,7 @@ export default function ReportsPage() {
 
         <Card>
           <p className="mb-3 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>
-            Duplicate-Flag Count
+            Open Duplicate Cases
           </p>
           <p className="text-4xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             {stats?.duplicate_flags_open ?? '—'}
@@ -284,18 +286,35 @@ export default function ReportsPage() {
                 ? 'No prior data'
                 : `${duplicateTrend.diff >= 0 ? '↑' : '↓'} ${Math.abs(duplicateTrend.diff)} vs last semester`}
           </p>
-          <button
-            onClick={rescanDuplicates}
-            disabled={scanning}
-            title="Runs duplicate detection against every student record, not just recently changed ones — catches duplicates that bulk imports or manual edits may have missed."
-            className="mt-4 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
-          >
-            <RefreshCw size={13} className={scanning ? 'animate-spin' : undefined} />
-            {scanning ? 'Scanning all records…' : 'Re-scan All Records for Duplicates'}
-          </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => setDuplicateModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-[var(--btn-primary-hover)]"
+              style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+            >
+              <Eye size={13} />
+              View Flagged Students
+            </button>
+            <button
+              onClick={rescanDuplicates}
+              disabled={scanning}
+              title="Runs duplicate detection against every student record, not just recently changed ones — catches duplicates that bulk imports or manual edits may have missed."
+              className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            >
+              <RefreshCw size={13} className={scanning ? 'animate-spin' : undefined} />
+              {scanning ? 'Scanning…' : 'Re-scan Records'}
+            </button>
+          </div>
         </Card>
       </div>
+
+      {duplicateModalOpen && (
+        <DuplicateFlagsModal
+          onClose={() => setDuplicateModalOpen(false)}
+          onChanged={refetchStats}
+        />
+      )}
 
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>

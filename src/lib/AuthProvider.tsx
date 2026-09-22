@@ -17,16 +17,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
+    let active = true
+
+    async function restoreSession() {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const savedSession = sessionData.session
+
+      if (!savedSession) {
+        if (active) {
+          setSession(null)
+          setLoading(false)
+        }
+        return
+      }
+
+      // getUser validates the saved access token with Supabase instead of
+      // trusting browser storage alone.
+      const { data: userData, error } = await supabase.auth.getUser()
+      if (!active) return
+
+      if (error || !userData.user) {
+        await supabase.auth.signOut({ scope: 'local' })
+        if (active) setSession(null)
+      } else {
+        const { data: latestSessionData } = await supabase.auth.getSession()
+        if (active) setSession(latestSessionData.session)
+      }
+      if (active) setLoading(false)
+    }
+
+    void restoreSession()
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
     })
 
-    return () => subscription.subscription.unsubscribe()
+    return () => {
+      active = false
+      subscription.subscription.unsubscribe()
+    }
   }, [])
 
   async function signIn(email: string, password: string) {
@@ -35,7 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      setSession(null)
+    }
   }
 
   return (

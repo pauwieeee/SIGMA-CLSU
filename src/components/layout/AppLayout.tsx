@@ -19,6 +19,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  async function handleLogout() {
+    setMenuOpen(false)
+    sessionStorage.removeItem('sigmaPublicBackAttempts')
+    await signOut()
+    navigate('/login', { replace: true })
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -104,10 +111,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </button>
                   <button
                     role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false)
-                      signOut()
-                    }}
+                    onClick={handleLogout}
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm"
                     style={{ color: 'var(--status-error-text)' }}
                   >

@@ -284,7 +284,7 @@ async function resolveIntent(
       .order('name')
     assertQuerySucceeded(error)
     let rows = (data ?? []) as any[]
-    const statuses = ['Active', 'Expiring Soon', 'Inactive']
+    const statuses = ['Active', 'Expiring Soon', 'Expired', 'Inactive']
     const matchedStatus = statuses.find((status) => contextualQ.includes(status.toLowerCase()))
     if (matchedStatus) rows = rows.filter((row) => row.status === matchedStatus)
     const categories = ['Government', 'Institutional', 'Private']

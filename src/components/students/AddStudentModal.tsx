@@ -183,34 +183,40 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
 
     const { data: existing } = await supabase
       .from('students')
-      .select('id')
+      .select('id, first_name, last_name')
       .eq('student_number', studentNumber)
       .maybeSingle()
 
-    if (existing) {
-      setErrors({ studentNumber: 'Student ID already exists.' })
+    if (existing && !form.scholarshipId) {
+      setErrors({ studentNumber: 'Student ID already exists. Select a scholarship and term to add a new semester record to the existing student.' })
       setSaving(false)
       return
     }
 
-    const { data: student, error: studentError } = await supabase
-      .from('students')
-      .insert({
-        student_number: studentNumber,
-        first_name: form.firstName.trim(),
-        middle_name: form.middleName.trim() || null,
-        middle_initial: form.middleName.trim() ? form.middleName.trim().charAt(0).toUpperCase() : null,
-        last_name: form.lastName.trim(),
-        suffix: form.suffix.trim() || null,
-        date_of_birth: form.dateOfBirth || null,
-        sex: form.sex || null,
-        email: form.email.trim() || null,
-        contact_number: form.contactNumber.trim() || null,
-        program_id: form.programId,
-        yr_level: form.yearLevel.trim(),
-      })
-      .select('id')
-      .single()
+    let student = existing
+    let studentError: { code?: string; message: string } | null = null
+    if (!student) {
+      const result = await supabase
+        .from('students')
+        .insert({
+          student_number: studentNumber,
+          first_name: form.firstName.trim(),
+          middle_name: form.middleName.trim() || null,
+          middle_initial: form.middleName.trim() ? form.middleName.trim().charAt(0).toUpperCase() : null,
+          last_name: form.lastName.trim(),
+          suffix: form.suffix.trim() || null,
+          date_of_birth: form.dateOfBirth || null,
+          sex: form.sex || null,
+          email: form.email.trim() || null,
+          contact_number: form.contactNumber.trim() || null,
+          program_id: form.programId,
+          yr_level: form.yearLevel.trim(),
+        })
+        .select('id, first_name, last_name')
+        .single()
+      student = result.data
+      studentError = result.error
+    }
 
     if (studentError || !student) {
       const duplicate = studentError?.code === '23505' || studentError?.message?.toLowerCase().includes('student_number')
@@ -232,17 +238,27 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
       })
 
       if (assignmentError) {
-        await supabase.from('students').delete().eq('id', student.id)
-        setErrors({ form: assignmentError.message })
+        if (!existing) await supabase.from('students').delete().eq('id', student.id)
+        const duplicateAssignment = assignmentError.code === '23505'
+        setErrors({ form: duplicateAssignment
+          ? 'This student already has this scholarship for the selected academic year and semester.'
+          : assignmentError.message })
         setSaving(false)
         return
       }
     }
 
     const studentName = `${form.firstName.trim()} ${form.middleName.trim() ? `${form.middleName.trim()} ` : ''}${form.lastName.trim()}${form.suffix.trim() ? ` ${form.suffix.trim()}` : ''}`
-    await logActivity('create', 'student', `Added student ${studentName} (${studentNumber}).`, student.id)
+    await logActivity(
+      'create',
+      existing ? 'student_scholarship' : 'student',
+      existing
+        ? `Added a new semester scholarship record for ${existing.first_name} ${existing.last_name} (${studentNumber}) in ${form.academicYear} ${form.semester}.`
+        : `Added student ${studentName} (${studentNumber}).`,
+      student.id
+    )
     setSaving(false)
-    onAdded(studentName)
+    onAdded(existing ? `${existing.first_name} ${existing.last_name}` : studentName)
   }
 
   if (!open) return null

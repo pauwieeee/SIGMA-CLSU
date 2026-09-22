@@ -26,6 +26,7 @@ export interface ScholarshipHistoryRow {
   start_date: string | null
   end_date: string | null
   is_enrolled: boolean | null
+  term_closed_at: string | null
   min_gwa: number | null
   min_units: number | null
 }
@@ -57,7 +58,7 @@ export function useStudentDetail(studentId: string | null) {
         .single(),
       supabase
         .from('student_scholarships')
-        .select('id, academic_year, semester, status, start_date, end_date, is_enrolled, scholarships ( name, min_gwa, min_units, scholarship_categories ( name ) )')
+        .select('id, academic_year, semester, status, start_date, end_date, is_enrolled, term_closed_at, scholarships ( name, min_gwa, min_units, scholarship_categories ( name ) )')
         .eq('student_id', studentId)
         .order('academic_year', { ascending: false }),
       supabase
@@ -100,6 +101,7 @@ export function useStudentDetail(studentId: string | null) {
         start_date: r.start_date,
         end_date: r.end_date,
         is_enrolled: r.is_enrolled,
+        term_closed_at: r.term_closed_at,
         min_gwa: r.scholarships?.min_gwa ?? null,
         min_units: r.scholarships?.min_units ?? null,
       }))

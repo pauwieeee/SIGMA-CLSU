@@ -16,9 +16,8 @@ import {
   YAxis,
 } from 'recharts'
 import { Archive, Download, Eye, RefreshCw } from 'lucide-react'
-import { useDashboardStats, useScholarsPerCategory } from '@/hooks/useDashboardData'
-import { useScholarsTrend } from '@/hooks/useScholarsTrend'
-import { useColleges } from '@/hooks/useColleges'
+import { useDashboardStats } from '@/hooks/useDashboardData'
+import { useReportAnalytics } from '@/hooks/useReportAnalytics'
 import { Card } from '@/components/ui/Card'
 import { WidgetCard, WidgetTitle } from '@/components/dashboard/WidgetCard'
 import { CategoryPieLegend } from '@/components/dashboard/CategoryPieLegend'
@@ -35,21 +34,28 @@ export default function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { stats, refetch: refetchStats } = useDashboardStats()
   const { data: duplicateTrend } = useDuplicateFlagTrend()
-  const { data: categoryDataRaw, loading } = useScholarsPerCategory()
-  const categoryData = sortByCategoryOrder(categoryDataRaw)
-  const { data: trendData, loading: trendLoading } = useScholarsTrend()
-  const colleges = useColleges()
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts()
 
   const [academicYear, setAcademicYear] = useState('2025-2026')
   const [semester, setSemester] = useState('')
   const [college, setCollege] = useState('')
   const [category, setCategory] = useState('')
+  const [scholarship, setScholarship] = useState('')
+  const [status, setStatus] = useState('')
+  const [enrollment, setEnrollment] = useState('')
   const [exportingPdf, setExportingPdf] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
   const [notificationFlagId, setNotificationFlagId] = useState<string | null>(null)
   const [closingTerm, setClosingTerm] = useState(false)
+  const report = useReportAnalytics({ academicYear, semester, college, category, scholarship, status, enrollment })
+  const categoryData = sortByCategoryOrder(report.categoryData)
+  const trendData = report.trendData
+  const loading = report.loading
+  const trendLoading = report.loading
+  const categoryTotals = Object.fromEntries(
+    categoryData.map((item) => [item.category_name, item.scholar_count])
+  ) as Record<string, number>
 
   useEffect(() => {
     const duplicateFlagId = searchParams.get('duplicateFlag')
@@ -78,13 +84,13 @@ export default function ReportsPage() {
   }
 
   async function closeAcademicTerm() {
-    if (!semester) {
-      pushToast('Select a specific semester before closing a term.', 'error')
+    if (!academicYear || !semester) {
+      pushToast('Select a specific academic year and semester before closing a term.', 'error')
       return
     }
 
     const confirmed = window.confirm(
-      `Close and archive ${academicYear} ${semester}?\n\nThis will move its scholarship assignments out of active lists, set them to Inactive, and preserve them in student history. This action should only be used after the semester is officially complete.`
+      `Close ${academicYear} ${semester}?\n\nThis records the semester as historical. Student profiles and scholarship assignments remain searchable, and their existing scholarship statuses will not change.`
     )
     if (!confirmed) return
 
@@ -96,18 +102,18 @@ export default function ReportsPage() {
       } as never)
       if (error) throw error
 
-      const result = (data as unknown as { assignments_archived: number; duplicate_flags_resolved: number }[])?.[0]
-      const archived = result?.assignments_archived ?? 0
+      const result = (data as unknown as { assignments_closed: number; duplicate_flags_resolved: number }[])?.[0]
+      const closed = result?.assignments_closed ?? 0
       const resolved = result?.duplicate_flags_resolved ?? 0
       await logActivity(
         'close_term',
         'student_scholarship',
-        `Closed ${academicYear} ${semester}: archived ${archived} scholarship assignment(s) and resolved ${resolved} duplicate flag(s).`
+        `Closed ${academicYear} ${semester}: preserved ${closed} assignment(s) as history and resolved ${resolved} duplicate flag(s).`
       )
       pushToast(
-        archived > 0
-          ? `Semester closed — ${archived} assignment(s) archived and ${resolved} duplicate flag(s) resolved.`
-          : 'This semester had no active scholarship assignments left to archive.',
+        closed > 0
+          ? `Semester closed — ${closed} assignment(s) preserved as history; scholarship statuses were unchanged.`
+          : 'This semester was already closed or has no scholarship assignments.',
         'success'
       )
       refetchStats()
@@ -144,8 +150,8 @@ export default function ReportsPage() {
               className="rounded-full border px-3 py-1.5 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
-              <option value="2025-2026">A.Y. 2025-2026</option>
-              <option value="2024-2025">A.Y. 2024-2025</option>
+              <option value="">All Academic Years</option>
+              {report.options.academicYears.map((year) => <option key={year} value={year}>A.Y. {year}</option>)}
             </select>
             <select
               value={semester}
@@ -164,7 +170,7 @@ export default function ReportsPage() {
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Colleges</option>
-              {colleges.map((c) => (
+              {report.options.colleges.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -175,22 +181,34 @@ export default function ReportsPage() {
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Categories</option>
-              <option value="Government">Government</option>
-              <option value="Institutional">Institutional</option>
-              <option value="Private">Private</option>
+              {report.options.categories.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <select value={scholarship} onChange={(e) => setScholarship(e.target.value)} className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+              <option value="">All Scholarships</option>
+              {report.options.scholarships.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+              <option value="">All Scholarship Statuses</option>
+              {report.options.statuses.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <select value={enrollment} onChange={(e) => setEnrollment(e.target.value)} className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+              <option value="">All Enrollment Statuses</option>
+              <option value="Enrolled">Enrolled</option>
+              <option value="Not Enrolled">Not Enrolled</option>
+              <option value="Not Yet Verified">Not Yet Verified</option>
             </select>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={closeAcademicTerm}
-              disabled={closingTerm || !semester}
-              title={!semester ? 'Select a specific semester first' : `Archive ${academicYear} ${semester}`}
+              disabled={closingTerm || !academicYear || !semester}
+              title={!academicYear || !semester ? 'Select a specific academic year and semester first' : `Close ${academicYear} ${semester} while preserving history`}
               className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-50"
               style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
             >
               <Archive size={16} />
-              {closingTerm ? 'Closing Semester…' : 'Close & Archive Semester'}
+              {closingTerm ? 'Closing Semester…' : 'Close Semester'}
             </button>
 
             <button
@@ -205,6 +223,28 @@ export default function ReportsPage() {
           </div>
         </div>
       </Card>
+
+      {report.error && (
+        <Card className="text-sm" style={{ color: 'var(--status-error-text)' }}>
+          Historical report data could not be loaded: {report.error}
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Scholar totals by scholarship category">
+        {(['Government', 'Institutional', 'Private'] as const).map((type) => (
+          <Card key={type}>
+            <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>
+              {type} Scholars
+            </p>
+            <p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+              {loading ? '—' : categoryTotals[type] ?? 0}
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Matching the selected report filters
+            </p>
+          </Card>
+        ))}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <WidgetCard className="lg:col-span-2">

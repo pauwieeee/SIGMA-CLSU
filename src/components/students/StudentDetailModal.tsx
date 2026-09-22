@@ -125,6 +125,15 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
                               Not Enrolled
                             </span>
                           )}
+                          {h.term_closed_at && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                              title="This semester is closed; the record remains available as history."
+                            >
+                              Historical
+                            </span>
+                          )}
                           {belowGwaThreshold && (
                             <span
                               className="rounded-full px-2 py-0.5 text-[10px] font-semibold"

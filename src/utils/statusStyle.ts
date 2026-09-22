@@ -10,6 +10,7 @@ export interface BadgeStyle {
 const statusStyles: Record<string, BadgeStyle> = {
   Active: { background: 'var(--status-active-bg)', color: 'var(--status-active-text)' },
   'Expiring Soon': { background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' },
+  Expired: { background: 'var(--status-duplicate-bg)', color: 'var(--status-duplicate-text)' },
   'For Renewal': { background: 'var(--status-renewal-bg)', color: 'var(--status-renewal-text)' },
   'Pending Verification': { background: 'var(--status-pending-bg)', color: 'var(--status-pending-text)' },
   'Documents Incomplete': { background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' },

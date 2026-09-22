@@ -1,5 +1,5 @@
 export type ScholarshipCategoryName = 'Institutional' | 'Government' | 'Private'
-export type ScholarshipStatus = 'Active' | 'Expiring Soon' | 'Inactive' | 'Archived'
+export type ScholarshipStatus = 'Active' | 'Expiring Soon' | 'Expired' | 'Inactive' | 'Archived'
 export const STUDENT_SCHOLARSHIP_STATUS_OPTIONS = [
   'Active',
   'For Renewal',
@@ -110,6 +110,7 @@ export interface StudentScholarship {
   end_date: string | null
   is_enrolled: boolean | null
   enrollment_verified_at: string | null
+  term_closed_at: string | null
   units_enrolled: number | null
   archived_at: string | null
   created_at: string

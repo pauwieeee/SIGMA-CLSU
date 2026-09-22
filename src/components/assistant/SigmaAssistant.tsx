@@ -4,6 +4,7 @@ import {
   askAssistant,
   AssistantError,
   type AssistantConversationMessage,
+  type AssistantQueryContext,
 } from '@/utils/assistantClient'
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 import cobraMascot from '@/assets/cobra-assistant.png'
@@ -44,6 +45,7 @@ export function SigmaAssistant() {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [queryContext, setQueryContext] = useState<AssistantQueryContext | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,14 +66,15 @@ export function SigmaAssistant() {
   }, [])
 
   async function ask(question: string) {
-    if (!question.trim()) return
+    if (!question.trim() || loading) return
     setMessages((m) => [...m, { role: 'user', text: question }])
     setInput('')
     setLoading(true)
 
     try {
-      const answer = await askAssistant(question, messages)
-      setMessages((m) => [...m, { role: 'assistant', text: answer || "Sorry, I couldn't find an answer." }])
+      const response = await askAssistant(question, messages, queryContext)
+      setQueryContext(response.context)
+      setMessages((m) => [...m, { role: 'assistant', text: response.answer || "Sorry, I couldn't find an answer." }])
     } catch (err) {
       const code = err instanceof AssistantError ? err.code : 'network_error'
       setMessages((m) => [...m, { role: 'assistant', text: errorMessageFor(code) }])

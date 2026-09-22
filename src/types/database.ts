@@ -117,7 +117,9 @@ export interface DuplicateFlag {
 export interface ActivityLog {
   id: string
   actor_id: string | null
+  actor_name: string | null
   actor_email: string | null
+  actor_role: string
   action: string
   entity_type: string
   entity_id: string | null

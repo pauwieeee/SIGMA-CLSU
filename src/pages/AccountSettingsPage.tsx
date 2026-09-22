@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { getUserDisplayName } from '@/utils/userDisplayName'
+import { logActivity } from '@/utils/logActivity'
 
 function formatPasswordChangedAt(value: unknown) {
   if (typeof value !== 'string') return 'Not recorded yet'
@@ -47,9 +48,12 @@ export default function AccountSettingsPage() {
     setSavingProfile(true)
     const { error } = await supabase.auth.updateUser({ data: { preferred_username: username } })
     setSavingProfile(false)
-    setProfileStatus(error
-      ? { type: 'error', message: 'We could not save your profile. Please try again.' }
-      : { type: 'success', message: 'Profile changes saved successfully.' })
+    if (error) {
+      setProfileStatus({ type: 'error', message: 'We could not save your profile. Please try again.' })
+      return
+    }
+    setProfileStatus({ type: 'success', message: 'Profile changes saved successfully.' })
+    await logActivity('update', 'account_profile', 'Updated account profile information.', user?.id)
   }
 
   function closePasswordDialog(force = false) {
@@ -102,6 +106,7 @@ export default function AccountSettingsPage() {
     }
 
     setPasswordStatus('Password updated successfully.')
+    await logActivity('update', 'account_security', 'Updated account security settings.', user.id)
     closePasswordDialog(true)
   }
 

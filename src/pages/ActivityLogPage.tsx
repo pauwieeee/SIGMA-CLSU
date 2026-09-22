@@ -4,6 +4,7 @@ import { Card, CardTitle } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import type { ActivityLog } from '@/types/database'
+import { ActivityActor } from '@/components/activity/ActivityActor'
 
 const GROUP_ORDER = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'] as const
 
@@ -81,17 +82,18 @@ export default function ActivityLogPage() {
             <CardTitle>{group.label}</CardTitle>
             <ul className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>
               {group.items.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                <li key={a.id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,300px)_auto] sm:items-center">
                   <div className="flex min-w-0 items-start gap-2">
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'var(--btn-primary-bg)' }} />
                     <div className="min-w-0">
-                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{a.description}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {a.actor_email ?? 'Unknown admin'}
+                      <p className="text-sm leading-5" style={{ color: 'var(--text-secondary)' }}>{a.description}</p>
+                      <p className="mt-1 text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                        {a.entity_type.replaceAll('_', ' ')}{a.entity_id ? ` · Record ${a.entity_id.slice(0, 8)}` : ''}
                       </p>
                     </div>
                   </div>
-                  <span className="shrink-0 text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(a.created_at)}</span>
+                  <ActivityActor activity={a} showEmail />
+                  <span className="shrink-0 text-xs sm:text-right" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(a.created_at)}</span>
                 </li>
               ))}
             </ul>

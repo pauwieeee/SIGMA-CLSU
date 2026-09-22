@@ -12,6 +12,7 @@ import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend, useScholarshipsAddedThisMonth, useScholarTrend } from '@/hooks/useTrends'
 import { getUserDisplayName } from '@/utils/userDisplayName'
+import { ActivityActor } from '@/components/activity/ActivityActor'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -173,17 +174,13 @@ export default function DashboardPage() {
           ) : (
             <ul className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>
               {activity.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                <li key={a.id} className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,220px)_auto] sm:items-center">
                   <div className="flex min-w-0 items-start gap-2">
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'var(--btn-primary-bg)' }} />
-                    <div className="min-w-0">
-                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{a.description}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {a.actor_email ?? 'Unknown admin'}
-                      </p>
-                    </div>
+                    <p className="text-sm leading-5" style={{ color: 'var(--text-secondary)' }}>{a.description}</p>
                   </div>
-                  <span className="shrink-0 text-xs" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(a.created_at)}</span>
+                  <ActivityActor activity={a} />
+                  <span className="shrink-0 text-xs sm:text-right" style={{ color: 'var(--text-muted)' }}>{formatRelativeTime(a.created_at)}</span>
                 </li>
               ))}
             </ul>

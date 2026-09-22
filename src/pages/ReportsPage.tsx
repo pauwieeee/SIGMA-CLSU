@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChevronDown, Download, Eye, FileText, RefreshCw } from 'lucide-react'
+import { Archive, ChevronDown, Download, Eye, FileText, RefreshCw } from 'lucide-react'
 import { useDashboardStats, useScholarsPerCategory } from '@/hooks/useDashboardData'
 import { useScholarsTrend } from '@/hooks/useScholarsTrend'
 import { useColleges } from '@/hooks/useColleges'
@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend } from '@/hooks/useTrends'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
+import { logActivity } from '@/utils/logActivity'
 
 export default function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -49,6 +50,7 @@ export default function ReportsPage() {
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
   const [notificationFlagId, setNotificationFlagId] = useState<string | null>(null)
+  const [closingTerm, setClosingTerm] = useState(false)
 
   useEffect(() => {
     const duplicateFlagId = searchParams.get('duplicateFlag')
@@ -73,6 +75,47 @@ export default function ReportsPage() {
       pushToast(`Scan failed: ${(err as Error).message}`, 'error')
     } finally {
       setScanning(false)
+    }
+  }
+
+  async function closeAcademicTerm() {
+    if (!semester) {
+      pushToast('Select a specific semester before closing a term.', 'error')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Close and archive ${academicYear} ${semester}?\n\nThis will move its scholarship assignments out of active lists, set them to Inactive, and preserve them in student history. This action should only be used after the semester is officially complete.`
+    )
+    if (!confirmed) return
+
+    setClosingTerm(true)
+    try {
+      const { data, error } = await supabase.rpc('close_academic_term', {
+        p_academic_year: academicYear,
+        p_semester: semester,
+      } as never)
+      if (error) throw error
+
+      const result = (data as unknown as { assignments_archived: number; duplicate_flags_resolved: number }[])?.[0]
+      const archived = result?.assignments_archived ?? 0
+      const resolved = result?.duplicate_flags_resolved ?? 0
+      await logActivity(
+        'close_term',
+        'student_scholarship',
+        `Closed ${academicYear} ${semester}: archived ${archived} scholarship assignment(s) and resolved ${resolved} duplicate flag(s).`
+      )
+      pushToast(
+        archived > 0
+          ? `Semester closed — ${archived} assignment(s) archived and ${resolved} duplicate flag(s) resolved.`
+          : 'This semester had no active scholarship assignments left to archive.',
+        'success'
+      )
+      refetchStats()
+    } catch (err) {
+      pushToast(`Could not close semester: ${(err as Error).message}`, 'error')
+    } finally {
+      setClosingTerm(false)
     }
   }
 
@@ -153,7 +196,19 @@ export default function ReportsPage() {
             </select>
           </div>
 
-          <div className="relative">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={closeAcademicTerm}
+              disabled={closingTerm || !semester}
+              title={!semester ? 'Select a specific semester first' : `Archive ${academicYear} ${semester}`}
+              className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+            >
+              <Archive size={16} />
+              {closingTerm ? 'Closing Semester…' : 'Close & Archive Semester'}
+            </button>
+
+            <div className="relative">
             <button
               onClick={() => setExportMenuOpen((v) => !v)}
               disabled={exportingPdf}
@@ -188,6 +243,7 @@ export default function ReportsPage() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       </Card>

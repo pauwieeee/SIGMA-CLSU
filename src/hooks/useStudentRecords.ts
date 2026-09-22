@@ -45,7 +45,7 @@ export function useStudentRecords(filters: Filters) {
         .select(
           `id, student_number, last_name, first_name, middle_initial, yr_level,
            programs ( name, colleges ( id, name ) ),
-           student_scholarships ( id, academic_year, semester, status, is_enrolled,
+           student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
              scholarships ( name, scholarship_categories ( id, name ) ) )`
         )
         .is('archived_at', null)
@@ -62,7 +62,13 @@ export function useStudentRecords(filters: Filters) {
     const duplicateStudentIds = new Set((dupRows ?? []).map((d: any) => d.student_id))
 
     const mapped: StudentRecordRow[] = (data ?? []).map((s: any) => {
-      const latestScholarship = s.student_scholarships?.[0]
+      const semesterRank: Record<string, number> = { '1st Semester': 1, '2nd Semester': 2, Summer: 3 }
+      const latestScholarship = (s.student_scholarships ?? [])
+        .filter((assignment: any) => !assignment.archived_at)
+        .sort((a: any, b: any) =>
+          b.academic_year.localeCompare(a.academic_year)
+          || (semesterRank[b.semester] ?? 0) - (semesterRank[a.semester] ?? 0)
+        )[0]
       return {
         id: s.id,
         student_number: s.student_number,

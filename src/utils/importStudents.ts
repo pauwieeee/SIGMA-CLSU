@@ -2,7 +2,6 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { supabase as typedSupabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
-import { isValidStudentNumber, normalizeStudentNumber } from '@/utils/studentNumber'
 
 // The generated Database type only declares Row shapes precisely; insert/upsert
 // payloads here are validated manually against the schema instead.
@@ -139,9 +138,9 @@ export async function importStudentsFile(file: File): Promise<ImportResult> {
     const rowNum = i + 2 // account for header row
 
     try {
-      const studentNumber = normalizeStudentNumber(row['ID Number'])
-      if (!isValidStudentNumber(studentNumber)) {
-        throw new Error(`Invalid student number "${studentNumber}". Expected YY-NNNN or YYYY-NNNNN-AA.`)
+      const studentNumber = String(row['ID Number'] ?? '').trim()
+      if (!/^[0-9]{2}-[0-9]{4}$/.test(studentNumber)) {
+        throw new Error(`Invalid student number "${studentNumber}"`)
       }
 
       const programId = resolveProgramId(row.Degree)

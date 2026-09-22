@@ -350,11 +350,13 @@ export default function StudentRecordsPage() {
                 <div className="truncate px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                   {r.academic_year ? `${r.academic_year} · ${r.semester}` : '—'}
                 </div>
-                <div className="flex min-w-0 flex-wrap items-center gap-2 px-4 py-3">
-                  <StatusBadge status={displayStatus} />
+                <div className="grid min-w-0 grid-cols-[92px_100px] items-center gap-x-2 px-4 py-3">
+                  <div className="flex items-center">
+                    <StatusBadge status={displayStatus} />
+                  </div>
                   {r.isEnrolled === false && (
                     <span
-                      className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      className="status-badge"
                       style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}
                       title="Not found on the last verified enrollment list"
                     >

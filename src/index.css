@@ -195,6 +195,23 @@ body {
   text-transform: uppercase;
 }
 
+/* One typography system for every status pill, including enrollment status. */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  white-space: nowrap;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-align: center;
+}
+
 /* SIGMA AI post-login transition */
 .sigma-login-intro {
   position: fixed;

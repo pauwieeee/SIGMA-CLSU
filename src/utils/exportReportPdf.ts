@@ -6,7 +6,11 @@ interface Filters {
   academicYear: string
   semester: string
   college: string
+  program: string
   category: string
+  scholarship: string
+  status: string
+  enrollment: string
 }
 
 interface CategoryDatum {
@@ -44,13 +48,25 @@ export async function exportReportPdf(input: ReportPdfInput) {
 
   doc.setFontSize(10)
   doc.setTextColor(80, 80, 80)
-  const filterLine = [
+  const primaryFilterLine = [
     `A.Y.: ${input.filters.academicYear || 'All'}`,
     `Semester: ${input.filters.semester || 'All'}`,
     `College: ${input.filters.college || 'All Colleges'}`,
-    `Category: ${input.filters.category || 'All Categories'}`,
+    `Program: ${input.filters.program || 'All Programs'}`,
   ].join('   |   ')
-  doc.text(filterLine, marginX, y)
+  const scholarshipFilterLine = [
+    `Category: ${input.filters.category || 'All Categories'}`,
+    `Scholarship: ${input.filters.scholarship || 'All Scholarships'}`,
+  ].join('   |   ')
+  const statusFilterLine = [
+    `Status: ${input.filters.status || 'All Scholarship Statuses'}`,
+    `Enrollment: ${input.filters.enrollment || 'All Enrollment Statuses'}`,
+  ].join('   |   ')
+  doc.text(primaryFilterLine, marginX, y)
+  y += 4
+  doc.text(scholarshipFilterLine, marginX, y)
+  y += 4
+  doc.text(statusFilterLine, marginX, y)
   y += 4
   doc.text(`Generated: ${new Date().toLocaleString()}`, marginX, y)
   y += 10

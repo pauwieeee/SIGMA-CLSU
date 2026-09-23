@@ -104,6 +104,47 @@ function programAliases(name: string, code?: string | null): string[] {
   return aliases
 }
 
+function referenceAliases(name: string, code?: string | null): string[] {
+  const aliases = new Set<string>()
+  if (code?.trim()) aliases.add(code.trim())
+
+  for (const match of name.matchAll(/\(([^)]+)\)/g)) {
+    if (match[1]?.trim()) aliases.add(match[1].trim())
+  }
+
+  const words = name
+    .replace(/\([^)]*\)/g, ' ')
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+  const significant = words.filter((word) => !['and', 'of', 'the', 'on', 'for'].includes(word.toLowerCase()))
+  const acronym = significant.map((word) => word[0]).join('')
+  if (acronym.length >= 2) aliases.add(acronym)
+
+  // Database college names commonly use a compact code such as CEN for
+  // "College of Engineering". Derive it from the stored name when a code
+  // was not populated, without maintaining a hardcoded college list.
+  const collegeSubject = name.match(/^College\s+of\s+(.+)$/i)?.[1]
+  if (collegeSubject) {
+    const compactSubject = normalize(collegeSubject).replace(/\s+/g, '')
+    if (compactSubject.length >= 2) aliases.add(`C${compactSubject.slice(0, 2)}`.toUpperCase())
+  }
+
+  return [...aliases]
+}
+
+function requestedScholarshipQualifier(question: string): string | null {
+  const beforeScholars = question.match(/^\s*(?:(?:show|list|find|give me|who are)\s+)?(?:(?:all|the|of)\s+)*(.*?)\s+scholars?\b/i)?.[1]
+  if (!beforeScholars) return null
+
+  const ignored = new Set([
+    'active', 'inactive', 'pending', 'verification', 'renewal', 'incomplete', 'documents',
+    'government', 'institutional', 'private', 'all', 'the', 'of', 'matching',
+    'show', 'list', 'find', 'give', 'me', 'who', 'are',
+  ])
+  const meaningful = normalize(beforeScholars).split(' ').filter((word) => word && !ignored.has(word))
+  return meaningful.length > 0 ? meaningful.join(' ') : null
+}
+
 // Verified against this project's actual API key via direct generateContent
 // test calls (2026-08 — re-verify periodically, since Google's model
 // availability and this project's entitlements can shift):
@@ -329,7 +370,7 @@ async function resolveIntent(
         `id, academic_year, semester, status, is_enrolled,
          students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
            programs!inner(name, code, colleges!inner(name, code))),
-         scholarships!inner(name, scholarship_categories!inner(name))`
+         scholarships!inner(name, scholarship_categories!inner(name), scholarship_agencies(name))`
       )
       .is('archived_at', null)
       .is('students.archived_at', null)
@@ -372,9 +413,9 @@ async function resolveIntent(
       && (!appliedSemester || row.semester === appliedSemester)
     )
 
-    type EntityType = 'program' | 'college' | 'scholarship' | 'category'
+    type EntityType = 'program' | 'college' | 'scholarship' | 'agency' | 'category'
     const entityAliases: Record<EntityType, Map<string, Set<string>>> = {
-      program: new Map(), college: new Map(), scholarship: new Map(), category: new Map(),
+      program: new Map(), college: new Map(), scholarship: new Map(), agency: new Map(), category: new Map(),
     }
     function addEntity(type: EntityType, name: string | undefined, aliases: string[] = []) {
       if (!name) return
@@ -384,12 +425,11 @@ async function resolveIntent(
     for (const row of assignments) {
       const program = row.students?.programs
       addEntity('program', program?.name, programAliases(program?.name ?? '', program?.code))
-      addEntity('college', program?.colleges?.name, program?.colleges?.code ? [program.colleges.code] : [])
+      addEntity('college', program?.colleges?.name, referenceAliases(program?.colleges?.name ?? '', program?.colleges?.code))
       const scholarshipName = row.scholarships?.name as string | undefined
-      const scholarshipAliases = scholarshipName && /\bDOST(?:-SEI)?\b/i.test(scholarshipName)
-        ? ['DOST', 'DOST-SEI', 'DOST Scholarship', 'DOST-SEI Scholarship']
-        : []
-      addEntity('scholarship', scholarshipName, scholarshipAliases)
+      addEntity('scholarship', scholarshipName, referenceAliases(scholarshipName ?? ''))
+      const agencyName = row.scholarships?.scholarship_agencies?.name as string | undefined
+      addEntity('agency', agencyName, referenceAliases(agencyName ?? ''))
       addEntity('category', row.scholarships?.scholarship_categories?.name)
     }
     const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => {
@@ -410,19 +450,29 @@ async function resolveIntent(
         const value = type === 'program' ? row.students?.programs?.name
           : type === 'college' ? row.students?.programs?.colleges?.name
             : type === 'scholarship' ? row.scholarships?.name
-              : row.scholarships?.scholarship_categories?.name
+              : type === 'agency' ? row.scholarships?.scholarship_agencies?.name
+                : row.scholarships?.scholarship_categories?.name
         return names.includes(value)
       }))
     }
 
     const matchedEntities = matchedByType.flatMap((match) => match.names)
+    const scholarshipQualifier = requestedScholarshipQualifier(contextualQuestion)
+    const matchedScholarshipScope = matchedByType.some((match) => match.type === 'scholarship' || match.type === 'agency')
+    if (scholarshipQualifier && !matchedScholarshipScope) {
+      return {
+        intent: 'unmatched_scholarship_filter',
+        data: [],
+        answer: `I couldn't confidently match **${scholarshipQualifier.toUpperCase()}** to a scholarship or provider in SIGMA's records. Please use its official scholarship or organization name.`,
+      }
+    }
     const hasUnmatchedScope = matchedEntities.length === 0 && /\b(?:in|from|under|taking)\s+[a-z0-9]/i.test(contextualQuestion)
     if (hasUnmatchedScope) {
       return {
         intent: 'unmatched_scholar_filter',
         data: [],
         answer:
-          "I couldn't match that program, college, scholarship, or category to SIGMA's records. Try its full name or official code, such as **Information Technology** or **BSIT**.",
+          "I couldn't match that program, college, scholarship, provider, or category to SIGMA's records. Try its full name or official database code.",
       }
     }
 

@@ -78,20 +78,22 @@ export default function ScholarshipsPage() {
   async function handleArchive(row: ScholarshipRow) {
     if (!confirm(`Archive "${row.name}"? It will be hidden from active lists but not deleted — find it again under "Show Archived".`))
       return
-    await (supabase as any)
+    const { error } = await (supabase as any)
       .from('scholarships')
       .update({ archived_at: new Date().toISOString(), status: 'Archived' })
       .eq('id', row.id)
+    if (error) throw error
     await logActivity('archive', 'scholarship', `Archived scholarship "${row.name}".`, row.id)
     refetch()
     refetchTypeCounts()
   }
 
   async function handleRestore(row: ScholarshipRow) {
-    await (supabase as any)
+    const { error } = await (supabase as any)
       .from('scholarships')
       .update({ archived_at: null, status: 'Active' })
       .eq('id', row.id)
+    if (error) throw error
     await logActivity('restore', 'scholarship', `Restored scholarship "${row.name}".`, row.id)
     refetch()
     refetchTypeCounts()

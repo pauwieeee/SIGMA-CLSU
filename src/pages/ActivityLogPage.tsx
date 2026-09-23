@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
-import type { ActivityLog } from '@/types/database'
 import { ActivityActor } from '@/components/activity/ActivityActor'
+import { useRecentActivity } from '@/hooks/useDashboardData'
 
 const GROUP_ORDER = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'] as const
 
@@ -25,25 +23,7 @@ function groupLabelFor(isoDate: string): (typeof GROUP_ORDER)[number] {
 }
 
 export default function ActivityLogPage() {
-  const [logs, setLogs] = useState<ActivityLog[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let active = true
-    supabase
-      .from('activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-      .then(({ data, error }) => {
-        if (!active) return
-        if (!error && data) setLogs(data as ActivityLog[])
-        setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [])
+  const { data: logs, loading, error } = useRecentActivity(200)
 
   const grouped = GROUP_ORDER.map((label) => ({
     label,
@@ -56,12 +36,15 @@ export default function ActivityLogPage() {
         <h1 className="text-2xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
           Activity Log
         </h1>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Every change made in SIGMA, grouped by when it happened.
-        </p>
       </div>
 
-      {loading ? (
+      {error ? (
+        <Card>
+          <p className="text-sm" style={{ color: 'var(--status-error-text)' }}>
+            Unable to load the latest activity: {error}
+          </p>
+        </Card>
+      ) : loading ? (
         <Card>
           <ul className="space-y-3">
             {[1, 2, 3, 4].map((i) => (

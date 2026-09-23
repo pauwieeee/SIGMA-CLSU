@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ActivityLog, DashboardStats, ScholarsPerCategory } from '@/types/database'
+import { ACTIVITY_CREATED_EVENT } from '@/utils/logActivity'
 
 export function useDashboardStats() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -47,23 +48,42 @@ export function useScholarsPerCategory() {
 export function useRecentActivity(limit = 6) {
   const [data, setData] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let active = true
-    supabase
+  const load = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true)
+    const result = await supabase
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit)
-      .then(({ data, error }) => {
-        if (!active) return
-        if (!error && data) setData(data as ActivityLog[])
-        setLoading(false)
-      })
-    return () => {
-      active = false
-    }
+    setError(result.error?.message ?? null)
+    if (!result.error && result.data) setData(result.data as ActivityLog[])
+    setLoading(false)
   }, [limit])
 
-  return { data, loading }
+  useEffect(() => {
+    void load(true)
+    const refresh = () => void load()
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener(ACTIVITY_CREATED_EVENT, refresh)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    const channel = supabase
+      .channel(`activity-logs-${limit}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, refresh)
+      .subscribe()
+
+    return () => {
+      window.removeEventListener(ACTIVITY_CREATED_EVENT, refresh)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      void supabase.removeChannel(channel)
+    }
+  }, [limit, load])
+
+  return { data, loading, error, refetch: load }
 }

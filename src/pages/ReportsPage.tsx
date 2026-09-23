@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend } from '@/hooks/useTrends'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
+import { logActivity } from '@/utils/logActivity'
 
 export default function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -38,6 +39,7 @@ export default function ReportsPage() {
   const [academicYear, setAcademicYear] = useState('2025-2026')
   const [semester, setSemester] = useState('')
   const [college, setCollege] = useState('')
+  const [program, setProgram] = useState('')
   const [category, setCategory] = useState('')
   const [scholarship, setScholarship] = useState('')
   const [status, setStatus] = useState('')
@@ -46,7 +48,7 @@ export default function ReportsPage() {
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
   const [notificationFlagId, setNotificationFlagId] = useState<string | null>(null)
-  const report = useReportAnalytics({ academicYear, semester, college, category, scholarship, status, enrollment })
+  const report = useReportAnalytics({ academicYear, semester, college, program, category, scholarship, status, enrollment })
   const categoryData = sortByCategoryOrder(report.categoryData)
   const trendData = report.trendData
   const loading = report.loading
@@ -69,6 +71,7 @@ export default function ReportsPage() {
       const { data, error } = await supabase.rpc('rescan_all_duplicates')
       if (error) throw error
       const newFlags = (data as number) ?? 0
+      await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records for duplicates; ${newFlags} new flag(s) found.`)
       pushToast(
         newFlags > 0 ? `Scan complete — ${newFlags} new duplicate flag(s) found.` : 'Scan complete — no new duplicates found.',
         'success'
@@ -86,7 +89,7 @@ export default function ReportsPage() {
     try {
       const { exportReportPdf } = await import('@/utils/exportReportPdf')
       await exportReportPdf({
-        filters: { academicYear, semester, college, category },
+        filters: { academicYear, semester, college, program, category, scholarship, status, enrollment },
         categoryData,
         trendData,
         duplicateFlagCount: stats?.duplicate_flags_open ?? 0,
@@ -104,7 +107,7 @@ export default function ReportsPage() {
             <select
               value={academicYear}
               onChange={(e) => setAcademicYear(e.target.value)}
-              className="w-36 shrink-0 rounded-full border px-3 py-1.5 text-sm"
+              className="h-9 w-36 shrink-0 rounded-full border px-3 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Academic Years</option>
@@ -113,7 +116,7 @@ export default function ReportsPage() {
             <select
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
-              className="w-36 shrink-0 rounded-full border px-3 py-1.5 text-sm"
+              className="h-9 w-36 shrink-0 rounded-full border px-3 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Semesters</option>
@@ -123,7 +126,7 @@ export default function ReportsPage() {
             <select
               value={college}
               onChange={(e) => setCollege(e.target.value)}
-              className="w-44 shrink-0 rounded-full border px-3 py-1.5 text-sm"
+              className="h-9 w-44 shrink-0 rounded-full border px-3 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Colleges</option>
@@ -132,23 +135,45 @@ export default function ReportsPage() {
               ))}
             </select>
             <select
+              value={program}
+              onChange={(e) => setProgram(e.target.value)}
+              className="h-9 w-44 shrink-0 rounded-full border px-3 text-sm"
+              style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
+            >
+              <option value="">All Programs</option>
+              {report.options.programs.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-40 shrink-0 rounded-full border px-3 py-1.5 text-sm"
+              onChange={(e) => {
+                setCategory(e.target.value)
+                setScholarship('')
+              }}
+              className="h-9 w-40 shrink-0 rounded-full border px-3 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Categories</option>
               {report.options.categories.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-            <select value={scholarship} onChange={(e) => setScholarship(e.target.value)} className="w-52 shrink-0 rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
-              <option value="">All Scholarships</option>
+            <select value={scholarship} onChange={(e) => setScholarship(e.target.value)} disabled={report.scholarshipOptionsLoading || Boolean(report.scholarshipOptionsError) || report.options.scholarships.length === 0} className="h-9 w-52 shrink-0 rounded-full border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+              <option value="">
+                {report.scholarshipOptionsLoading
+                  ? 'Loading scholarships...'
+                  : report.scholarshipOptionsError
+                    ? 'Unable to load scholarships'
+                    : report.options.scholarships.length === 0
+                      ? 'No scholarships available'
+                      : category
+                        ? `All ${category} Scholarships`
+                        : 'All Scholarships'}
+              </option>
               {report.options.scholarships.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-48 shrink-0 rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 w-48 shrink-0 rounded-full border px-3 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
               <option value="">All Scholarship Statuses</option>
               {report.options.statuses.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-            <select value={enrollment} onChange={(e) => setEnrollment(e.target.value)} className="w-48 shrink-0 rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+            <select value={enrollment} onChange={(e) => setEnrollment(e.target.value)} className="h-9 w-48 shrink-0 rounded-full border px-3 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
               <option value="">All Enrollment Statuses</option>
               <option value="Enrolled">Enrolled</option>
               <option value="Not Enrolled">Not Enrolled</option>
@@ -157,7 +182,7 @@ export default function ReportsPage() {
             <button
               onClick={exportPdf}
               disabled={exportingPdf}
-              className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
+              className="flex h-9 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
               <Download size={16} />

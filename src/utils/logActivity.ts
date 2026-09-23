@@ -1,20 +1,17 @@
 import { supabase } from '@/lib/supabase'
-import { getUserDisplayName } from '@/utils/userDisplayName'
+export const ACTIVITY_CREATED_EVENT = 'sigma:activity-created'
 
-// Writes to activity_logs, which powers the Dashboard's "Recent Activity"
-// widget. Best-effort: a logging failure should never block the action that
-// triggered it, so errors are swallowed (mirrors the .insert() calls this
-// replaces elsewhere in the app, e.g. notifications inserts).
+// The RPC records the authenticated actor and database timestamp server-side.
+// Logging errors are deliberately surfaced: silently losing an audit event
+// would make a successful administrative change unauditable.
 export async function logActivity(action: string, entityType: string, description: string, entityId?: string) {
-  const { data } = await supabase.auth.getUser()
-  await (supabase as any).from('activity_logs').insert({
-    actor_id: data.user?.id ?? null,
-    actor_name: data.user ? getUserDisplayName(data.user, 'Admin') : null,
-    actor_email: data.user?.email ?? null,
-    actor_role: 'Admin',
-    action,
-    entity_type: entityType,
-    entity_id: entityId ?? null,
-    description,
+  const { error } = await (supabase as any).rpc('record_activity', {
+    p_action: action,
+    p_entity_type: entityType,
+    p_description: description,
+    p_entity_id: entityId ?? null,
   })
+  if (error) throw new Error(`The change succeeded, but its activity log could not be saved: ${error.message}`)
+
+  window.dispatchEvent(new CustomEvent(ACTIVITY_CREATED_EVENT))
 }

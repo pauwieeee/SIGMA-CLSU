@@ -18,7 +18,7 @@ export default function DashboardPage() {
   const { stats, loading: statsLoading } = useDashboardStats()
   const { data: categoryDataRaw, loading: chartLoading } = useScholarsPerCategory()
   const categoryData = sortByCategoryOrder(categoryDataRaw)
-  const { data: activity, loading: activityLoading } = useRecentActivity()
+  const { data: activity, loading: activityLoading, error: activityError } = useRecentActivity()
 
   const displayName = getUserDisplayName(user)
 
@@ -158,7 +158,11 @@ export default function DashboardPage() {
               View All
             </Link>
           </div>
-          {activityLoading ? (
+          {activityError ? (
+            <p className="text-sm" style={{ color: 'var(--status-error-text)' }}>
+              Unable to load the latest activity: {activityError}
+            </p>
+          ) : activityLoading ? (
             <ul className="space-y-3">
               {[1, 2, 3].map((i) => (
                 <li key={i} className="flex items-center justify-between py-1">

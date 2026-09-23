@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Archive, Download, Eye, RefreshCw } from 'lucide-react'
+import { Download, Eye, RefreshCw } from 'lucide-react'
 import { useDashboardStats } from '@/hooks/useDashboardData'
 import { useReportAnalytics } from '@/hooks/useReportAnalytics'
 import { Card } from '@/components/ui/Card'
@@ -28,7 +28,6 @@ import { supabase } from '@/lib/supabase'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend } from '@/hooks/useTrends'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
-import { logActivity } from '@/utils/logActivity'
 
 export default function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -47,7 +46,6 @@ export default function ReportsPage() {
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
   const [notificationFlagId, setNotificationFlagId] = useState<string | null>(null)
-  const [closingTerm, setClosingTerm] = useState(false)
   const report = useReportAnalytics({ academicYear, semester, college, category, scholarship, status, enrollment })
   const categoryData = sortByCategoryOrder(report.categoryData)
   const trendData = report.trendData
@@ -83,47 +81,6 @@ export default function ReportsPage() {
     }
   }
 
-  async function closeAcademicTerm() {
-    if (!academicYear || !semester) {
-      pushToast('Select a specific academic year and semester before closing a term.', 'error')
-      return
-    }
-
-    const confirmed = window.confirm(
-      `Close ${academicYear} ${semester}?\n\nThis records the semester as historical. Student profiles and scholarship assignments remain searchable, and their existing scholarship statuses will not change.`
-    )
-    if (!confirmed) return
-
-    setClosingTerm(true)
-    try {
-      const { data, error } = await supabase.rpc('close_academic_term', {
-        p_academic_year: academicYear,
-        p_semester: semester,
-      } as never)
-      if (error) throw error
-
-      const result = (data as unknown as { assignments_closed: number; duplicate_flags_resolved: number }[])?.[0]
-      const closed = result?.assignments_closed ?? 0
-      const resolved = result?.duplicate_flags_resolved ?? 0
-      await logActivity(
-        'close_term',
-        'student_scholarship',
-        `Closed ${academicYear} ${semester}: preserved ${closed} assignment(s) as history and resolved ${resolved} duplicate flag(s).`
-      )
-      pushToast(
-        closed > 0
-          ? `Semester closed — ${closed} assignment(s) preserved as history; scholarship statuses were unchanged.`
-          : 'This semester was already closed or has no scholarship assignments.',
-        'success'
-      )
-      refetchStats()
-    } catch (err) {
-      pushToast(`Could not close semester: ${(err as Error).message}`, 'error')
-    } finally {
-      setClosingTerm(false)
-    }
-  }
-
   async function exportPdf() {
     setExportingPdf(true)
     try {
@@ -142,12 +99,12 @@ export default function ReportsPage() {
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="overflow-x-auto pb-1">
+          <div className="flex min-w-max items-center gap-2">
             <select
               value={academicYear}
               onChange={(e) => setAcademicYear(e.target.value)}
-              className="rounded-full border px-3 py-1.5 text-sm"
+              className="w-36 shrink-0 rounded-full border px-3 py-1.5 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Academic Years</option>
@@ -156,7 +113,7 @@ export default function ReportsPage() {
             <select
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
-              className="rounded-full border px-3 py-1.5 text-sm"
+              className="w-36 shrink-0 rounded-full border px-3 py-1.5 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Semesters</option>
@@ -166,7 +123,7 @@ export default function ReportsPage() {
             <select
               value={college}
               onChange={(e) => setCollege(e.target.value)}
-              className="rounded-full border px-3 py-1.5 text-sm"
+              className="w-44 shrink-0 rounded-full border px-3 py-1.5 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Colleges</option>
@@ -177,44 +134,30 @@ export default function ReportsPage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="rounded-full border px-3 py-1.5 text-sm"
+              className="w-40 shrink-0 rounded-full border px-3 py-1.5 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Categories</option>
               {report.options.categories.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-            <select value={scholarship} onChange={(e) => setScholarship(e.target.value)} className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+            <select value={scholarship} onChange={(e) => setScholarship(e.target.value)} className="w-52 shrink-0 rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
               <option value="">All Scholarships</option>
               {report.options.scholarships.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-48 shrink-0 rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
               <option value="">All Scholarship Statuses</option>
               {report.options.statuses.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
-            <select value={enrollment} onChange={(e) => setEnrollment(e.target.value)} className="rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
+            <select value={enrollment} onChange={(e) => setEnrollment(e.target.value)} className="w-48 shrink-0 rounded-full border px-3 py-1.5 text-sm" style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}>
               <option value="">All Enrollment Statuses</option>
               <option value="Enrolled">Enrolled</option>
               <option value="Not Enrolled">Not Enrolled</option>
               <option value="Not Yet Verified">Not Yet Verified</option>
             </select>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={closeAcademicTerm}
-              disabled={closingTerm || !academicYear || !semester}
-              title={!academicYear || !semester ? 'Select a specific academic year and semester first' : `Close ${academicYear} ${semester} while preserving history`}
-              className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
-            >
-              <Archive size={16} />
-              {closingTerm ? 'Closing Semester…' : 'Close Semester'}
-            </button>
-
             <button
               onClick={exportPdf}
               disabled={exportingPdf}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
+              className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
               <Download size={16} />

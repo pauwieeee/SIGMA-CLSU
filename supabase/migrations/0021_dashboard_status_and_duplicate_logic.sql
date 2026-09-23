@@ -51,8 +51,6 @@ select
   (select count(*) from public.duplicate_flags where status = 'Open') as duplicate_flags_open,
   (select count(*) from public.scholarships where archived_at is null
      and end_date between current_date and current_date + interval '30 days') as expiring_soon,
-  (select count(*) from public.scholarships where archived_at is null
-     and end_date < current_date) as expired_scholarships,
   (select count(distinct ss.student_id) from public.student_scholarships ss
    where ss.archived_at is null and ss.term_closed_at is null and ss.is_enrolled = true) as enrolled_students,
   (select count(distinct ss.student_id) from public.student_scholarships ss
@@ -63,7 +61,11 @@ select
          and enrolled.archived_at is null
          and enrolled.term_closed_at is null
          and enrolled.is_enrolled = true
-     )) as not_enrolled_students;
+     )) as not_enrolled_students,
+  -- Keep new view columns at the end so CREATE OR REPLACE remains safe when
+  -- this migration is re-run against an earlier version of the view.
+  (select count(*) from public.scholarships where archived_at is null
+     and end_date < current_date) as expired_scholarships;
 
 create or replace view public.scholars_per_category as
 select sc.name as category_name, count(distinct ss.student_id) as scholar_count

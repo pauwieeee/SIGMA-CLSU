@@ -82,6 +82,7 @@ const controlClass = 'w-full rounded-lg border px-3 py-2 text-sm focus:outline-n
 export function AddStudentModal({ open, onClose, onAdded }: Props) {
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [programs, setPrograms] = useState<ProgramOption[]>([])
+  const [programText, setProgramText] = useState('')
   const [scholarships, setScholarships] = useState<ScholarshipOption[]>([])
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
@@ -90,6 +91,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   useEffect(() => {
     if (!open) return
     setForm(EMPTY_FORM)
+    setProgramText('')
     setErrors({})
     setLoadingOptions(true)
 
@@ -124,7 +126,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   }, [programs])
 
   const visiblePrograms = useMemo(
-    () => form.collegeId ? programs.filter((program) => program.collegeId === form.collegeId) : programs,
+    () => form.collegeId ? programs.filter((program) => program.collegeId === form.collegeId) : [],
     [programs, form.collegeId],
   )
 
@@ -158,7 +160,9 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     if (!form.firstName.trim()) next.firstName = 'First name is required.'
     if (!form.lastName.trim()) next.lastName = 'Last name is required.'
     if (!form.collegeId) next.collegeId = 'College/Department is required.'
-    if (!form.programId) next.programId = 'Program/Course is required.'
+    if (!form.programId) next.programId = programText.trim()
+      ? 'Enter or select a valid program from the chosen college.'
+      : 'Program/Course is required.'
     if (!form.yearLevel.trim()) next.yearLevel = 'Year level is required.'
     else if (!yearLevelValid) next.yearLevel = 'Enter 1st Year, 2nd Year, 3rd Year, 4th Year, 5th Year, or Graduate.'
     if (!emailValid) next.email = 'Enter a valid email address.'
@@ -249,16 +253,16 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     }
 
     const studentName = `${form.firstName.trim()} ${form.middleName.trim() ? `${form.middleName.trim()} ` : ''}${form.lastName.trim()}${form.suffix.trim() ? ` ${form.suffix.trim()}` : ''}`
-    await logActivity(
+    setSaving(false)
+    onAdded(existing ? `${existing.first_name} ${existing.last_name}` : studentName)
+    void logActivity(
       'create',
       existing ? 'student_scholarship' : 'student',
       existing
         ? `Added a new semester scholarship record for ${existing.first_name} ${existing.last_name} (${studentNumber}) in ${form.academicYear} ${form.semester}.`
         : `Added student ${studentName} (${studentNumber}).`,
       student.id
-    )
-    setSaving(false)
-    onAdded(existing ? `${existing.first_name} ${existing.last_name}` : studentName)
+    ).catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
   if (!open) return null
@@ -298,28 +302,32 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
             <h3 className="mb-3 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Academic Information</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="College/Department" required error={errors.collegeId}>
-                <select value={form.collegeId} onChange={(e) => { update('collegeId', e.target.value); update('programId', '') }} className={controlClass} style={inputStyle(Boolean(errors.collegeId))}><option value="">Select college</option>{colleges.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
+                <select value={form.collegeId} onChange={(e) => { update('collegeId', e.target.value); update('programId', ''); setProgramText('') }} className={controlClass} style={inputStyle(Boolean(errors.collegeId))}><option value="">Select college</option>{colleges.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
               </Field>
               <Field label="Program/Course" required error={errors.programId}>
-                <select
-                  value={form.programId}
+                <input
+                  type="text"
+                  list="add-student-programs"
+                  value={programText}
                   onChange={(e) => {
-                    const id = e.target.value
-                    const selectedProgram = programs.find((program) => program.id === id)
-                    update('programId', id)
-                    if (selectedProgram) update('collegeId', selectedProgram.collegeId)
+                    const value = e.target.value
+                    const selectedProgram = visiblePrograms.find(
+                      (program) => program.name.localeCompare(value, undefined, { sensitivity: 'accent' }) === 0
+                    )
+                    setProgramText(value)
+                    update('programId', selectedProgram?.id ?? '')
                   }}
-                  disabled={loadingOptions}
+                  disabled={loadingOptions || !form.collegeId}
                   className={controlClass}
                   style={inputStyle(Boolean(errors.programId))}
-                >
-                  <option value="">{loadingOptions ? 'Loading programs…' : 'Select program'}</option>
+                  placeholder={loadingOptions ? 'Loading programs…' : !form.collegeId ? 'Select college first' : 'Type program/course'}
+                  autoComplete="off"
+                />
+                <datalist id="add-student-programs">
                   {visiblePrograms.map((program) => (
-                    <option key={program.id} value={program.id}>
-                      {form.collegeId ? program.name : `${program.name} — ${program.collegeName}`}
-                    </option>
+                    <option key={program.id} value={program.name} />
                   ))}
-                </select>
+                </datalist>
               </Field>
               <Field label="Year Level" required error={errors.yearLevel}><input value={form.yearLevel} onChange={(e) => update('yearLevel', e.target.value)} placeholder="Enter year level" className={controlClass} style={inputStyle(Boolean(errors.yearLevel))} /></Field>
               <Field label="Academic Year" error={errors.academicYear}><input value={form.academicYear} onChange={(e) => update('academicYear', e.target.value)} placeholder="e.g. 2026-2027" className={controlClass} style={inputStyle(Boolean(errors.academicYear))} /></Field>

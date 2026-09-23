@@ -29,11 +29,17 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
 
   async function changeStatus(historyId: string, scholarshipName: string, newStatus: string) {
     setSavingStatusId(historyId)
-    await (supabase as any).from('student_scholarships').update({ status: newStatus }).eq('id', historyId)
-    await logActivity('update', 'student_scholarship', `Changed status of "${scholarshipName}" to "${newStatus}" for ${student?.full_name}.`, historyId)
+    const { error } = await (supabase as any).from('student_scholarships').update({ status: newStatus }).eq('id', historyId)
+    if (error) {
+      console.error('Status update failed:', error)
+      setSavingStatusId(null)
+      return
+    }
     await refetch()
     onChanged?.()
     setSavingStatusId(null)
+    void logActivity('update', 'student_scholarship', `Changed status of "${scholarshipName}" to "${newStatus}" for ${student?.full_name}.`, historyId)
+      .catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
   return (

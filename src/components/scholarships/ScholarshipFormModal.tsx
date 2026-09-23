@@ -172,15 +172,14 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
       return
     }
 
-    await logActivity(
+    onSaved()
+    onClose()
+    void logActivity(
       isEdit ? 'update' : 'create',
       'scholarship',
       isEdit ? `Updated scholarship "${payload.name}".` : `Added new scholarship "${payload.name}".`,
       form.id
-    )
-
-    onSaved()
-    onClose()
+    ).catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
   return (

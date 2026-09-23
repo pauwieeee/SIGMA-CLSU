@@ -77,9 +77,10 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
       return
     }
 
-    await logActivity('update', 'student', `Updated profile for ${student!.full_name}.`, student!.id)
     onSaved()
     onClose()
+    void logActivity('update', 'student', `Updated profile for ${student!.full_name}.`, student!.id)
+      .catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
   return (

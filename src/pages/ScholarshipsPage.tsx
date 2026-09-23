@@ -20,6 +20,8 @@ export default function ScholarshipsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<ScholarshipRow | null>(null)
   const [viewingScholars, setViewingScholars] = useState<ScholarshipRow | null>(null)
+  const [changingId, setChangingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const notificationEditId = searchParams.get('edit')
 
   const headerRef = useRef<HTMLDivElement>(null)
@@ -78,25 +80,33 @@ export default function ScholarshipsPage() {
   async function handleArchive(row: ScholarshipRow) {
     if (!confirm(`Archive "${row.name}"? It will be hidden from active lists but not deleted — find it again under "Show Archived".`))
       return
-    const { error } = await (supabase as any)
-      .from('scholarships')
-      .update({ archived_at: new Date().toISOString(), status: 'Archived' })
-      .eq('id', row.id)
-    if (error) throw error
-    await logActivity('archive', 'scholarship', `Archived scholarship "${row.name}".`, row.id)
-    refetch()
-    refetchTypeCounts()
+    setChangingId(row.id)
+    setActionError(null)
+    const { error } = await (supabase as any).from('scholarships').update({ archived_at: new Date().toISOString(), status: 'Archived' }).eq('id', row.id)
+    if (error) {
+      setActionError(`Could not archive "${row.name}": ${error.message}`)
+      setChangingId(null)
+      return
+    }
+    await Promise.all([refetch(), refetchTypeCounts()])
+    setChangingId(null)
+    void logActivity('archive', 'scholarship', `Archived scholarship "${row.name}".`, row.id)
+      .catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
   async function handleRestore(row: ScholarshipRow) {
-    const { error } = await (supabase as any)
-      .from('scholarships')
-      .update({ archived_at: null, status: 'Active' })
-      .eq('id', row.id)
-    if (error) throw error
-    await logActivity('restore', 'scholarship', `Restored scholarship "${row.name}".`, row.id)
-    refetch()
-    refetchTypeCounts()
+    setChangingId(row.id)
+    setActionError(null)
+    const { error } = await (supabase as any).from('scholarships').update({ archived_at: null, status: 'Active' }).eq('id', row.id)
+    if (error) {
+      setActionError(`Could not restore "${row.name}": ${error.message}`)
+      setChangingId(null)
+      return
+    }
+    await Promise.all([refetch(), refetchTypeCounts()])
+    setChangingId(null)
+    void logActivity('restore', 'scholarship', `Restored scholarship "${row.name}".`, row.id)
+      .catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
   return (
@@ -116,6 +126,12 @@ export default function ScholarshipsPage() {
           </button>
         ))}
       </div>
+
+      {actionError && (
+        <p role="alert" className="rounded-lg px-4 py-3 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-error-text)' }}>
+          {actionError}
+        </p>
+      )}
 
       {/* Single scroll container — the ONLY scrolling ancestor between the
           sticky header/tabs bar, the sticky agency labels, and the rows. */}
@@ -202,6 +218,7 @@ export default function ScholarshipsPage() {
                 onArchive={handleArchive}
                 onRestore={handleRestore}
                 onViewScholars={setViewingScholars}
+                changing={changingId === s.id}
               />
             ))}
 
@@ -223,6 +240,7 @@ export default function ScholarshipsPage() {
                     onArchive={handleArchive}
                     onRestore={handleRestore}
                     onViewScholars={setViewingScholars}
+                    changing={changingId === s.id}
                   />
                 ))}
               </div>
@@ -282,6 +300,7 @@ function ScholarshipRowView({
   onArchive,
   onRestore,
   onViewScholars,
+  changing,
 }: {
   row: ScholarshipRow
   sub: string
@@ -290,6 +309,7 @@ function ScholarshipRowView({
   onArchive: (row: ScholarshipRow) => void
   onRestore: (row: ScholarshipRow) => void
   onViewScholars: (row: ScholarshipRow) => void
+  changing: boolean
 }) {
   const initials = row.name
     .split(' ')
@@ -321,10 +341,11 @@ function ScholarshipRowView({
         {archivedView ? (
           <button
             onClick={() => onRestore(row)}
-            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
+            disabled={changing}
+            className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-60"
             style={{ borderColor: 'var(--border-default)', color: 'var(--status-success-text)' }}
           >
-            Restore
+            {changing ? 'Restoring…' : 'Restore'}
           </button>
         ) : (
           <>
@@ -344,10 +365,11 @@ function ScholarshipRowView({
             </button>
             <button
               onClick={() => onArchive(row)}
-              className="rounded-md border px-3 py-1.5 text-xs font-medium"
+              disabled={changing}
+              className="rounded-md border px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
               style={{ borderColor: 'var(--border-default)', color: 'var(--status-error-text)' }}
             >
-              Archive
+              {changing ? 'Archiving…' : 'Archive'}
             </button>
           </>
         )}

@@ -68,6 +68,7 @@ export default function StudentRecordsPage() {
   const [scrolled, setScrolled] = useState(false)
   const [batchModalOpen, setBatchModalOpen] = useState(false)
   const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false)
+  const [selectedEnrollmentOpen, setSelectedEnrollmentOpen] = useState(false)
   const [addStudentModalOpen, setAddStudentModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null)
@@ -122,6 +123,14 @@ export default function StudentRecordsPage() {
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const selectedCount = rows.reduce((count, row) => count + (selected.has(row.id) ? 1 : 0), 0)
+  const selectedEnrollmentRows = rows
+    .filter((row) => selected.has(row.id) && row.studentScholarshipId)
+    .map((row) => ({
+      assignmentId: row.studentScholarshipId!,
+      studentNumber: row.student_number,
+      name: row.full_name,
+      currentStatus: row.isEnrolled,
+    }))
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
@@ -270,6 +279,15 @@ export default function StudentRecordsPage() {
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
             >
               Batch Update
+            </button>
+            <button
+              onClick={() => setSelectedEnrollmentOpen(true)}
+              disabled={selectedEnrollmentRows.length === 0}
+              title={selectedEnrollmentRows.length === 0 ? 'Select students with a scholarship record to enable' : 'Set enrollment for selected students'}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed"
+              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+            >
+              Set Enrollment
             </button>
             <button
               onClick={exportSelectedPdf}
@@ -504,6 +522,18 @@ export default function StudentRecordsPage() {
         open={enrollmentModalOpen}
         onClose={() => setEnrollmentModalOpen(false)}
         onDone={refetch}
+      />
+
+      <EnrollmentVerificationModal
+        open={selectedEnrollmentOpen}
+        selectedStudents={selectedEnrollmentRows}
+        onClose={() => setSelectedEnrollmentOpen(false)}
+        onDone={async () => {
+          setSelectedEnrollmentOpen(false)
+          setSelected(new Set())
+          await refetch()
+          pushToast('Enrollment statuses updated successfully.')
+        }}
       />
 
       <ToastStack toasts={toasts} onDismiss={dismissToast} />

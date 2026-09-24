@@ -3,13 +3,19 @@ import { CheckCircle2, TriangleAlert, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SEMESTER_OPTIONS } from '@/types/database'
 
-interface Props { open: boolean; onClose: () => void; onDone: () => void }
+interface SelectedStudent {
+  assignmentId: string
+  studentNumber: string
+  name: string
+  currentStatus: boolean | null
+}
+interface Props { open: boolean; onClose: () => void; onDone: () => void; selectedStudents?: SelectedStudent[] }
 interface EnrollmentRow { id: string; studentNumber: string }
 interface ApplyResult { matched_students: number; enrolled_records: number; not_enrolled_records: number }
 interface Preview { submittedIds: string[]; matchedIds: string[]; unmatchedIds: string[]; matchedRows: EnrollmentRow[]; unlistedRows: EnrollmentRow[]; activeRecordCount: number }
 const ACADEMIC_YEARS = ['2025-2026', '2024-2025', '2023-2024', '2022-2023']
 
-export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
+export function EnrollmentVerificationModal({ open, onClose, onDone, selectedStudents = [] }: Props) {
   const [academicYear, setAcademicYear] = useState('2025-2026')
   const [semester, setSemester] = useState('1st Semester')
   const [idList, setIdList] = useState('')
@@ -18,10 +24,39 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [manualStatuses, setManualStatuses] = useState<Record<string, string>>({})
   if (!open) return null
 
+  const isManualMode = selectedStudents.length > 0
+
+  async function applySelectedStatuses() {
+    const updates = selectedStudents.map((student) => ({
+      assignment_id: student.assignmentId,
+      is_enrolled: manualStatuses[student.assignmentId] === 'enrolled'
+        ? true
+        : manualStatuses[student.assignmentId] === 'not_enrolled'
+          ? false
+          : student.currentStatus,
+    }))
+    if (updates.some((update) => update.is_enrolled === null)) {
+      setError('Choose Enrolled or Not Enrolled for every selected student.')
+      return
+    }
+    setRunning(true); setError(null)
+    try {
+      const { error: updateError } = await (supabase as any).rpc('set_selected_enrollment_statuses', { p_updates: updates })
+      if (updateError) throw new Error(updateError.message)
+      setManualStatuses({})
+      onDone()
+    } catch (updateError) {
+      setError((updateError as Error).message)
+    } finally {
+      setRunning(false)
+    }
+  }
+
   function resetPreview() { setPreview(null); setReviewingMissing(false); setError(null); setSuccess(null) }
-  function close() { setIdList(''); resetPreview(); onClose() }
+  function close() { setIdList(''); setManualStatuses({}); resetPreview(); onClose() }
   function normalizedIds() { return [...new Set(idList.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean))] }
 
   async function previewVerification() {
@@ -61,8 +96,30 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="verify-enrollment-title">
     <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-      <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}><h2 id="verify-enrollment-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>Verify Enrollment</h2><button onClick={close} aria-label="Close" style={{ color: 'var(--icon-muted)' }}><X size={18} /></button></div>
+      <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}><h2 id="verify-enrollment-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{isManualMode ? 'Set Selected Enrollment' : 'Verify Enrollment'}</h2><button onClick={close} aria-label="Close" style={{ color: 'var(--icon-muted)' }}><X size={18} /></button></div>
       <div className="space-y-4 px-5 py-4">
+        {isManualMode ? <>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Choose the enrollment result for every selected student's current scholarship record.</p>
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto">
+            {selectedStudents.map((student) => (
+              <div key={student.assignmentId} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_180px] sm:items-center" style={{ borderColor: 'var(--border-default)' }}>
+                <div className="min-w-0"><p className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{student.name}</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{student.studentNumber}</p></div>
+                <select
+                  value={manualStatuses[student.assignmentId] ?? (student.currentStatus === true ? 'enrolled' : student.currentStatus === false ? 'not_enrolled' : '')}
+                  onChange={(event) => setManualStatuses((current) => ({ ...current, [student.assignmentId]: event.target.value }))}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  style={{ borderColor: 'var(--input-border)', background: 'var(--bg-card)' }}
+                >
+                  <option value="">Select status</option>
+                  <option value="enrolled">Enrolled</option>
+                  <option value="not_enrolled">Not Enrolled</option>
+                </select>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-4" style={{ borderColor: 'var(--divider-light)' }}><button onClick={close} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Cancel</button><button onClick={applySelectedStatuses} disabled={running} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{running ? 'Saving…' : `Save ${selectedStudents.length} Status${selectedStudents.length === 1 ? '' : 'es'}`}</button></div>
+          {error && <p role="alert" className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{error}</p>}
+        </> : <>
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Use the official enrollment list to verify which students are enrolled for the selected Academic Year and Semester. SIGMA will compare the Student IDs with existing records and show the changes before applying them.</p>
         <div className="grid grid-cols-2 gap-3"><SelectField label="Academic Year" value={academicYear} onChange={(value) => { setAcademicYear(value); resetPreview() }} options={ACADEMIC_YEARS} /><SelectField label="Semester" value={semester} onChange={(value) => { setSemester(value); resetPreview() }} options={[...SEMESTER_OPTIONS]} /></div>
         <div><label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Official Enrolled Student IDs</label><p className="mb-2 text-xs" style={{ color: 'var(--text-muted)' }}>Paste one Student ID per line. Spaces, commas, and pasted spreadsheet columns are accepted; repeated IDs are counted once.</p><textarea value={idList} onChange={(event) => { setIdList(event.target.value); resetPreview() }} rows={6} placeholder={'25-1019\n25-1139\n25-1059\n25-1099'} className="w-full rounded-lg border px-3 py-2 font-mono text-sm" style={{ borderColor: 'var(--input-border)' }} /></div>
@@ -71,6 +128,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone }: Props) {
         {preview && !reviewingMissing && <div className="space-y-3 border-t pt-4" style={{ borderColor: 'var(--divider-light)' }}><div className="rounded-lg border px-3 py-3 text-sm" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}><p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Is this the complete official enrollment list?</p><p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>By default, active scholarship records not included in the list remain unchanged.</p><button onClick={() => setReviewingMissing(true)} disabled={!preview.unlistedRows.length} className="mt-3 rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ borderColor: 'var(--status-warning-text)', color: 'var(--status-warning-text)' }}>Yes — Review {preview.unlistedRows.length} Missing Record{preview.unlistedRows.length === 1 ? '' : 's'}</button></div><div className="flex justify-end gap-2"><button onClick={resetPreview} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Back</button><button onClick={() => applyVerification(false)} disabled={running || !preview.matchedRows.length} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{running ? 'Applying…' : `Apply Verification (${preview.matchedRows.length})`}</button></div></div>}
         {preview && reviewingMissing && <div className="rounded-lg border p-4" style={{ borderColor: 'var(--status-warning-text)', background: 'var(--status-warning-bg)' }}><p className="font-semibold" style={{ color: 'var(--status-warning-text)' }}>Complete-list reconciliation</p><p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>You are about to mark {preview.unlistedRows.length} currently active scholarship record(s) as Not Enrolled because they do not appear in the complete official list.</p><div className="mt-4 flex justify-end gap-2"><button onClick={() => setReviewingMissing(false)} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Cancel</button><button onClick={() => applyVerification(true)} disabled={running} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--status-warning-text)', color: 'white' }}>{running ? 'Applying…' : `Confirm & Mark ${preview.unlistedRows.length} as Not Enrolled`}</button></div></div>}
         {error && <p role="alert" className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{error}</p>}{success && <p className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>{success}</p>}
+        </>}
       </div>
     </div>
   </div>

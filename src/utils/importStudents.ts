@@ -6,9 +6,11 @@ const supabase = typedSupabase as any
 
 export interface ImportRow { 'ID Number': string; 'Last Name': string; 'First Name': string; 'M.I.': string; Degree: string; 'Yr Lvl': string; Address: string; 'Contact #': string; Email: string; 'Acad Year': string; Semester: string; 'Type of Scholarship': string; Scholarship: string; Remarks: string }
 export type ImportClassification = 'new' | 'existing' | 'conflict' | 'invalid'
-export interface ImportPreviewItem { row: number; classification: ImportClassification; message: string; studentNumber: string; studentName: string; academicYear: string; semester: string; scholarship: string; payload?: Record<string, string | null> }
+export interface ImportPreviewItem { row: number; classification: ImportClassification; message: string; studentNumber: string; studentName: string; academicYear: string; semester: string; scholarship: string; importedData: ImportRow; payload?: Record<string, string | null> }
 export interface ImportPreview { filename: string; totalRows: number; beforeStudentCount: number; newRecords: ImportPreviewItem[]; existingRecords: ImportPreviewItem[]; conflicts: ImportPreviewItem[]; invalidRecords: ImportPreviewItem[] }
-export interface ImportResult { totalRows: number; addedCount: number; existingCount: number; conflictCount: number; invalidCount: number; beforeStudentCount: number; afterStudentCount: number; errors: { row: number; message: string }[] }
+export type ImportRowStatus = 'Success' | 'Failed' | 'Skipped'
+export interface ImportRowResult { row: number; studentNumber: string; studentName: string; status: ImportRowStatus; errorType: string | null; message: string; suggestedCorrection: string; importedData: ImportRow }
+export interface ImportResult { filename: string; totalRows: number; addedCount: number; existingCount: number; conflictCount: number; invalidCount: number; beforeStudentCount: number; afterStudentCount: number; status: 'Completed' | 'Completed with Errors' | 'Failed'; rows: ImportRowResult[]; errors: { row: number; message: string }[] }
 
 const REQUIRED = ['ID Number','Last Name','First Name','Degree','Yr Lvl','Acad Year','Semester','Scholarship']
 const YEARS = new Set(['1st Year','2nd Year','3rd Year','4th Year','5th Year','Graduate'])
@@ -45,7 +47,7 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
   const out:ImportPreview={filename:file.name,totalRows:rows.length,beforeStudentCount:countResult.count??0,newRecords:[],existingRecords:[],conflicts:[],invalidRecords:[]}
   rows.forEach((row,index)=>{
     const n=index+2, studentNumber=String(row['ID Number']??'').trim(), scholarshipName=String(row.Scholarship??'').trim(), year=String(row['Acad Year']??'').replace(/\s/g,''), semester=String(row.Semester??'').trim()
-    const base={row:n,studentNumber,studentName:`${row['First Name']??''} ${row['Last Name']??''}`.trim(),academicYear:year,semester,scholarship:scholarshipName}
+    const base={row:n,studentNumber,studentName:`${row['First Name']??''} ${row['Last Name']??''}`.trim(),academicYear:year,semester,scholarship:scholarshipName,importedData:row}
     const invalid=(message:string)=>out.invalidRecords.push({...base,classification:'invalid',message}); const program=programMap.get(norm(row.Degree)), scholarship=scholarshipMap.get(norm(scholarshipName))
     if(!studentNumber)return invalid('Student ID is missing.'); if(!/^\d{2}-\d{4}$/.test(studentNumber))return invalid(`Invalid Student ID "${studentNumber}"; expected 00-0000.`)
     if(!String(row['First Name']??'').trim()||!String(row['Last Name']??'').trim())return invalid('First Name and Last Name are required.'); if(!program)return invalid(`Unknown program "${row.Degree??''}".`)
@@ -61,11 +63,27 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
 }
 
 export async function commitStudentsImport(preview: ImportPreview): Promise<ImportResult> {
-  const candidates=[...preview.newRecords,...preview.conflicts]; const {data,error}=await supabase.rpc('import_student_records',{p_rows:candidates.map(i=>i.payload)}); if(error)throw new Error(error.message)
-  const result=data?.[0]??{added:0,skipped:0}, added=Number(result.added??0), skipped=Number(result.skipped??0)
+  const candidates=[...preview.newRecords,...preview.conflicts]
+  const rpcRows=candidates.map(item=>({...item.payload,source_row:String(item.row)}))
+  const {data,error}=await supabase.rpc('import_student_records_with_results',{p_rows:rpcRows}); if(error)throw new Error(error.message)
+  const candidateByRow=new Map(candidates.map(item=>[item.row,item]))
+  const databaseRows:ImportRowResult[]=(data??[]).map((result:any)=>{
+    const item=candidateByRow.get(Number(result.source_row))!
+    const status=result.result_status as ImportRowStatus
+    return {row:item.row,studentNumber:item.studentNumber,studentName:item.studentName,status,errorType:result.error_type??null,message:result.result_message,suggestedCorrection:suggestionFor(result.result_message),importedData:item.importedData}
+  })
+  const skippedRows:ImportRowResult[]=preview.existingRecords.map(item=>({row:item.row,studentNumber:item.studentNumber,studentName:item.studentName,status:'Skipped',errorType:'Duplicate Record',message:item.message,suggestedCorrection:'No action is needed unless this row should use a different scholarship term.',importedData:item.importedData}))
+  const invalidRows:ImportRowResult[]=preview.invalidRecords.map(item=>({row:item.row,studentNumber:item.studentNumber,studentName:item.studentName,status:'Failed',errorType:errorTypeFor(item.message),message:item.message,suggestedCorrection:suggestionFor(item.message),importedData:item.importedData}))
+  const rows=[...databaseRows,...skippedRows,...invalidRows].sort((a,b)=>a.row-b.row)
+  const added=rows.filter(row=>row.status==='Success').length, skipped=rows.filter(row=>row.status==='Skipped').length, failed=rows.filter(row=>row.status==='Failed').length
   const after=(await supabase.from('students').select('*',{count:'exact',head:true}).is('archived_at',null)).count??preview.beforeStudentCount
-  await supabase.from('import_batches').insert({filename:preview.filename,row_count:preview.totalRows,error_count:preview.invalidRecords.length,status:'Completed',error_log:preview.invalidRecords})
-  await supabase.from('notifications').insert({type:'import_complete',title:'Import complete',message:`${preview.filename}: ${added} added, ${preview.existingRecords.length+skipped} duplicates, ${preview.conflicts.length} conflicts, ${preview.invalidRecords.length} invalid.`})
-  await logActivity('import','student',`Imported ${preview.filename}: ${preview.totalRows} rows; ${added} added, ${preview.existingRecords.length+skipped} duplicates, ${preview.conflicts.length} conflicts, ${preview.invalidRecords.length} invalid.`)
-  return {totalRows:preview.totalRows,addedCount:added,existingCount:preview.existingRecords.length+skipped,conflictCount:preview.conflicts.length,invalidCount:preview.invalidRecords.length,beforeStudentCount:preview.beforeStudentCount,afterStudentCount:after,errors:preview.invalidRecords.map(i=>({row:i.row,message:i.message}))}
+  const importStatus=failed>0?'Completed with Errors':'Completed'
+  const failedDetails=rows.filter(row=>row.status==='Failed')
+  await supabase.from('import_batches').insert({filename:preview.filename,row_count:preview.totalRows,error_count:failed,successful_rows:added,failed_rows:failed,skipped_rows:skipped,status:importStatus,error_log:failedDetails})
+  await supabase.from('notifications').insert({type:'import_complete',title:'Import complete',message:`${preview.filename}: ${added} succeeded, ${failed} failed, ${skipped} skipped.`})
+  await logActivity('import','student',`Imported ${preview.filename}: ${preview.totalRows} rows; ${added} succeeded, ${failed} failed, ${skipped} skipped.`)
+  return {filename:preview.filename,totalRows:preview.totalRows,addedCount:added,existingCount:skipped,conflictCount:preview.conflicts.length,invalidCount:failed,beforeStudentCount:preview.beforeStudentCount,afterStudentCount:after,status:importStatus,rows,errors:failedDetails.map(item=>({row:item.row,message:item.message}))}
 }
+
+function errorTypeFor(message:string){const value=message.toLowerCase();if(value.includes('missing')||value.includes('required'))return'Missing Required Field';if(value.includes('duplicate')||value.includes('already exists'))return'Duplicate Record';if(value.includes('email')||value.includes('format'))return'Invalid Format';if(value.includes('unknown')||value.includes('invalid'))return'Invalid Value';return'Validation Error'}
+function suggestionFor(message:string){const value=message.toLowerCase();if(value.includes('student id'))return'Use a unique Student ID in the format 00-0000.';if(value.includes('program'))return'Use an existing program name or code from SIGMA.';if(value.includes('year level'))return'Use 1st Year, 2nd Year, 3rd Year, 4th Year, 5th Year, or Graduate.';if(value.includes('academic year'))return'Use a consecutive academic year in YYYY-YYYY format.';if(value.includes('semester'))return'Use 1st Semester, 2nd Semester, or Summer.';if(value.includes('scholarship'))return'Use the exact name of an active scholarship program.';if(value.includes('email'))return'Enter a valid email address or leave the optional field blank.';return'Review the imported values and correct the field described in the error message.'}

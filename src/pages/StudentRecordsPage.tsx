@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Skeleton } from '@/components/ui/Skeleton'
 import type { ImportPreview, ImportResult } from '@/utils/importStudents'
 import { ImportPreviewModal } from '@/components/students/ImportPreviewModal'
+import { ImportResultsModal } from '@/components/students/ImportResultsModal'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 import { BatchUpdateModal } from '@/components/students/BatchUpdateModal'
 import { EnrollmentVerificationModal } from '@/components/students/EnrollmentVerificationModal'
@@ -87,6 +88,7 @@ export default function StudentRecordsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importResultsOpen, setImportResultsOpen] = useState(false)
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [exportingPdf, setExportingPdf] = useState(false)
 
@@ -112,7 +114,7 @@ export default function StudentRecordsPage() {
     try {
       const { commitStudentsImport } = await import('@/utils/importStudents')
       const result = await commitStudentsImport(importPreview)
-      setImportResult(result); setImportPreview(null); await refetch()
+      setImportResult(result); setImportResultsOpen(true); setImportPreview(null); await refetch()
       pushToast(`Import completed — ${result.addedCount} new record(s) added.`)
     } catch (error) { pushToast(`Import failed: ${(error as Error).message}`, 'error') }
     finally { setImporting(false) }
@@ -210,6 +212,9 @@ export default function StudentRecordsPage() {
               ))}
             </ul>
           )}
+          <button onClick={() => setImportResultsOpen(true)} className="mt-3 rounded-md px-3 py-1.5 text-xs font-semibold" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>
+            View Full Import Report
+          </button>
         </Card>
       )}
 
@@ -457,6 +462,8 @@ export default function StudentRecordsPage() {
       />
 
       {importPreview && <ImportPreviewModal preview={importPreview} processing={importing} onCancel={() => setImportPreview(null)} onConfirm={confirmImport} />}
+
+      {importResultsOpen && <ImportResultsModal result={importResult} onClose={() => setImportResultsOpen(false)} />}
 
       <AddStudentModal
         open={addStudentModalOpen}

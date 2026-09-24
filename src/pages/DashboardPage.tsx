@@ -65,22 +65,24 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="space-y-3" aria-labelledby="enrollment-heading">
-        <h2 id="enrollment-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
-          Enrollment
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:max-w-2xl">
-          <StatCard label="Enrolled" loading={statsLoading} value={stats?.enrolled_students ?? 0} />
-          <StatCard label="Not Enrolled" loading={statsLoading} value={stats?.not_enrolled_students ?? 0} />
-        </div>
-      </section>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="flex min-w-0 flex-col space-y-3" aria-labelledby="enrollment-heading">
+          <h2 id="enrollment-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
+            Enrollment
+          </h2>
+          <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+            <StatCard label="Enrolled" loading={statsLoading} value={stats?.enrolled_students ?? 0} />
+            <StatCard label="Not Enrolled" loading={statsLoading} value={stats?.not_enrolled_students ?? 0} />
+          </div>
+        </section>
 
-      <section className="space-y-3" aria-labelledby="data-review-heading">
-        <h2 id="data-review-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
-          Data Review
-        </h2>
-        <DuplicateFlagsCard />
-      </section>
+        <section className="flex min-w-0 flex-col space-y-3" aria-labelledby="data-review-heading">
+          <h2 id="data-review-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
+            Data Review
+          </h2>
+          <DuplicateFlagsCard className="flex-1" />
+        </section>
+      </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

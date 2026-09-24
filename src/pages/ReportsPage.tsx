@@ -27,6 +27,7 @@ import { useToasts } from '@/hooks/useToasts'
 import { supabase } from '@/lib/supabase'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { useDuplicateFlagTrend } from '@/hooks/useTrends'
+import { usePrograms } from '@/hooks/usePrograms'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
 import { logActivity } from '@/utils/logActivity'
 
@@ -48,6 +49,7 @@ export default function ReportsPage() {
   const [scanning, setScanning] = useState(false)
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false)
   const [notificationFlagId, setNotificationFlagId] = useState<string | null>(null)
+  const programs = usePrograms(college || undefined)
   const report = useReportAnalytics({ academicYear, semester, college, program, category, scholarship, status, enrollment })
   const categoryData = sortByCategoryOrder(report.categoryData)
   const trendData = report.trendData
@@ -125,7 +127,10 @@ export default function ReportsPage() {
             </select>
             <select
               value={college}
-              onChange={(e) => setCollege(e.target.value)}
+              onChange={(e) => {
+                setCollege(e.target.value)
+                setProgram('')
+              }}
               className="h-9 w-44 shrink-0 rounded-full border px-3 text-sm"
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
@@ -141,7 +146,7 @@ export default function ReportsPage() {
               style={{ borderColor: 'var(--input-border)', color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
             >
               <option value="">All Programs</option>
-              {report.options.programs.map((name) => <option key={name} value={name}>{name}</option>)}
+              {programs.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
             <select
               value={category}

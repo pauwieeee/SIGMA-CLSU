@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
 import type { StudentDetail } from '@/hooks/useStudentDetail'
+import { STUDENT_YEAR_LEVEL_OPTIONS } from '@/types/database'
 
 interface FormValues {
   yr_level: string
@@ -51,6 +52,12 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
     setSaving(true)
     setError(null)
 
+    if (!STUDENT_YEAR_LEVEL_OPTIONS.includes(form.yr_level as (typeof STUDENT_YEAR_LEVEL_OPTIONS)[number])) {
+      setError('Select a valid year level.')
+      setSaving(false)
+      return
+    }
+
     const gwaValue = form.gwa.trim() ? Number(form.gwa) : null
     if (form.gwa.trim() && (Number.isNaN(gwaValue) || gwaValue! < 1 || gwaValue! > 5)) {
       setError('GWA must be a number between 1.00 and 5.00.')
@@ -73,7 +80,8 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
     setSaving(false)
 
     if (error) {
-      setError(error.message)
+      console.error('Student profile update failed:', error)
+      setError('Unable to update the student. Please check the information and try again.')
       return
     }
 
@@ -99,12 +107,16 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Year Level</label>
-              <input
+              <select
                 value={form.yr_level}
                 onChange={(e) => setForm((f) => ({ ...f, yr_level: e.target.value }))}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
                 style={{ borderColor: 'var(--input-border)' }}
-              />
+                required
+              >
+                <option value="">Select Year Level</option>
+                {STUDENT_YEAR_LEVEL_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>GWA</label>

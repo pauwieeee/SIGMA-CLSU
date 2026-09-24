@@ -19,6 +19,9 @@ export interface StudentRecordRow {
    * target for batch status/term updates (a student may have several term
    * rows; this is the one currently displayed). */
   studentScholarshipId: string | null
+  archiveReason: string | null
+  archivedAt: string | null
+  archivedBy: string | null
 }
 
 interface Filters {
@@ -31,7 +34,7 @@ interface Filters {
   status: string
 }
 
-export function useStudentRecords(filters: Filters) {
+export function useStudentRecords(filters: Filters, showArchived = false) {
   const [rows, setRows] = useState<StudentRecordRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -39,17 +42,19 @@ export function useStudentRecords(filters: Filters) {
   const load = useCallback(async () => {
     setLoading(true)
 
+    let studentsQuery = supabase
+      .from('students')
+      .select(
+        `id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level,
+         archived_at, archived_by_name, archived_by_email, archive_reason,
+         programs ( name, colleges ( id, name ) ),
+         student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
+           scholarships ( name, status, scholarship_categories ( id, name ) ) )`
+      )
+    studentsQuery = showArchived ? studentsQuery.not('archived_at', 'is', null) : studentsQuery.is('archived_at', null)
+
     const [{ data, error }, { data: dupRows }] = await Promise.all([
-      supabase
-        .from('students')
-        .select(
-          `id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level,
-           programs ( name, colleges ( id, name ) ),
-           student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
-             scholarships ( name, status, scholarship_categories ( id, name ) ) )`
-        )
-        .is('archived_at', null)
-        .order('last_name', { ascending: true }),
+      studentsQuery.order('last_name', { ascending: true }),
       supabase.from('duplicate_flags').select('student_id').eq('status', 'Open'),
     ])
 
@@ -86,12 +91,15 @@ export function useStudentRecords(filters: Filters) {
         isEnrolled: latestScholarship?.is_enrolled ?? null,
         hasDuplicate: duplicateStudentIds.has(s.id),
         studentScholarshipId: latestScholarship?.id ?? null,
+        archiveReason: s.archive_reason ?? null,
+        archivedAt: s.archived_at ?? null,
+        archivedBy: s.archived_by_name ?? s.archived_by_email ?? null,
       }
     })
 
     setRows(mapped)
     setLoading(false)
-  }, [])
+  }, [showArchived])
 
   useEffect(() => {
     load()

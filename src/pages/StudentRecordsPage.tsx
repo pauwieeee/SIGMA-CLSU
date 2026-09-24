@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Plus, Search, Upload } from 'lucide-react'
+import { Archive, Plus, RotateCcw, Search, Upload } from 'lucide-react'
 import { useStudentRecords } from '@/hooks/useStudentRecords'
 import { useColleges } from '@/hooks/useColleges'
 import { usePrograms } from '@/hooks/usePrograms'
@@ -13,6 +13,7 @@ import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 import { BatchUpdateModal } from '@/components/students/BatchUpdateModal'
 import { EnrollmentVerificationModal } from '@/components/students/EnrollmentVerificationModal'
 import { AddStudentModal } from '@/components/students/AddStudentModal'
+import { StudentArchiveModal } from '@/components/students/StudentArchiveModal'
 import { ToastStack } from '@/components/ui/Toast'
 import { useToasts } from '@/hooks/useToasts'
 
@@ -67,6 +68,8 @@ export default function StudentRecordsPage() {
   const [batchModalOpen, setBatchModalOpen] = useState(false)
   const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false)
   const [addStudentModalOpen, setAddStudentModalOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null)
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts()
 
   const colleges = useColleges()
@@ -79,7 +82,7 @@ export default function StudentRecordsPage() {
     academicYear,
     semester,
     status,
-  })
+  }, showArchived)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
@@ -155,6 +158,14 @@ export default function StudentRecordsPage() {
           className="hidden"
           onChange={handleFileSelected}
         />
+        <button
+          onClick={() => { setShowArchived((value) => !value); setSelected(new Set()) }}
+          className="flex items-center gap-2 self-start rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)]"
+          style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
+        >
+          <Archive size={16} />
+          {showArchived ? 'Active Students' : 'Archived Students'}
+        </button>
         <button
           onClick={() => setEnrollmentModalOpen(true)}
           className="self-start rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)]"
@@ -240,7 +251,7 @@ export default function StudentRecordsPage() {
       <Card className="p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-4">
           <p className="text-sm font-bold tracking-wide" style={{ color: 'var(--widget-heading-text)' }}>
-            {rows.length.toLocaleString()} STUDENTS
+            {rows.length.toLocaleString()} {showArchived ? 'ARCHIVED STUDENTS' : 'ACTIVE STUDENTS'}
           </p>
           <div className="flex gap-2">
             <span className="self-center text-xs font-semibold" style={{ color: selected.size > 0 ? 'var(--btn-primary-bg)' : 'var(--text-muted)' }}>
@@ -290,13 +301,13 @@ export default function StudentRecordsPage() {
             }}
           >
             <div className="flex h-11 items-center justify-center">
-              <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all students" />
+              {!showArchived && <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all students" />}
             </div>
             <div className="py-3 pr-2">Student</div>
             <div className="px-4 py-3">College</div>
-            <div className="px-4 py-3">Scholarship</div>
-            <div className="px-4 py-3">A.Y. / Sem</div>
-            <div className="px-4 py-3">Status</div>
+            <div className="px-4 py-3">{showArchived ? 'Program / Year' : 'Scholarship'}</div>
+            <div className="px-4 py-3">{showArchived ? 'Archived Date' : 'A.Y. / Sem'}</div>
+            <div className="px-4 py-3">{showArchived ? 'Reason / Archived By' : 'Status'}</div>
             <div className="px-4 py-3 text-center">Actions</div>
           </div>
 
@@ -350,12 +361,12 @@ export default function StudentRecordsPage() {
                 style={{ gridTemplateColumns: GRID_COLS, borderColor: 'var(--divider-light)' }}
               >
                 <div className="flex h-full min-h-11 items-center justify-center">
-                  <input
+                  {!showArchived && <input
                     type="checkbox"
                     checked={selected.has(r.id)}
                     onChange={() => toggleOne(r.id)}
                     aria-label={`Select ${r.full_name}`}
-                  />
+                  />}
                 </div>
                 <div className="py-3 pr-2">
                   <div className="flex items-center gap-2.5">
@@ -370,12 +381,19 @@ export default function StudentRecordsPage() {
                   {r.college}
                 </div>
                 <div className="truncate px-4 py-3" style={{ color: 'var(--text-secondary)' }} title={r.scholarship ?? undefined}>
-                  {r.scholarship ?? '—'}
+                  {showArchived ? `${r.program} · ${r.yr_level}` : (r.scholarship ?? '—')}
                 </div>
                 <div className="truncate px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
-                  {r.academic_year ? `${r.academic_year} · ${r.semester}` : '—'}
+                  {showArchived
+                    ? (r.archivedAt ? new Date(r.archivedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '—')
+                    : (r.academic_year ? `${r.academic_year} · ${r.semester}` : '—')}
                 </div>
                 <div className="grid min-w-0 grid-cols-[92px_100px_116px] items-center gap-x-2 px-4 py-3">
+                  {showArchived ? <div className="col-span-3 min-w-0 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <StatusBadge status="Archived" />
+                    <p className="truncate" title={r.archiveReason ?? undefined}>{r.archiveReason ?? 'No reason provided'}</p>
+                    <p className="truncate" style={{ color: 'var(--text-muted)' }}>By {r.archivedBy ?? 'Unknown admin'}</p>
+                  </div> : <>
                   <div className="flex items-center">
                     <StatusBadge status={displayStatus} />
                   </div>
@@ -397,14 +415,25 @@ export default function StudentRecordsPage() {
                       Needs Review
                     </span>
                   )}
+                  </>}
                 </div>
-                <div className="flex items-center justify-center px-4 py-3">
+                <div className="flex items-center justify-center gap-2 px-4 py-3">
                   <button
                     onClick={() => setViewingId(r.id)}
                     className="min-w-16 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
                     style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
                   >
                     View
+                  </button>
+                  <button
+                    onClick={() => setArchiveTarget({ id: r.id, name: r.full_name })}
+                    className="min-w-16 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"
+                    style={{ borderColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-bg)' }}
+                  >
+                    <span className="flex items-center justify-center gap-1.5">
+                      {showArchived ? <RotateCcw size={13} /> : <Archive size={13} />}
+                      {showArchived ? 'Restore' : 'Archive'}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -414,6 +443,18 @@ export default function StudentRecordsPage() {
       </Card>
 
       <StudentDetailModal studentId={viewingId} onClose={() => setViewingId(null)} onChanged={refetch} />
+
+      <StudentArchiveModal
+        student={archiveTarget}
+        mode={showArchived ? 'restore' : 'archive'}
+        onClose={() => setArchiveTarget(null)}
+        onDone={async () => {
+          const action = showArchived ? 'restored' : 'archived'
+          setArchiveTarget(null)
+          await refetch()
+          pushToast(`Student record ${action} successfully.`)
+        }}
+      />
 
       {importPreview && <ImportPreviewModal preview={importPreview} processing={importing} onCancel={() => setImportPreview(null)} onConfirm={confirmImport} />}
 

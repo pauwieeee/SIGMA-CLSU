@@ -57,6 +57,15 @@ export interface Student {
   gwa: number | null
   participation_org: string | null
   archived_at: string | null
+  status: 'Active' | 'Archived'
+  archived_by: string | null
+  archived_by_name: string | null
+  archived_by_email: string | null
+  archive_reason: string | null
+  restored_at: string | null
+  restored_by: string | null
+  restored_by_name: string | null
+  restored_by_email: string | null
   created_at: string
   updated_at: string
 }

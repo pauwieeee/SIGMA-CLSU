@@ -54,6 +54,7 @@ const EMPTY_FORM: FormValues = {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const STUDENT_NUMBER_PATTERN = /^[0-9]{2}-[0-9]{4}$/
+const ACADEMIC_YEAR_PATTERN = /^(\d{4})-(\d{4})$/
 
 type FieldErrors = Partial<Record<keyof FormValues | 'form', string>>
 
@@ -100,7 +101,8 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
       supabase.from('scholarships').select('id, name, scholarship_categories ( name )').is('archived_at', null).order('name'),
     ]).then(([programResult, scholarshipResult]) => {
       if (programResult.error || scholarshipResult.error) {
-        setErrors({ form: programResult.error?.message ?? scholarshipResult.error?.message ?? 'Could not load form options.' })
+        console.error('Add Student options failed to load:', programResult.error ?? scholarshipResult.error)
+        setErrors({ form: 'Unable to load the form options. Please refresh and try again.' })
         setLoadingOptions(false)
         return
       }
@@ -142,11 +144,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
 
   const emailValid = !form.email.trim() || EMAIL_PATTERN.test(form.email.trim())
   const yearLevelValid = STUDENT_YEAR_LEVEL_OPTIONS.includes(form.yearLevel.trim() as (typeof STUDENT_YEAR_LEVEL_OPTIONS)[number])
-  const coreFieldsValid = STUDENT_NUMBER_PATTERN.test(form.studentNumber.trim())
-    && Boolean(form.firstName.trim() && form.lastName.trim() && form.collegeId && form.programId)
-    && yearLevelValid
-  const scholarshipFieldsValid = !form.scholarshipId || Boolean(form.academicYear.trim() && form.semester && form.scholarshipStatus)
-  const canSubmit = coreFieldsValid && emailValid && scholarshipFieldsValid && !saving && !loadingOptions
+  const canSubmit = !saving && !loadingOptions
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -164,12 +162,17 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
       ? 'Enter or select a valid program from the chosen college.'
       : 'Program/Course is required.'
     if (!form.yearLevel.trim()) next.yearLevel = 'Year level is required.'
-    else if (!yearLevelValid) next.yearLevel = 'Enter 1st Year, 2nd Year, 3rd Year, 4th Year, 5th Year, or Graduate.'
+    else if (!yearLevelValid) next.yearLevel = 'Select a valid year level.'
     if (!emailValid) next.email = 'Enter a valid email address.'
     if (form.dateOfBirth && form.dateOfBirth > new Date().toISOString().slice(0, 10)) next.dateOfBirth = 'Date of birth cannot be in the future.'
     if (form.dateAwarded && form.dateAwarded > new Date().toISOString().slice(0, 10)) next.dateAwarded = 'Date awarded cannot be in the future.'
     if (form.scholarshipId && !form.academicYear.trim()) next.academicYear = 'Academic year is required when a scholarship is selected.'
+    else if (form.academicYear.trim()) {
+      const match = form.academicYear.trim().match(ACADEMIC_YEAR_PATTERN)
+      if (!match || Number(match[2]) !== Number(match[1]) + 1) next.academicYear = 'Use a consecutive academic year such as 2026-2027.'
+    }
     if (form.scholarshipId && !form.semester) next.semester = 'Semester is required when a scholarship is selected.'
+    if (form.scholarshipId && !form.scholarshipStatus) next.scholarshipStatus = 'Scholarship status is required when a scholarship is selected.'
     return next
   }
 
@@ -185,11 +188,18 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     setErrors({})
     const studentNumber = form.studentNumber.trim()
 
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from('students')
       .select('id, first_name, last_name')
       .eq('student_number', studentNumber)
       .maybeSingle()
+
+    if (lookupError) {
+      console.error('Add Student duplicate check failed:', lookupError)
+      setErrors({ form: 'Unable to add student. Please check the required fields and try again.' })
+      setSaving(false)
+      return
+    }
 
     if (existing && !form.scholarshipId) {
       setErrors({ studentNumber: 'Student ID already exists. Select a scholarship and term to add a new semester record to the existing student.' })
@@ -223,10 +233,11 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     }
 
     if (studentError || !student) {
+      console.error('Add Student insert failed:', studentError)
       const duplicate = studentError?.code === '23505' || studentError?.message?.toLowerCase().includes('student_number')
       setErrors(duplicate
         ? { studentNumber: 'Student ID already exists.' }
-        : { form: studentError?.message ?? 'The student could not be added.' })
+        : { form: 'Unable to add student. Please check the required fields and try again.' })
       setSaving(false)
       return
     }
@@ -242,11 +253,12 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
       })
 
       if (assignmentError) {
+        console.error('Student scholarship assignment insert failed:', assignmentError)
         if (!existing) await supabase.from('students').delete().eq('id', student.id)
         const duplicateAssignment = assignmentError.code === '23505'
         setErrors({ form: duplicateAssignment
           ? 'This student already has this scholarship for the selected academic year and semester.'
-          : assignmentError.message })
+          : 'The student scholarship could not be saved. Please verify the scholarship information and try again.' })
         setSaving(false)
         return
       }
@@ -329,7 +341,12 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
                   ))}
                 </datalist>
               </Field>
-              <Field label="Year Level" required error={errors.yearLevel}><input value={form.yearLevel} onChange={(e) => update('yearLevel', e.target.value)} placeholder="Enter year level" className={controlClass} style={inputStyle(Boolean(errors.yearLevel))} /></Field>
+              <Field label="Year Level" required error={errors.yearLevel}>
+                <select value={form.yearLevel} onChange={(e) => update('yearLevel', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.yearLevel))}>
+                  <option value="">Select Year Level</option>
+                  {STUDENT_YEAR_LEVEL_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </Field>
               <Field label="Academic Year" error={errors.academicYear}><input value={form.academicYear} onChange={(e) => update('academicYear', e.target.value)} placeholder="e.g. 2026-2027" className={controlClass} style={inputStyle(Boolean(errors.academicYear))} /></Field>
               <Field label="Semester" error={errors.semester}><select value={form.semester} onChange={(e) => update('semester', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.semester))}><option value="">Select semester</option>{SEMESTER_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}</select></Field>
             </div>
@@ -340,7 +357,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Scholarship Type"><select value={form.scholarshipType} onChange={(e) => { update('scholarshipType', e.target.value); update('scholarshipId', '') }} className={controlClass} style={inputStyle()}><option value="">All types</option>{scholarshipTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>
               <Field label="Scholarship Program"><select value={form.scholarshipId} onChange={(e) => { const id = e.target.value; update('scholarshipId', id); const selected = scholarships.find((item) => item.id === id); if (selected) update('scholarshipType', selected.categoryName) }} className={controlClass} style={inputStyle()}><option value="">No scholarship</option>{visibleScholarships.map((scholarship) => <option key={scholarship.id} value={scholarship.id}>{scholarship.name}</option>)}</select></Field>
-              <Field label="Scholarship Status"><select value={form.scholarshipStatus} onChange={(e) => update('scholarshipStatus', e.target.value)} className={controlClass} style={inputStyle()}><option value="">Select status</option>{STUDENT_SCHOLARSHIP_STATUS_OPTIONS.map((value) => <option key={value} value={value}>{statusShortLabel(value)}</option>)}</select></Field>
+              <Field label="Scholarship Status" error={errors.scholarshipStatus}><select value={form.scholarshipStatus} onChange={(e) => update('scholarshipStatus', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.scholarshipStatus))}><option value="">Select status</option>{STUDENT_SCHOLARSHIP_STATUS_OPTIONS.map((value) => <option key={value} value={value}>{statusShortLabel(value)}</option>)}</select></Field>
               <Field label="Date Awarded" error={errors.dateAwarded}><input type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateAwarded} onChange={(e) => update('dateAwarded', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.dateAwarded))} /></Field>
             </div>
           </section>

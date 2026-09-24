@@ -51,14 +51,10 @@ export function BatchUpdateModal({ open, students, onClose, onDone }: Props) {
 
     try {
       if (action === 'archive') {
-        const { data, error } = await (supabase as any)
-          .from('students')
-          .update({ archived_at: new Date().toISOString() })
-          .in('id', studentIds)
-          .select('id')
-        if (error) throw error
-        const updated = data?.length ?? 0
-        if (updated > 0) await logActivity('archive', 'student', `Archived ${updated} student record(s).`)
+        const results = await Promise.all(studentIds.map((id) =>
+          (supabase as any).rpc('archive_student', { p_student_id: id, p_reason: 'Batch archive' })
+        ))
+        const updated = results.filter((result) => !result.error).length
         onDone({ updated, failed: studentIds.length - updated })
         return
       }

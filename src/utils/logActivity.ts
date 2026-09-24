@@ -23,6 +23,23 @@ export async function logActivity(action: string, entityType: string, descriptio
       throw new Error(`The change succeeded, but its activity log could not be saved: ${rpcResult.error.message}; ${authError?.message ?? 'no authenticated user'}`)
     }
 
+    let recentQuery = (supabase as any)
+      .from('activity_logs')
+      .select('id')
+      .eq('actor_id', user.id)
+      .eq('action', action)
+      .eq('entity_type', entityType)
+      .gte('created_at', new Date(Date.now() - 15_000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+    recentQuery = entityId ? recentQuery.eq('entity_id', entityId) : recentQuery.is('entity_id', null)
+    const recentResult = await recentQuery.maybeSingle()
+
+    if (!recentResult.error && recentResult.data) {
+      window.dispatchEvent(new CustomEvent(ACTIVITY_CREATED_EVENT))
+      return
+    }
+
     const directResult = await (supabase as any)
       .from('activity_logs')
       .insert({

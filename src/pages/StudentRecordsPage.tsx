@@ -23,8 +23,8 @@ const statusOptions = ['Active', 'Expiring Soon', 'Expired', 'For Renewal', 'Doc
 // Grid column template shared by the header row and every data row so they
 // always align — this is what makes the CSS Grid approach reliable for a
 // sticky header (native <table> sticky-thead has cross-browser quirks).
-const GRID_COLS = '40px minmax(220px,1fr) 220px minmax(200px,1fr) 160px 340px 100px'
-const GRID_MIN_WIDTH = 'min-w-[1280px]'
+const GRID_COLS = '40px minmax(220px,1fr) 220px minmax(200px,1fr) 160px 340px 176px'
+const GRID_MIN_WIDTH = 'min-w-[1356px]'
 
 function FilterSelect({
   value,
@@ -313,7 +313,12 @@ export default function StudentRecordsPage() {
             <div className="px-4 py-3">{showArchived ? 'Program / Year' : 'Scholarship'}</div>
             <div className="px-4 py-3">{showArchived ? 'Archived Date' : 'A.Y. / Sem'}</div>
             <div className="px-4 py-3">{showArchived ? 'Reason / Archived By' : 'Status'}</div>
-            <div className="px-4 py-3 text-center">Actions</div>
+            <div
+              className="sticky right-0 z-30 flex h-11 w-44 items-center justify-center px-4 text-center"
+              style={{ background: '#FFFFFF', boxShadow: '-4px 0 8px rgba(0,0,0,0.05)' }}
+            >
+              Actions
+            </div>
           </div>
 
           {loading &&
@@ -341,7 +346,7 @@ export default function StudentRecordsPage() {
                 <div className="px-4 py-3">
                   <Skeleton className="h-5 w-16 rounded-full" />
                 </div>
-                <div className="px-4 py-3">
+                <div className="sticky right-0 z-10 flex w-44 items-center justify-center px-4 py-3" style={{ background: '#FFFFFF', boxShadow: '-4px 0 8px rgba(0,0,0,0.05)' }}>
                   <Skeleton className="h-7 w-12" />
                 </div>
               </div>
@@ -422,7 +427,10 @@ export default function StudentRecordsPage() {
                   )}
                   </>}
                 </div>
-                <div className="flex items-center justify-center gap-2 px-4 py-3">
+                <div
+                  className="sticky right-0 z-10 flex w-44 items-center justify-center gap-2 whitespace-nowrap px-4 py-3"
+                  style={{ background: '#FFFFFF', boxShadow: '-4px 0 8px rgba(0,0,0,0.05)' }}
+                >
                   <button
                     onClick={() => setViewingId(r.id)}
                     className="min-w-16 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)]"

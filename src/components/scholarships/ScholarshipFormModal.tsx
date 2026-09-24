@@ -73,6 +73,13 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
 
   useEffect(() => {
     if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
     supabase
       .from('scholarship_categories')
       .select('id, scholarship_agencies ( id, name )')
@@ -101,18 +108,27 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
       setError('Minimum units must be a positive number.')
       return
     }
+    if (form.contact_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) {
+      setError('Enter a valid contact email address.')
+      return
+    }
+    if (form.start_date && form.end_date && form.end_date < form.start_date) {
+      setError('End date cannot be earlier than the start date.')
+      return
+    }
 
     setSaving(true)
     setError(null)
 
-    const { data: categoryRow } = await supabase
+    const { data: categoryRow, error: categoryError } = await supabase
       .from('scholarship_categories')
       .select('id')
       .eq('name', category)
       .single()
 
-    if (!categoryRow) {
-      setError('Category lookup failed.')
+    if (categoryError || !categoryRow) {
+      console.error('Scholarship category lookup failed:', categoryError)
+      setError('Unable to save the scholarship. Please try again.')
       setSaving(false)
       return
     }
@@ -131,7 +147,8 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
           .select('id')
           .single()
         if (agencyError) {
-          setError(`Couldn't create agency "${agencyName}": ${agencyError.message}`)
+          console.error('Scholarship agency creation failed:', agencyError)
+          setError(`Unable to create agency "${agencyName}". Please try again.`)
           setSaving(false)
           return
         }
@@ -168,7 +185,8 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
     setSaving(false)
 
     if (error) {
-      setError(error.message.includes('duplicate') ? 'A scholarship with this name already exists in this category.' : error.message)
+      console.error(`${isEdit ? 'Scholarship update' : 'Scholarship creation'} failed:`, error)
+      setError(error.message.includes('duplicate') ? 'A scholarship with this name already exists in this category.' : 'Unable to save the scholarship. Please try again.')
       return
     }
 
@@ -183,19 +201,23 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
-            {form.id ? 'Edit Scholarship' : 'Add Scholarship'} — {category}
-          </h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="scholarship-modal-title">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
+          <div className="min-w-0">
+            <h2 id="scholarship-modal-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+              {form.id ? 'Edit Scholarship' : 'Add Scholarship'}
+            </h2>
+            <p className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>{form.id ? form.name : category}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 rounded-md p-1 hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 px-5 py-4">
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Level</label>
               <select
@@ -250,7 +272,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Qualifications</label>
               <textarea
@@ -275,7 +297,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Minimum GWA (optional)</label>
               <input
@@ -301,7 +323,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
             Set these for academic scholarships to auto-flag students who don't meet the requirement. Leave blank if this scholarship has no GWA/unit-load requirement.
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Benefits / Amount</label>
               <input
@@ -324,7 +346,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Contact Person(s)</label>
               <input
@@ -348,7 +370,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Start Date</label>
               <input
@@ -391,8 +413,9 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
               {error}
             </p>
           )}
+          </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex shrink-0 justify-end gap-2 border-t px-4 py-3 sm:px-5" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
             <button
               type="button"
               onClick={onClose}
@@ -407,7 +430,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
               className="rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:opacity-60"
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
-              {saving ? 'Saving…' : 'Save Scholarship'}
+              {saving ? 'Saving…' : form.id ? 'Save Changes' : 'Save Scholarship'}
             </button>
           </div>
         </form>

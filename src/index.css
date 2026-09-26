@@ -212,14 +212,14 @@ body {
 .sigma-nav-link {
   position: relative;
   display: flex;
-  min-width: 0;
-  flex: 1 1 25%;
+  min-width: max-content;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  padding: 0 24px;
+  padding: 0 10px;
   text-align: center;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.012em;
   transition: color 200ms ease, background-color 200ms ease;
@@ -227,10 +227,10 @@ body {
 
 .sigma-nav-link::after {
   position: absolute;
-  right: 20px;
+  right: 8px;
   bottom: 0;
-  left: 20px;
-  height: 4px;
+  left: 8px;
+  height: 3px;
   border-radius: 4px 4px 0 0;
   background: #c7f2ae;
   content: '';
@@ -242,7 +242,7 @@ body {
 
 .sigma-nav-link:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(18, 79, 26, 0.12);
 }
 
 .sigma-nav-link:hover::after {
@@ -253,7 +253,7 @@ body {
 .sigma-nav-link-active {
   color: #fff;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(10, 67, 21, 0.14);
 }
 
 .sigma-nav-link-active::after {
@@ -303,8 +303,8 @@ body {
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  .sigma-nav-link { padding-right: 19px; padding-left: 19px; }
-  .sigma-nav-link::after { right: 16px; left: 16px; }
+  .sigma-nav-link { padding-right: 7px; padding-left: 7px; font-size: 14px; }
+  .sigma-nav-link::after { right: 5px; left: 5px; }
 }
 
 /* Reports & Analytics: all filters visible without horizontal scrolling. */

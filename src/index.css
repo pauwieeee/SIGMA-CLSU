@@ -177,6 +177,27 @@ body {
   box-sizing: border-box;
 }
 
+/* Shared SIGMAI assistant wordmark: a single word with AI emphasis. */
+.sigma-ai-wordmark {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  color: #0b6b2e;
+  font-family: inherit;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.sigma-ai-wordmark-base { color: #0b6b2e; }
+.sigma-ai-wordmark-accent { position: relative; color: #57c93a; }
+.sigma-ai-wordmark-sparkles { position: absolute; top: -.42em; right: -.22em; width: .72em; height: .5em; pointer-events: none; }
+.sigma-ai-wordmark-sparkles i { position: absolute; display: block; background: #57c93a; transform: rotate(45deg); }
+.sigma-ai-wordmark-sparkles i:first-child { top: 0; right: 0; width: .18em; height: .18em; }
+.sigma-ai-wordmark-sparkles i:last-child { bottom: 0; left: 0; width: .11em; height: .11em; opacity: .8; }
+.sigma-ai-wordmark-inline { margin: 0 .12em; font-size: 1.05em; vertical-align: baseline; }
+.sigma-chat-wordmark-surface { display: inline-flex; border-radius: 5px; padding: 3px 5px 2px; background: rgba(255, 255, 255, .94); }
+
 /* Institutional application header and primary navigation */
 .sigma-site-header {
   position: relative;
@@ -571,27 +592,10 @@ body {
 }
 
 .sigma-login-wordmark {
-  position: relative;
-  display: inline-block;
   font-size: clamp(48px, 8vw, 92px);
-  font-weight: 800;
+  font-weight: 900;
   line-height: 0.95;
   letter-spacing: -0.055em;
-  color: transparent;
-  background: linear-gradient(90deg, #075a27 0 70%, #45bd33 70% 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.sigma-login-wordmark i {
-  position: absolute;
-  top: -0.42em;
-  right: -0.34em;
-  color: #45bd33;
-  font-size: 0.38em;
-  font-style: normal;
-  animation: sigmaTwinkle 900ms ease-in-out infinite alternate;
 }
 
 .sigma-login-brand p {

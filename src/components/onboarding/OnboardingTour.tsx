@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import clsuLogo from '@/assets/clsu-logo.png'
 import cobraMascot from '@/assets/cobra-assistant.png'
+import { SigmaAIWordmark } from '@/components/assistant/SigmaAIWordmark'
 
 type TourPhase = 'hidden' | 'welcome' | 'tour' | 'complete'
 
@@ -205,7 +206,7 @@ export function OnboardingTour() {
         <div className="sigma-tour-sigmai-heading">
           <span className="sigma-tour-sigmai-mascot"><img src={cobraMascot} alt="SIGMAI cobra mascot" /></span>
           <div>
-            <h2>{step.title}</h2>
+            <h2>Meet <SigmaAIWordmark /></h2>
             <p>Your intelligent scholarship assistant</p>
           </div>
         </div>

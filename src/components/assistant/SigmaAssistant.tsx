@@ -8,6 +8,7 @@ import {
 } from '@/utils/assistantClient'
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 import cobraMascot from '@/assets/cobra-assistant.png'
+import { SigmaAIWordmark } from '@/components/assistant/SigmaAIWordmark'
 
 const suggestedChips = ['Scholars per college', 'Expiring this month', 'Show duplicate list']
 
@@ -124,7 +125,10 @@ export function SigmaAssistant() {
             <img src={cobraMascot} alt="Cobra mascot" />
           </span>
           <div>
-            <p className="text-sm font-bold text-white">CHAT · SIGMAI</p>
+            <div className="flex items-center gap-1.5 text-sm font-bold text-white">
+              <span>CHAT ·</span>
+              <span className="sigma-chat-wordmark-surface"><SigmaAIWordmark /></span>
+            </div>
             <p className="text-xs text-white/70">Ask about scholars, categories, or reports</p>
           </div>
         </div>
@@ -152,7 +156,9 @@ export function SigmaAssistant() {
                 className="rounded-lg px-3 py-2 text-sm"
                 style={{ background: 'var(--menu-active-bg)', color: 'var(--text-primary)' }}
               >
-                <AssistantMarkdown text={m.text} />
+                {i === 0 ? (
+                  <p>Hi! I am <SigmaAIWordmark className="sigma-ai-wordmark-inline" />, your virtual assistant. How can I help you today?</p>
+                ) : <AssistantMarkdown text={m.text} />}
               </div>
             </div>
           ),

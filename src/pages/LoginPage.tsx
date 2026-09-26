@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthProvider'
 import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
 import cobraMascot from '@/assets/cobra-assistant.png'
+import { SigmaAIWordmark } from '@/components/assistant/SigmaAIWordmark'
 
 export default function LoginPage() {
   const { session, loading: authLoading, signIn } = useAuth()
@@ -45,7 +46,7 @@ export default function LoginPage() {
           <img src={clsuLogo} alt="Central Luzon State University" className="sigma-login-logo" />
           <span className="sigma-login-divider" />
           <div className="sigma-login-copy">
-            <div className="sigma-login-wordmark">SIGMAI<i>✦</i></div>
+            <SigmaAIWordmark className="sigma-login-wordmark" />
             <p>Your AI Assistant for Scholarship Management</p>
           </div>
         </div>

@@ -164,7 +164,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           aria-label="Primary navigation"
           style={{ background: `linear-gradient(to right, var(--nav-gradient-start), var(--nav-gradient-end))` }}
         >
-          <div className="mx-auto flex h-[58px] max-w-[1600px] items-stretch px-4 sm:px-6 lg:px-8">
+          <div className="flex h-[58px] w-full items-stretch">
             {topNav.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.to === '/dashboard'} className={({ isActive }) => `sigma-nav-link ${isActive ? 'sigma-nav-link-active' : ''}`}>
                 {item.label}

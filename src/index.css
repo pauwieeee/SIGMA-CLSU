@@ -730,23 +730,42 @@ body {
   box-shadow: 0 13px 30px rgba(1, 80, 33, 0.34), 0 0 0 9px rgba(96, 222, 111, 0.17);
 }
 
-.sigma-chat-launcher > img {
+.sigma-cobra-image-shell {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: sigmaCobraFloat 3.6s ease-in-out infinite;
+}
+
+.sigma-cobra-image-shell img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   transform: scale(1.18) translateY(2px);
   filter: drop-shadow(0 3px 4px rgba(0, 48, 18, 0.25));
+  animation: sigmaCobraPeek 2.5s ease-in-out infinite, sigmaCobraBlink 6s ease-in-out infinite;
 }
+
+.sigma-cobra-curious .sigma-cobra-image-shell { animation: sigmaCobraCurious 1.1s ease-in-out both; }
 
 .sigma-chat-sparkle {
   position: absolute;
   top: -8px;
   right: -5px;
-  color: #64d83e;
-  font-size: 24px;
-  text-shadow: 0 0 8px white;
+  width: 14px;
+  height: 14px;
   animation: sigmaTwinkle 750ms ease-in-out infinite alternate;
 }
+.sigma-chat-sparkle::before,
+.sigma-chat-sparkle::after { position: absolute; border-radius: 2px; background: #64d83e; box-shadow: 0 0 8px white; content: ''; transform: rotate(45deg); }
+.sigma-chat-sparkle::before { inset: 1px; }
+.sigma-chat-sparkle::after { right: -5px; bottom: -4px; width: 5px; height: 5px; opacity: .75; }
+
+.sigma-chat-window-opening { animation: sigmaChatOpen 450ms cubic-bezier(.2,.8,.2,1) both; transform-origin: bottom right; }
+.sigma-cobra-response { animation: sigmaCobraResponse 250ms ease-in-out; }
+.sigma-assistant-message-arrived { animation: sigmaMessageArrive 260ms ease-out both; }
+.sigma-response-sparkle { position: absolute; top: -2px; right: -2px; width: 7px; height: 7px; border-radius: 1px; background: #8af16c; opacity: 0; transform: rotate(45deg); }
+.sigma-cobra-response .sigma-response-sparkle { animation: sigmaResponseSparkle 300ms ease-out; }
 
 .sigma-mascot-intro {
   position: fixed;
@@ -785,6 +804,7 @@ body {
 
 .sigma-chat-header-avatar,
 .sigma-chat-message-avatar {
+  position: relative;
   display: flex;
   flex: none;
   align-items: center;
@@ -835,6 +855,14 @@ body {
 }
 @keyframes sigmaDot { to { transform: translateY(-5px); opacity: 1; } }
 @keyframes sigmaTwinkle { from { transform: scale(0.78) rotate(-8deg); opacity: 0.65; } to { transform: scale(1.15) rotate(8deg); opacity: 1; } }
+@keyframes sigmaCobraFloat { 0%, 100% { transform: translateY(1px) rotate(-1deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+@keyframes sigmaCobraPeek { 0%, 100% { transform: scale(1.18) translateY(4px); } 50% { transform: scale(1.18) translateY(-3px); } }
+@keyframes sigmaCobraBlink { 0%, 45%, 49%, 100% { clip-path: inset(0 0 0 0); filter: brightness(1); } 47% { clip-path: inset(34% 0 30% 0); filter: brightness(1.05); } }
+@keyframes sigmaCobraCurious { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translate(-2px,-4px) rotate(-5deg); } 65% { transform: translate(2px,-4px) rotate(5deg); } }
+@keyframes sigmaChatOpen { 0% { opacity: 0; transform: translateY(18px) scale(.94); } 62% { opacity: 1; transform: translateY(-3px) scale(1.015); } 100% { opacity: 1; transform: none; } }
+@keyframes sigmaCobraResponse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: translateY(-3px) scale(1.08); filter: brightness(1.12); } }
+@keyframes sigmaMessageArrive { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes sigmaResponseSparkle { 0% { opacity: 0; transform: rotate(45deg) scale(.4); } 45% { opacity: 1; transform: rotate(45deg) scale(1.5); } 100% { opacity: 0; transform: rotate(45deg) scale(.6); } }
 @keyframes sigmaLauncherPulse {
   0%, 100% { box-shadow: 0 10px 28px rgba(1, 80, 33, 0.28), 0 0 0 5px rgba(96, 222, 111, 0.08); }
   50% { box-shadow: 0 10px 28px rgba(1, 80, 33, 0.28), 0 0 0 10px rgba(96, 222, 111, 0.17); }
@@ -878,7 +906,14 @@ body {
   .sigma-loading-dots span,
   .sigma-login-wordmark i,
   .sigma-chat-launcher,
-  .sigma-chat-sparkle { animation: none; }
+  .sigma-chat-sparkle,
+  .sigma-cobra-image-shell,
+  .sigma-cobra-image-shell img,
+  .sigma-chat-window-opening,
+  .sigma-cobra-response,
+  .sigma-assistant-message-arrived,
+  .sigma-response-sparkle { animation: none; }
+  .sigma-chat-launcher:hover { transform: scale(1.03); }
   .sigma-mascot-intro { display: none; }
   .sigma-loader-mascot-flight {
     top: calc(50% + 38px);

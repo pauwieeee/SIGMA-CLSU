@@ -37,6 +37,9 @@ function errorMessageFor(code: string): string {
 
 export function SigmaAssistant() {
   const [open, setOpen] = useState(false)
+  const [curious, setCurious] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const [responding, setResponding] = useState(false)
   const [showMascotIntro, setShowMascotIntro] = useState(false)
   const [messages, setMessages] = useState<AssistantConversationMessage[]>([
     {
@@ -48,6 +51,7 @@ export function SigmaAssistant() {
   const [loading, setLoading] = useState(false)
   const [queryContext, setQueryContext] = useState<AssistantQueryContext | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const responseTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -66,6 +70,44 @@ export function SigmaAssistant() {
     }
   }, [])
 
+  useEffect(() => {
+    if (open) return
+    let curiousTimer: number | undefined
+    let resetTimer: number | undefined
+    const schedule = () => {
+      curiousTimer = window.setTimeout(() => {
+        setCurious(true)
+        resetTimer = window.setTimeout(() => {
+          setCurious(false)
+          schedule()
+        }, 1100)
+      }, 10000 + Math.random() * 5000)
+    }
+    schedule()
+    return () => {
+      window.clearTimeout(curiousTimer)
+      window.clearTimeout(resetTimer)
+      setCurious(false)
+    }
+  }, [open])
+
+  useEffect(() => () => {
+    if (responseTimerRef.current) window.clearTimeout(responseTimerRef.current)
+  }, [])
+
+  function reactToResponse() {
+    setResponding(true)
+    if (responseTimerRef.current) window.clearTimeout(responseTimerRef.current)
+    responseTimerRef.current = window.setTimeout(() => setResponding(false), 450)
+  }
+
+  function openAssistant() {
+    setShowMascotIntro(false)
+    setOpening(true)
+    setOpen(true)
+    window.setTimeout(() => setOpening(false), 480)
+  }
+
   async function ask(question: string) {
     if (!question.trim() || loading) return
     setMessages((m) => [...m, { role: 'user', text: question }])
@@ -76,9 +118,11 @@ export function SigmaAssistant() {
       const response = await askAssistant(question, messages, queryContext)
       setQueryContext(response.context)
       setMessages((m) => [...m, { role: 'assistant', text: response.answer || "Sorry, I couldn't find an answer." }])
+      reactToResponse()
     } catch (err) {
       const code = err instanceof AssistantError ? err.code : 'network_error'
       setMessages((m) => [...m, { role: 'assistant', text: errorMessageFor(code) }])
+      reactToResponse()
     } finally {
       setLoading(false)
     }
@@ -100,15 +144,12 @@ export function SigmaAssistant() {
         )}
         <button
           data-tour="sigmai-launcher"
-          onClick={() => {
-            setShowMascotIntro(false)
-            setOpen(true)
-          }}
+          onClick={openAssistant}
           aria-label="Open SIGMAI virtual assistant"
-          className="sigma-chat-launcher fixed right-6 bottom-6 z-40"
+          className={`sigma-chat-launcher fixed right-6 bottom-6 z-40${curious ? ' sigma-cobra-curious' : ''}`}
         >
-          <img src={cobraMascot} alt="" />
-          <span className="sigma-chat-sparkle" aria-hidden="true">✦</span>
+          <span className="sigma-cobra-image-shell"><img src={cobraMascot} alt="" /></span>
+          <span className="sigma-chat-sparkle" aria-hidden="true" />
         </button>
       </>
     )
@@ -116,13 +157,14 @@ export function SigmaAssistant() {
 
   return (
     <div
-      className="fixed right-6 bottom-6 z-40 flex h-[min(560px,calc(100vh-3rem))] w-[400px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border shadow-2xl"
+      className={`sigma-chat-window fixed right-6 bottom-6 z-40 flex h-[min(560px,calc(100vh-3rem))] w-[400px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border shadow-2xl${opening ? ' sigma-chat-window-opening' : ''}`}
       style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}
     >
       <div className="flex items-center justify-between px-4 py-3" style={{ background: 'var(--nav-header-dark)' }}>
         <div className="flex items-center gap-2.5">
-          <span className="sigma-chat-header-avatar">
+          <span className={`sigma-chat-header-avatar${responding ? ' sigma-cobra-response' : ''}`}>
             <img src={cobraMascot} alt="Cobra mascot" />
+            <i className="sigma-response-sparkle" aria-hidden="true" />
           </span>
           <div>
             <div className="flex items-center gap-1.5 text-sm font-bold text-white">
@@ -148,8 +190,8 @@ export function SigmaAssistant() {
               {m.text}
             </div>
           ) : (
-            <div key={i} className="flex max-w-[92%] items-start gap-2">
-              <span className="sigma-chat-message-avatar">
+            <div key={i} className={`flex max-w-[92%] items-start gap-2${responding && i === messages.length - 1 ? ' sigma-assistant-message-arrived' : ''}`}>
+              <span className={`sigma-chat-message-avatar${responding && i === messages.length - 1 ? ' sigma-cobra-response' : ''}`}>
                 <img src={cobraMascot} alt="" />
               </span>
               <div

@@ -98,6 +98,7 @@ export function SigmaAssistant() {
           </div>
         )}
         <button
+          data-tour="sigmai-launcher"
           onClick={() => {
             setShowMascotIntro(false)
             setOpen(true)

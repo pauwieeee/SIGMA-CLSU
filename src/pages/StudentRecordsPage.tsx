@@ -160,7 +160,7 @@ export default function StudentRecordsPage() {
   }
 
   return (
-    <div className="space-y-4 pb-24">
+    <div data-tour="student-records" className="space-y-4 pb-24">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <input
           ref={fileInputRef}
@@ -178,6 +178,7 @@ export default function StudentRecordsPage() {
           {showArchived ? 'Active Students' : 'Archived Students'}
         </button>
         <button
+          data-tour="verify-enrollment"
           onClick={() => setEnrollmentModalOpen(true)}
           className="self-start rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-[var(--menu-hover-bg)]"
           style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}

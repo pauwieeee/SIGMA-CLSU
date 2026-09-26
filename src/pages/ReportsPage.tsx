@@ -105,7 +105,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div data-tour="report-analytics" className="space-y-4">
       <Card>
         <div className="overflow-x-auto pb-1">
           <div className="flex min-w-max items-center gap-2">
@@ -314,7 +314,7 @@ export default function ReportsPage() {
           )}
         </WidgetCard>
 
-        <Card>
+        <Card data-tour="scholarship-conflicts">
           <p className="mb-3 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>
             Open Scholarship Conflict Cases
           </p>

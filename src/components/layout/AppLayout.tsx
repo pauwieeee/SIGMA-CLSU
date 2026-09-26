@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, Settings } from 'lucide-react'
+import { CircleHelp, LogOut, Settings } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import clsuLogo from '@/assets/clsu-logo.png'
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
 
 const topNav = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -115,6 +116,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   </button>
                   <button
                     role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      window.dispatchEvent(new Event('sigma:start-tour'))
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:brightness-95"
+                    style={{ color: 'var(--text-secondary)', background: 'var(--bg-card)' }}
+                  >
+                    <CircleHelp size={15} />
+                    Website Tour
+                  </button>
+                  <button
+                    role="menuitem"
                     onClick={handleLogout}
                     className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm"
                     style={{ color: 'var(--status-error-text)' }}
@@ -154,6 +167,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       <SigmaAssistant />
+      <OnboardingTour />
     </div>
   )
 }

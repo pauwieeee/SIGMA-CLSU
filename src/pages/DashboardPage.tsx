@@ -33,7 +33,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <section className="space-y-3" aria-labelledby="student-overview-heading">
+      <section data-tour="dashboard-stats" className="space-y-3" aria-labelledby="student-overview-heading">
         <h2 id="student-overview-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
           Student Overview
         </h2>

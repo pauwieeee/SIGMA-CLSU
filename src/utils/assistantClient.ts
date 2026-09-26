@@ -140,9 +140,28 @@ function requestedScholarshipQualifier(question: string): string | null {
     'active', 'inactive', 'pending', 'verification', 'renewal', 'incomplete', 'documents',
     'government', 'institutional', 'private', 'all', 'the', 'of', 'matching',
     'show', 'list', 'find', 'give', 'me', 'who', 'are',
+    'how', 'many', 'count', 'number', 'total', 'display', 'student', 'students',
+    'academic', 'year', 'ay',
   ])
   const meaningful = normalize(beforeScholars).split(' ').filter((word) => word && !ignored.has(word))
   return meaningful.length > 0 ? meaningful.join(' ') : null
+}
+
+function extractStudentNumber(question: string): string | null {
+  const match = question.match(/\b(\d{2})-?(\d{4})\b/)
+  return match ? `${match[1]}-${match[2]}` : null
+}
+
+function extractAcademicYear(question: string): string | null {
+  const matches = [...question.matchAll(/\b(20\d{2})\s*[-–—]\s*(20\d{2})\b/g)]
+  const match = matches.at(-1)
+  return match ? `${match[1]}-${match[2]}` : null
+}
+
+function plainStudentName(student: any): string {
+  return [student?.first_name, student?.middle_name, student?.last_name, student?.suffix]
+    .filter(Boolean)
+    .join(' ')
 }
 
 // Verified against this project's actual API key via direct generateContent
@@ -263,6 +282,109 @@ async function resolveIntent(
   const q = question.toLowerCase()
   const contextualQuestion = questionWithContext(question, history)
   const contextualQ = contextualQuestion.toLowerCase()
+
+  // Exact Student ID lookups always win over generic scholar analytics. A
+  // missing ID must return "not found", never a system-wide fallback count.
+  const studentNumber = extractStudentNumber(contextualQuestion)
+  if (studentNumber) {
+    const { data, error } = await supabase
+      .from('students')
+      .select(`id, student_number, first_name, middle_name, last_name, suffix, yr_level, archived_at,
+        programs(name, code, colleges(name, code)),
+        student_scholarships(id, academic_year, semester, status, archived_at, term_closed_at,
+          scholarships(name, status, archived_at))`)
+      .eq('student_number', studentNumber)
+      .maybeSingle()
+    assertQuerySucceeded(error)
+
+    if (!data) {
+      return {
+        intent: 'student_id_not_found',
+        data: null,
+        answer: `No student was found with Student ID **${studentNumber}**.`,
+      }
+    }
+
+    const student = data as any
+    const name = plainStudentName(student)
+    const program = student.programs
+    const collegeLabel = [program?.colleges?.code, program?.colleges?.name].filter(Boolean).join(' — ') || '—'
+    const programLabel = [program?.code, program?.name].filter(Boolean).join(' — ') || '—'
+    const asksForActiveScholarship = /\bactive\b.*\bscholarship|\bscholarship\b.*\bactive\b|\bhas?\b.*\bscholarship|\bis there\b.*\bscholarship/i.test(question)
+
+    if (asksForActiveScholarship) {
+      const activeAssignments = (student.student_scholarships ?? []).filter((assignment: any) =>
+        assignment.status === 'Active'
+        && !assignment.archived_at
+        && !assignment.term_closed_at
+        && !assignment.scholarships?.archived_at
+        && ['Active', 'Expiring Soon'].includes(assignment.scholarships?.status)
+      )
+
+      if (activeAssignments.length === 0) {
+        return {
+          intent: 'active_scholarship_by_student_id',
+          data: { student, assignments: [] },
+          answer: `Student **${studentNumber}** exists (${name}), but no active scholarship was found.`,
+        }
+      }
+
+      const answer = activeAssignments.length === 1
+        ? [
+            '### Active Scholarship Found',
+            `**Student:** ${name}`,
+            `**Student ID:** ${studentNumber}`,
+            `**Scholarship:** ${activeAssignments[0].scholarships?.name ?? '—'}`,
+            `**Status:** ${activeAssignments[0].status}`,
+            `**Academic Year:** ${activeAssignments[0].academic_year}`,
+            `**Semester:** ${activeAssignments[0].semester}`,
+          ].join('\n\n')
+        : `### Active Scholarships for ${name}\n${formatTable(
+            ['Scholarship', 'Status', 'Academic Year', 'Semester'],
+            activeAssignments.map((assignment: any) => [
+              assignment.scholarships?.name,
+              assignment.status,
+              assignment.academic_year,
+              assignment.semester,
+            ])
+          )}`
+      return { intent: 'active_scholarship_by_student_id', data: { student, assignments: activeAssignments }, answer }
+    }
+
+    return {
+      intent: 'student_by_id',
+      data: student,
+      answer: [
+        '### Student Found',
+        `**Name:** ${name}`,
+        `**Student ID:** ${studentNumber}`,
+        `**College:** ${collegeLabel}`,
+        `**Program:** ${programLabel}`,
+        `**Year Level:** ${student.yr_level ?? '—'}`,
+      ].join('\n\n'),
+    }
+  }
+
+  // Academic-year totals are distinct-student analytics, not scholarship
+  // provider searches. Resolve them before entity-name matching.
+  const exactAcademicYear = extractAcademicYear(contextualQuestion)
+  const asksForScholarCount = /\b(?:how many|count|number of|total)\b/i.test(question)
+    && /\bscholars?\b|\bstudents?\b/i.test(question)
+  if (exactAcademicYear && asksForScholarCount) {
+    const { data, error } = await supabase
+      .from('student_scholarships')
+      .select('student_id, students!inner(archived_at)')
+      .eq('academic_year', exactAcademicYear)
+      .is('archived_at', null)
+      .is('students.archived_at', null)
+    assertQuerySucceeded(error)
+    const studentIds = new Set(((data ?? []) as any[]).map((row) => row.student_id).filter(Boolean))
+    return {
+      intent: 'academic_year_scholar_count',
+      data: { academicYear: exactAcademicYear, count: studentIds.size },
+      answer: `### A.Y. ${exactAcademicYear} Summary\n\n**Total Scholars:** ${studentIds.size}`,
+    }
+  }
 
   if (contextualQ.includes('duplicate')) {
     const { data, error } = await supabase

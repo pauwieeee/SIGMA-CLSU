@@ -21,7 +21,7 @@ export const STUDENT_YEAR_LEVEL_OPTIONS = [
   'Graduate',
 ] as const
 export type DegreeLevel = 'Undergraduate' | 'Graduate'
-export type DuplicateFlagStatus = 'Open' | 'Resolved'
+export type DuplicateFlagStatus = 'Open' | 'Under Review' | 'Resolved' | 'Confirmed Valid'
 
 export interface College {
   id: string

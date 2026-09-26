@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { useStudentDetail } from '@/hooks/useStudentDetail'
-import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Avatar } from '@/components/ui/Avatar'
 import { StudentFormModal } from '@/components/students/StudentFormModal'
 import { supabase } from '@/lib/supabase'
@@ -25,7 +24,7 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
 
   if (!studentId) return null
 
-  const openFlags = flags.filter((f) => f.status === 'Open')
+  const openFlags = flags.filter((f) => ['Open', 'Under Review'].includes(f.status))
 
   async function changeStatus(historyId: string, scholarshipName: string, newStatus: string) {
     setSavingStatusId(historyId)
@@ -84,10 +83,10 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
               >
                 <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                 <span>
-                  Duplicate scholarship detected — this student is currently listed under both "{openFlags[0].scholarship_a}"
-                  and "{openFlags[0].scholarship_b}."
-                  {openFlags.length > 1 ? ` (${openFlags.length} duplicate flags total.)` : ''} Review before approving a new
-                  application.
+                  <strong className="block">Scholarship Conflict Detected</strong>
+                  This student currently has multiple Active scholarships during {openFlags[0].academic_year} • {openFlags[0].semester}:
+                  {' '}{openFlags[0].scholarship_a} and {openFlags[0].scholarship_b}. Review whether one record should be deactivated or if this combination is an approved exception.
+                  {openFlags.length > 1 ? ` (${openFlags.length} open scholarship conflict cases.)` : ''}
                 </span>
               </div>
             )}
@@ -180,14 +179,21 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
             {flags.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>
-                  Duplicate Flag History
+                  Scholarship Conflict History
                 </h3>
                 <ul className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>
                   {flags.map((f) => (
                     <li key={f.id} className="py-2.5 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <p style={{ color: 'var(--text-secondary)' }}>{f.reason}</p>
-                        <StatusBadge status={f.status === 'Open' ? 'Duplicate' : 'Resolved'} />
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={f.status === 'Open' || f.status === 'Under Review'
+                            ? { background: 'var(--status-duplicate-bg)', color: 'var(--status-duplicate-text)' }
+                            : { background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}
+                        >
+                          {f.status === 'Open' ? 'Conflict Open' : f.status}
+                        </span>
                       </div>
                     </li>
                   ))}

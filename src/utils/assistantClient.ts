@@ -397,17 +397,17 @@ async function resolveIntent(
     const rows = (data ?? []) as any[]
     const wantsCount = /how many|count|number|total/.test(q)
     const answer = wantsCount
-      ? `**Open Duplicate Flags:** ${rows.length}`
+      ? `**Open Scholarship Conflict Cases:** ${rows.length}`
       : rows.length === 0
-        ? 'There are no open duplicate flags.'
-        : `${rows.length} open duplicate flag${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
+        ? 'There are no open scholarship conflict cases.'
+        : `${rows.length} open scholarship conflict case${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
             ['Student ID', 'Student', 'Reason'],
             rows.map((row) => [
               row.students?.student_number,
               `${row.students?.first_name ?? ''} ${row.students?.last_name ?? ''}`.trim(),
               row.reason,
             ])
-          )}\n\n### Summary\n**Total Open Flags:** ${rows.length}`
+          )}\n\n### Summary\n**Total Open Conflict Cases:** ${rows.length}`
     return { intent: 'duplicates', data: rows, answer }
   }
 
@@ -646,7 +646,7 @@ async function resolveIntent(
       answer: [
         `**Total Scholars:** ${stats?.total_scholars ?? 0}`,
         `**Active Scholarships:** ${stats?.active_scholarships ?? 0}`,
-        `**Open Duplicate Flags:** ${stats?.duplicate_flags_open ?? 0}`,
+        `**Open Scholarship Conflict Cases:** ${stats?.duplicate_flags_open ?? 0}`,
         `**Expiring Soon:** ${stats?.expiring_soon ?? 0}`,
       ].join('\n\n'),
     }

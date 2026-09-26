@@ -3,6 +3,15 @@ import { AlertTriangle, Check, X } from 'lucide-react'
 import { useDuplicateFlags } from '@/hooks/useDuplicateFlags'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
 
+const resolutionDescriptions: Record<string, string> = {
+  'Scholarship Deactivated': 'One scholarship was made inactive.',
+  'Record Corrected': 'Student or scholarship information was corrected.',
+  'Duplicate Entry Removed': 'An accidental duplicate entry was removed.',
+  'Approved Exception': 'Multiple scholarships are intentionally allowed.',
+  'False Positive': 'The case was incorrectly flagged.',
+  Other: 'Enter a custom explanation in the resolution notes.',
+}
+
 interface Props {
   onClose: () => void
   onChanged: () => void
@@ -10,7 +19,7 @@ interface Props {
 }
 
 export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) {
-  const { rows, loading, resolve, refetch } = useDuplicateFlags('All')
+  const { rows, loading, resolve, markUnderReview, refetch } = useDuplicateFlags('All')
   const [tab, setTab] = useState<'Open' | 'Resolved'>('Open')
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
@@ -18,17 +27,18 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
   const [resolutionNotes, setResolutionNotes] = useState('')
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const visibleRows = rows
-    .filter((row) => row.status === tab)
+    .filter((row) => tab === 'Open' ? ['Open', 'Under Review'].includes(row.status) : ['Resolved', 'Confirmed Valid'].includes(row.status))
     .sort((a, b) => Number(b.id === focusFlagId) - Number(a.id === focusFlagId))
-  const openCount = rows.filter((row) => row.status === 'Open').length
-  const resolvedCount = rows.filter((row) => row.status === 'Resolved').length
+  const openCount = rows.filter((row) => ['Open', 'Under Review'].includes(row.status)).length
+  const resolvedCount = rows.filter((row) => ['Resolved', 'Confirmed Valid'].includes(row.status)).length
   const reviewingRow = rows.find((row) => row.id === reviewingId) ?? null
 
   useEffect(() => {
     const focused = rows.find((row) => row.id === focusFlagId)
-    if (focused) setTab(focused.status)
+    if (focused) setTab(['Open', 'Under Review'].includes(focused.status) ? 'Open' : 'Resolved')
   }, [focusFlagId, rows])
 
   function beginReview(id: string) {
@@ -36,6 +46,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
     setResolutionType('')
     setResolutionNotes('')
     setError(null)
+    setSuccess(false)
   }
 
   async function markResolved(id: string) {
@@ -61,6 +72,26 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
     try {
       await resolve(id, resolutionType, resolutionNotes.trim())
       setReviewingId(null)
+      setTab('Resolved')
+      setSuccess(true)
+      onChanged()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setResolvingId(null)
+    }
+  }
+
+  async function keepUnderReview(id: string) {
+    if (!resolutionNotes.trim()) {
+      setError('Add a review note explaining what still needs verification.')
+      return
+    }
+    setResolvingId(id)
+    setError(null)
+    try {
+      await markUnderReview(id, resolutionNotes.trim())
+      setReviewingId(null)
       onChanged()
     } catch (err) {
       setError((err as Error).message)
@@ -75,13 +106,13 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
         <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--divider-light)' }}>
           <div>
             <h2 id="duplicate-flags-title" className="text-base font-bold" style={{ color: 'var(--nav-header-dark)' }}>
-              Students with Open Duplicate Flags
+              Students with Open Scholarship Conflict Cases
             </h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
               Review each conflict before changing or approving a scholarship record.
             </p>
           </div>
-          <button onClick={onClose} aria-label="Close duplicate flags" className="rounded-md p-1 hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
+          <button onClick={onClose} aria-label="Close scholarship conflict cases" className="rounded-md p-1 hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
             <X size={20} />
           </button>
         </div>
@@ -115,14 +146,19 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
               Could not resolve the flag: {error}
             </p>
           )}
+          {success && (
+            <p role="status" className="mb-4 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>
+              <strong>Scholarship Conflict Resolved.</strong> This case has been moved to Resolved Cases. The resolution history has been saved for audit purposes.
+            </p>
+          )}
 
           {loading ? (
-            <p className="py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading duplicate cases…</p>
+            <p className="py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading scholarship conflict cases…</p>
           ) : visibleRows.length === 0 ? (
             <div className="py-10 text-center">
               <Check size={32} className="mx-auto mb-2" style={{ color: 'var(--status-success-text)' }} />
               <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {tab === 'Open' ? 'No duplicate cases need review.' : 'No resolved cases yet.'}
+                {tab === 'Open' ? 'No scholarship conflict cases need review.' : 'No resolved cases yet.'}
               </p>
             </div>
           ) : (
@@ -159,8 +195,11 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                         <div>
                           <p className="text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Academic Term</p>
                           <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>{row.academic_year} · {row.semester}</p>
+                          <span className="mt-2 inline-block rounded-full px-2 py-1 text-xs font-semibold" style={{ background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' }}>
+                            Multiple Active Scholarships in the Same Academic Term
+                          </span>
                           <p className="mt-2 text-xs" style={{ color: 'var(--status-error-text)' }}>{row.reason}</p>
-                          {row.status === 'Resolved' && (
+                          {['Resolved', 'Confirmed Valid'].includes(row.status) && (
                             <div className="mt-3 rounded-md px-3 py-2 text-xs" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>
                               <p><strong>Resolution:</strong> {row.resolution_type ?? 'Not recorded'}</p>
                               <p><strong>Notes:</strong> {row.resolution_notes ?? 'No notes recorded'}</p>
@@ -182,7 +221,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                       >
                         View Student
                       </button>
-                      {row.status === 'Open' && (
+                      {['Open', 'Under Review'].includes(row.status) && (
                         <button
                           onClick={() => beginReview(row.id)}
                           className="rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-[var(--menu-hover-bg)]"
@@ -212,7 +251,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold" style={{ color: 'var(--nav-header-dark)' }}>Resolve Duplicate Case</h3>
+                <h3 className="text-base font-bold" style={{ color: 'var(--nav-header-dark)' }}>Resolve Scholarship Conflict</h3>
                 <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {reviewingRow.student_name} · {reviewingRow.student_number}
                 </p>
@@ -246,6 +285,9 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
               <option>False Positive</option>
               <option>Other</option>
             </select>
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {resolutionType ? resolutionDescriptions[resolutionType] : 'Choose the outcome that best describes how the conflict was reviewed.'}
+            </p>
 
             <label htmlFor="resolution-notes" className="mt-4 block text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
               Resolution Notes
@@ -270,6 +312,9 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setReviewingId(null)} className="rounded-lg border px-4 py-2 text-sm font-semibold" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>
                 Cancel
+              </button>
+              <button type="button" onClick={() => keepUnderReview(reviewingRow.id)} disabled={resolvingId === reviewingRow.id} className="rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ borderColor: 'var(--status-warning-text)', color: 'var(--status-warning-text)' }}>
+                Keep Under Review
               </button>
               <button type="submit" disabled={resolvingId === reviewingRow.id} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>
                 {resolvingId === reviewingRow.id ? 'Saving…' : 'Confirm Resolution'}

@@ -79,8 +79,8 @@ export default function ReportsPage() {
         .eq('status', 'Open')
       if (countError) throw countError
       const openCount = openFlags ?? 0
-      await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records: ${newFlags} new duplicate case(s) found; ${openCount} open case(s) still require review.`)
-      pushToast(`Scan completed — New duplicate cases found: ${newFlags}. Existing open duplicate cases: ${openCount}${openCount > 0 ? ' (still require review).' : '.'}`, 'success')
+      await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records: ${newFlags} new scholarship conflict case(s) found; ${openCount} open case(s) still require review.`)
+      pushToast(`Scan completed — New scholarship conflict cases found: ${newFlags}. Existing open scholarship conflict cases: ${openCount}${openCount > 0 ? ' (still require review).' : '.'}`, 'success')
       await refetchStats()
     } catch (err) {
       pushToast(`Scan failed: ${(err as Error).message}`, 'error')
@@ -316,14 +316,14 @@ export default function ReportsPage() {
 
         <Card>
           <p className="mb-3 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>
-            Open Duplicate Cases
+            Open Scholarship Conflict Cases
           </p>
           <p className="text-4xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             {stats?.duplicate_flags_open ?? '—'}
           </p>
           <p className="mt-1 text-xs" style={{ color: duplicateTrend?.has_previous ? 'var(--status-error-text)' : 'var(--text-muted)' }}>
             {!duplicateTrend
-              ? 'Open flags requiring review'
+              ? 'Open scholarship conflicts requiring review'
               : !duplicateTrend.has_previous
                 ? 'No prior data'
                 : `${duplicateTrend.diff >= 0 ? '↑' : '↓'} ${Math.abs(duplicateTrend.diff)} vs last semester`}
@@ -338,12 +338,12 @@ export default function ReportsPage() {
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
               <Eye size={13} />
-              View Flagged Students
+              View Conflict Cases
             </button>
             <button
               onClick={rescanDuplicates}
               disabled={scanning}
-              title="Runs duplicate detection against every student record, not just recently changed ones — catches duplicates that bulk imports or manual edits may have missed."
+              title="Rechecks all scholarship records for newly detected conflicts. Existing open cases are not removed automatically."
               className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-[var(--menu-hover-bg)] disabled:cursor-not-allowed disabled:opacity-60"
               style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
             >

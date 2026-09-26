@@ -38,6 +38,8 @@ export interface DuplicateFlagDetail {
   created_at: string
   scholarship_a: string
   scholarship_b: string
+  academic_year: string
+  semester: string
 }
 
 export function useStudentDetail(studentId: string | null) {
@@ -65,8 +67,8 @@ export function useStudentDetail(studentId: string | null) {
         .from('duplicate_flags')
         .select(
           `id, reason, status, created_at,
-           a:student_scholarship_id_a ( scholarships ( name ) ),
-           b:student_scholarship_id_b ( scholarships ( name ) )`
+           a:student_scholarship_id_a ( academic_year, semester, scholarships ( name ) ),
+           b:student_scholarship_id_b ( academic_year, semester, scholarships ( name ) )`
         )
         .eq('student_id', studentId)
         .order('created_at', { ascending: false }),
@@ -115,6 +117,8 @@ export function useStudentDetail(studentId: string | null) {
         created_at: r.created_at,
         scholarship_a: r.a?.scholarships?.name ?? '—',
         scholarship_b: r.b?.scholarships?.name ?? '—',
+        academic_year: r.a?.academic_year ?? r.b?.academic_year ?? '—',
+        semester: r.a?.semester ?? r.b?.semester ?? '—',
       }))
     )
     setLoading(false)

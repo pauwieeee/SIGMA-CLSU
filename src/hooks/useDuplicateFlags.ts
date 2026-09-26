@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/AuthProvider'
-import { logActivity } from '@/utils/logActivity'
 
 export interface DuplicateFlagRow {
   id: string
@@ -16,7 +14,9 @@ export interface DuplicateFlagRow {
   academic_year: string
   semester: string
   created_at: string
-  status: 'Open' | 'Resolved'
+  status: 'Open' | 'Under Review' | 'Resolved' | 'Confirmed Valid'
+  conflict_type: string
+  review_notes: string | null
   scholarship_a_status: string
   scholarship_b_status: string
   resolution_type: string | null
@@ -25,8 +25,7 @@ export interface DuplicateFlagRow {
   resolved_at: string | null
 }
 
-export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'All' = 'Open') {
-  const { user } = useAuth()
+export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'Unresolved' | 'All' = 'Unresolved') {
   const [rows, setRows] = useState<DuplicateFlagRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -35,13 +34,14 @@ export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'All' = 'Open') 
     let query = supabase
       .from('duplicate_flags')
       .select(
-        `id, student_id, reason, status, created_at, resolution_type, resolution_notes, resolved_by_email, resolved_at,
+        `id, student_id, reason, conflict_type, status, created_at, review_notes, resolution_type, resolution_notes, resolved_by_email, resolved_at,
          students ( student_number, last_name, first_name, programs ( name, colleges ( name ) ) ),
          a:student_scholarship_id_a ( academic_year, semester, status, scholarships ( name ) ),
          b:student_scholarship_id_b ( academic_year, semester, status, scholarships ( name ) )`
       )
       .order('created_at', { ascending: false })
-    if (status !== 'All') query = query.eq('status', status)
+    if (status === 'Unresolved') query = query.in('status', ['Open', 'Under Review'])
+    else if (status !== 'All') query = query.eq('status', status)
     const { data, error } = await query
 
     if (!error && data) {
@@ -50,6 +50,8 @@ export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'All' = 'Open') 
           id: r.id,
           student_id: r.student_id,
           reason: r.reason,
+          conflict_type: r.conflict_type ?? 'Overlapping Grant',
+          review_notes: r.review_notes ?? null,
           student_number: r.students?.student_number ?? '—',
           student_name: r.students ? `${r.students.last_name}, ${r.students.first_name}` : '—',
           college: r.students?.programs?.colleges?.name ?? '—',
@@ -73,33 +75,40 @@ export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'All' = 'Open') 
   }, [status])
 
   useEffect(() => {
-    fetchRows()
-  }, [fetchRows])
+    void fetchRows()
+    const refresh = () => void fetchRows()
+    window.addEventListener('focus', refresh)
+    const channel = supabase
+      .channel(`duplicate-flags-${status}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'duplicate_flags' }, refresh)
+      .subscribe()
+    return () => {
+      window.removeEventListener('focus', refresh)
+      void supabase.removeChannel(channel)
+    }
+  }, [fetchRows, status])
 
-  async function resolve(id: string, resolutionType: string, resolutionNotes: string) {
-    const row = rows.find((r) => r.id === id)
+  async function review(id: string, newStatus: 'Under Review' | 'Resolved' | 'Confirmed Valid', decision: string, notes: string) {
     const { error } = await (supabase as any)
-      .from('duplicate_flags')
-      .update({
-        status: 'Resolved',
-        resolution_type: resolutionType,
-        resolution_notes: resolutionNotes,
-        resolved_by: user?.id ?? null,
-        resolved_by_email: user?.email ?? null,
-        resolved_at: new Date().toISOString(),
+      .rpc('review_duplicate_flag', {
+        p_flag_id: id,
+        p_new_status: newStatus,
+        p_decision: decision,
+        p_notes: notes,
       })
-      .eq('id', id)
     if (error) throw error
-    await logActivity(
-      'resolve',
-      'duplicate_flag',
-      row
-        ? `Resolved duplicate flag for ${row.student_name} (${row.student_number}): ${resolutionType}. ${resolutionNotes}`
-        : `Resolved a duplicate flag: ${resolutionType}. ${resolutionNotes}`,
-      id
-    )
+    // The database RPC records the review and audit event atomically.
     await fetchRows()
   }
 
-  return { rows, loading, resolve, refetch: fetchRows }
+  async function resolve(id: string, resolutionType: string, resolutionNotes: string) {
+    const confirmedValid = ['Approved Exception', 'False Positive'].includes(resolutionType)
+    await review(id, confirmedValid ? 'Confirmed Valid' : 'Resolved', resolutionType, resolutionNotes)
+  }
+
+  async function markUnderReview(id: string, notes: string) {
+    await review(id, 'Under Review', 'Further Verification Required', notes)
+  }
+
+  return { rows, loading, resolve, markUnderReview, refetch: fetchRows }
 }

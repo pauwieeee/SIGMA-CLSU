@@ -34,6 +34,9 @@ interface FormValues {
   sex: string
   email: string
   contactNumber: string
+  address: string
+  gwa: string
+  participationOrg: string
   collegeId: string
   programId: string
   yearLevel: string
@@ -48,13 +51,21 @@ interface FormValues {
 const EMPTY_FORM: FormValues = {
   studentNumber: '', firstName: '', middleName: '', lastName: '', suffix: '',
   dateOfBirth: '', sex: '', email: '', contactNumber: '', collegeId: '', programId: '',
-  yearLevel: '', academicYear: '', semester: '', scholarshipId: '', scholarshipType: '',
+  address: '', gwa: '', participationOrg: '', yearLevel: '', academicYear: '', semester: '', scholarshipId: '', scholarshipType: '',
   scholarshipStatus: '', dateAwarded: '',
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const STUDENT_NUMBER_PATTERN = /^[0-9]{2}-[0-9]{4}$/
 const ACADEMIC_YEAR_PATTERN = /^(\d{4})-(\d{4})$/
+
+function normalizeNamePart(value: string | null | undefined) {
+  return (value ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase()
+}
+
+function displayStudentName(student: { first_name: string; middle_name?: string | null; last_name: string; suffix?: string | null }) {
+  return [student.first_name, student.middle_name, student.last_name, student.suffix].filter(Boolean).join(' ')
+}
 
 type FieldErrors = Partial<Record<keyof FormValues | 'form', string>>
 
@@ -164,6 +175,10 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     if (!form.yearLevel.trim()) next.yearLevel = 'Year level is required.'
     else if (!yearLevelValid) next.yearLevel = 'Select a valid year level.'
     if (!emailValid) next.email = 'Enter a valid email address.'
+    if (form.gwa.trim()) {
+      const gwa = Number(form.gwa)
+      if (Number.isNaN(gwa) || gwa < 1 || gwa > 5) next.gwa = 'GWA must be a number between 1.00 and 5.00.'
+    }
     if (form.dateOfBirth && form.dateOfBirth > new Date().toISOString().slice(0, 10)) next.dateOfBirth = 'Date of birth cannot be in the future.'
     if (form.dateAwarded && form.dateAwarded > new Date().toISOString().slice(0, 10)) next.dateAwarded = 'Date awarded cannot be in the future.'
     if (form.scholarshipId && !form.academicYear.trim()) next.academicYear = 'Academic year is required when a scholarship is selected.'
@@ -190,7 +205,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
 
     const { data: existing, error: lookupError } = await supabase
       .from('students')
-      .select('id, first_name, last_name')
+      .select('id, first_name, middle_name, last_name, suffix')
       .eq('student_number', studentNumber)
       .maybeSingle()
 
@@ -199,6 +214,23 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
       setErrors({ form: 'Unable to add student. Please check the required fields and try again.' })
       setSaving(false)
       return
+    }
+
+    if (existing) {
+      const firstNameMatches = normalizeNamePart(existing.first_name) === normalizeNamePart(form.firstName)
+      const lastNameMatches = normalizeNamePart(existing.last_name) === normalizeNamePart(form.lastName)
+      const middleNameMatches = !form.middleName.trim()
+        || normalizeNamePart(existing.middle_name) === normalizeNamePart(form.middleName)
+      const suffixMatches = !form.suffix.trim()
+        || normalizeNamePart(existing.suffix) === normalizeNamePart(form.suffix)
+
+      if (!firstNameMatches || !lastNameMatches || !middleNameMatches || !suffixMatches) {
+        setErrors({
+          studentNumber: `Student ID ${studentNumber} already belongs to ${displayStudentName(existing)}. Please verify the Student ID or open the existing student record.`,
+        })
+        setSaving(false)
+        return
+      }
     }
 
     if (existing && !form.scholarshipId) {
@@ -223,6 +255,9 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
           sex: form.sex || null,
           email: form.email.trim() || null,
           contact_number: form.contactNumber.trim() || null,
+          address: form.address.trim() || null,
+          gwa: form.gwa.trim() ? Number(form.gwa) : null,
+          participation_org: form.participationOrg.trim() || null,
           program_id: form.programId,
           yr_level: form.yearLevel.trim(),
         })
@@ -307,6 +342,16 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
               <Field label="Sex/Gender"><select value={form.sex} onChange={(e) => update('sex', e.target.value)} className={controlClass} style={inputStyle()}><option value="">Select</option><option>Female</option><option>Male</option><option>Prefer not to say</option></select></Field>
               <Field label="Email" error={errors.email}><input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.email))} /></Field>
               <Field label="Contact Number"><input type="tel" value={form.contactNumber} onChange={(e) => update('contactNumber', e.target.value)} className={controlClass} style={inputStyle()} /></Field>
+            </div>
+          </section>
+
+          <section className="mt-6 border-t pt-5" style={{ borderColor: 'var(--divider-light)' }}>
+            <h3 className="mb-1 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Additional Profile Information <span className="font-normal normal-case" style={{ color: 'var(--text-muted)' }}>(Optional)</span></h3>
+            <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>Complete these fields now when available, or leave them blank and update the record later.</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="GWA" error={errors.gwa}><input type="number" min="1" max="5" step="0.01" value={form.gwa} onChange={(e) => update('gwa', e.target.value)} placeholder="e.g. 1.75" className={controlClass} style={inputStyle(Boolean(errors.gwa))} /></Field>
+              <div className="sm:col-span-2"><Field label="Participation in Organization"><input value={form.participationOrg} onChange={(e) => update('participationOrg', e.target.value)} placeholder="e.g. CLSU Civil Engineering Society — Active Member" className={controlClass} style={inputStyle()} /></Field></div>
+              <div className="sm:col-span-2 lg:col-span-3"><Field label="Address"><input value={form.address} onChange={(e) => update('address', e.target.value)} placeholder="Complete residential address" className={controlClass} style={inputStyle()} /></Field></div>
             </div>
           </section>
 

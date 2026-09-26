@@ -73,12 +73,15 @@ export default function ReportsPage() {
       const { data, error } = await supabase.rpc('rescan_all_duplicates')
       if (error) throw error
       const newFlags = (data as number) ?? 0
-      await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records for duplicates; ${newFlags} new flag(s) found.`)
-      pushToast(
-        newFlags > 0 ? `Scan complete — ${newFlags} new duplicate flag(s) found.` : 'Scan complete — no new duplicates found.',
-        'success'
-      )
-      refetchStats()
+      const { count: openFlags, error: countError } = await supabase
+        .from('duplicate_flags')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'Open')
+      if (countError) throw countError
+      const openCount = openFlags ?? 0
+      await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records: ${newFlags} new duplicate case(s) found; ${openCount} open case(s) still require review.`)
+      pushToast(`Scan completed — New duplicate cases found: ${newFlags}. Existing open duplicate cases: ${openCount}${openCount > 0 ? ' (still require review).' : '.'}`, 'success')
+      await refetchStats()
     } catch (err) {
       pushToast(`Scan failed: ${(err as Error).message}`, 'error')
     } finally {

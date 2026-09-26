@@ -390,6 +390,13 @@ body {
 }
 .sigma-tour-welcome { width: min(560px, 100%); padding: 34px; text-align: center; }
 .sigma-tour-welcome-icon { font-size: 42px; }
+.sigma-tour-completion-logo {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  object-fit: contain;
+}
 .sigma-tour-welcome h2,
 .sigma-tour-card h2 { margin: 5px 0 8px; color: var(--nav-header-dark); font-size: 24px; font-weight: 750; }
 .sigma-tour-welcome > p:not(.sigma-tour-kicker) { margin: 0 auto; max-width: 460px; line-height: 1.6; }
@@ -405,6 +412,8 @@ body {
 .sigma-tour-skip { border-radius: 10px; padding: 9px 15px; font-size: 13px; font-weight: 700; }
 .sigma-tour-primary { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--btn-primary-bg); background: var(--btn-primary-bg); color: white; }
 .sigma-tour-primary:hover { background: var(--btn-primary-hover); }
+.sigma-tour-primary:disabled,
+.sigma-tour-secondary:disabled { cursor: wait; opacity: .65; }
 .sigma-tour-secondary,
 .sigma-tour-icon-button { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--btn-outline-border); background: white; color: var(--btn-primary-bg); }
 .sigma-tour-icon-button:disabled { cursor: not-allowed; opacity: .4; }
@@ -422,6 +431,22 @@ body {
 .sigma-tour-card { position: fixed; right: 24px; bottom: 24px; z-index: 102; width: min(410px, calc(100vw - 48px)); padding: 22px; }
 .sigma-tour-card-top { top: 24px; bottom: auto; }
 .sigma-tour-card > p:not(.sigma-tour-kicker) { margin: 0; line-height: 1.55; }
+.sigma-tour-sigmai-heading { display: flex; align-items: center; gap: 18px; margin: 8px 0 13px; }
+.sigma-tour-sigmai-heading h2 { margin: 0; color: #166534; font-size: 32px; line-height: 1.12; }
+.sigma-tour-sigmai-heading p { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
+.sigma-tour-sigmai-mascot {
+  display: flex;
+  width: 54px;
+  height: 54px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(183, 244, 190, 0.8);
+  border-radius: 50%;
+  background: radial-gradient(circle, #eaffed, #80d88d);
+}
+.sigma-tour-sigmai-mascot img { width: 115%; height: 115%; object-fit: contain; transform: translateY(2px); }
 .sigma-tour-card ul { display: grid; gap: 5px; margin: 13px 0; padding-left: 20px; font-size: 13px; }
 .sigma-tour-close { position: absolute; top: 14px; right: 14px; border: 0; background: transparent; color: var(--text-muted); }
 .sigma-tour-tip { margin-top: 12px; border-radius: 10px; background: var(--menu-active-bg); padding: 10px 12px; color: var(--menu-active-text); font-size: 12px; line-height: 1.45; }
@@ -431,7 +456,9 @@ body {
 .sigma-tour-actions > div { display: flex; gap: 8px; }
 
 @keyframes sigma-tour-enter { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes sigma-tour-exit { to { opacity: 0; } }
 @keyframes sigma-tour-glow { 50% { box-shadow: 0 0 0 9999px rgba(7, 23, 10, .7), 0 0 0 8px rgba(126, 217, 87, .14), 0 0 34px rgba(126, 217, 87, .85); } }
+.sigma-tour-modal-backdrop.sigma-tour-closing { pointer-events: none; animation: sigma-tour-exit 180ms ease-in forwards; }
 
 @media (max-width: 640px) {
   .sigma-tour-welcome { padding: 26px 20px; }

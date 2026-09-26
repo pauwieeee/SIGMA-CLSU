@@ -3,6 +3,8 @@ import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthProvider'
 import { supabase } from '@/lib/supabase'
+import clsuLogo from '@/assets/clsu-logo.png'
+import cobraMascot from '@/assets/cobra-assistant.png'
 
 type TourPhase = 'hidden' | 'welcome' | 'tour' | 'complete'
 
@@ -50,7 +52,7 @@ const steps: TourStep[] = [
     tip: 'Every resolution is saved in the case history for audit transparency.',
   },
   {
-    path: '/reports', target: '[data-tour="sigmai-launcher"]', title: 'Meet SIGMAI 🤖',
+    path: '/reports', target: '[data-tour="sigmai-launcher"]', title: 'Meet SIGMAI',
     description: 'SIGMAI retrieves information from the system using natural-language questions.',
     bullets: ['“List DOST scholars in CEN”', '“How many scholars for A.Y. 2025–2026?”', '“Student 24-0760”', '“Show scholarship conflict cases”'],
     tip: 'SIGMAI answers using the records currently stored in SIGMA.',
@@ -64,6 +66,7 @@ export function OnboardingTour() {
   const [phase, setPhase] = useState<TourPhase>('hidden')
   const [stepIndex, setStepIndex] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
+  const [closing, setClosing] = useState(false)
 
   const saveCompletion = useCallback(async () => {
     if (!user) return
@@ -136,6 +139,16 @@ export function OnboardingTour() {
     setPhase(showCompletion ? 'complete' : 'hidden')
   }, [saveCompletion])
 
+  const goToDashboard = useCallback(async () => {
+    setClosing(true)
+    await saveCompletion()
+    await new Promise((resolve) => window.setTimeout(resolve, 180))
+    setRect(null)
+    setPhase('hidden')
+    setClosing(false)
+    navigate('/dashboard')
+  }, [navigate, saveCompletion])
+
   useEffect(() => {
     if (phase === 'hidden') return
     const keydown = (event: KeyboardEvent) => {
@@ -151,18 +164,25 @@ export function OnboardingTour() {
 
   if (phase === 'welcome' || phase === 'complete') {
     const complete = phase === 'complete'
-    return <div className="sigma-tour-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="sigma-tour-modal-title">
+    return <div className={`sigma-tour-modal-backdrop${closing ? ' sigma-tour-closing' : ''}`} role="dialog" aria-modal="true" aria-labelledby="sigma-tour-modal-title">
       <div className="sigma-tour-welcome">
-        <div className="sigma-tour-welcome-icon">{complete ? '🎉' : '👋'}</div>
+        {complete
+          ? <img src={clsuLogo} alt="Central Luzon State University logo" className="sigma-tour-completion-logo" />
+          : <div className="sigma-tour-welcome-icon">👋</div>}
         <p className="sigma-tour-kicker">CLSU Scholarship Management System</p>
         <h2 id="sigma-tour-modal-title">{complete ? "You're All Set!" : 'Welcome to SIGMA!'}</h2>
-        <p>{complete ? "You're now ready to use the SIGMA Scholarship Management System." : 'This one-minute guided tour will show you how to manage records, verify enrollment, review conflicts, generate reports, and use SIGMAI.'}</p>
+        <p>{complete ? "You're now ready to use the SIGMA Scholarship Management System. Use the navigation menu to manage scholars, verify enrollment, generate reports, and use SIGMAI." : 'This one-minute guided tour will show you how to manage records, verify enrollment, review conflicts, generate reports, and use SIGMAI.'}</p>
         {!complete && <ul><li><Check size={16} /> Follow the real administrator workflow</li><li><Check size={16} /> Learn without changing any records</li><li><Check size={16} /> Replay anytime from the profile menu</li></ul>}
         <div className="sigma-tour-welcome-actions">
-          <button className="sigma-tour-primary" onClick={() => { setStepIndex(0); setPhase('tour') }}>{complete ? 'Replay Tour' : 'Start Tour'}</button>
-          <button className="sigma-tour-secondary" onClick={() => complete ? navigate('/dashboard') : void finish(false)}>{complete ? 'Go to Dashboard' : 'Skip for Now'}</button>
+          {complete ? <>
+            <button type="button" className="sigma-tour-primary" disabled={closing} onClick={() => void goToDashboard()}>Go to Dashboard</button>
+            <button type="button" className="sigma-tour-secondary" disabled={closing} onClick={() => { setStepIndex(0); setPhase('tour') }}>Replay Tour</button>
+          </> : <>
+            <button type="button" className="sigma-tour-primary" onClick={() => { setStepIndex(0); setPhase('tour') }}>Start Tour</button>
+            <button type="button" className="sigma-tour-secondary" onClick={() => void finish(false)}>Skip for Now</button>
+          </>}
         </div>
-        <small>You can replay this tour anytime from your profile menu → Website Tour.</small>
+        <small>You can replay this tour anytime from Profile → Website Tour.</small>
       </div>
     </div>
   }
@@ -181,7 +201,15 @@ export function OnboardingTour() {
     <section className={`sigma-tour-card ${rect && rect.top > window.innerHeight / 2 ? 'sigma-tour-card-top' : ''}`}>
       <button className="sigma-tour-close" onClick={() => void finish(false)} aria-label="Skip website tour"><X size={18} /></button>
       <p className="sigma-tour-kicker">Step {stepIndex + 1} of {steps.length}</p>
-      <h2>{step.title}</h2>
+      {stepIndex === steps.length - 1 ? (
+        <div className="sigma-tour-sigmai-heading">
+          <span className="sigma-tour-sigmai-mascot"><img src={cobraMascot} alt="SIGMAI cobra mascot" /></span>
+          <div>
+            <h2>{step.title}</h2>
+            <p>Your intelligent scholarship assistant</p>
+          </div>
+        </div>
+      ) : <h2>{step.title}</h2>}
       <p>{step.description}</p>
       <ul>{step.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
       {step.tip && <div className="sigma-tour-tip"><strong>Tip:</strong> {step.tip}</div>}

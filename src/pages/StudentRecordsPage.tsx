@@ -267,37 +267,40 @@ export default function StudentRecordsPage() {
           <p className="text-sm font-bold tracking-wide" style={{ color: 'var(--widget-heading-text)' }}>
             {rows.length.toLocaleString()} {showArchived ? 'ARCHIVED STUDENTS' : 'ACTIVE STUDENTS'}
           </p>
-          <div className="flex gap-2">
-            <span className="self-center text-xs font-semibold" style={{ color: selected.size > 0 ? 'var(--btn-primary-bg)' : 'var(--text-muted)' }}>
-              {selectedCount.toLocaleString()} selected
-            </span>
-            <button
-              onClick={() => setBatchModalOpen(true)}
-              disabled={selectedCount === 0}
-              title={selectedCount === 0 ? 'Select students to enable' : undefined}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed"
-              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
-            >
-              Batch Update
-            </button>
-            <button
-              onClick={() => setSelectedEnrollmentOpen(true)}
-              disabled={selectedEnrollmentRows.length === 0}
-              title={selectedEnrollmentRows.length === 0 ? 'Select students with a scholarship record to enable' : 'Set enrollment for selected students'}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed"
-              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
-            >
-              Set Enrollment
-            </button>
-            <button
-              onClick={exportSelectedPdf}
-              disabled={selectedCount === 0 || exportingPdf}
-              title={selectedCount === 0 ? 'Select students to enable' : undefined}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed"
-              style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
-            >
-              {exportingPdf ? 'Preparing PDF…' : 'Export as PDF'}
-            </button>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="text-xs font-semibold" style={{ color: selectedCount > 0 ? 'var(--btn-primary-bg)' : 'var(--text-muted)' }}>
+                {selectedCount.toLocaleString()} {selectedCount === 1 ? 'student' : 'students'} selected
+              </span>
+              <button
+                onClick={() => setBatchModalOpen(true)}
+                disabled={selectedCount === 0}
+                title={selectedCount === 0 ? 'Select students first to batch update.' : `Batch update ${selectedCount} selected student${selectedCount === 1 ? '' : 's'}.`}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${selectedCount > 0 ? 'cursor-pointer hover:bg-[var(--btn-primary-hover)]' : 'cursor-not-allowed opacity-50'}`}
+                style={{ background: selectedCount > 0 ? 'var(--btn-primary-bg)' : 'var(--bg-secondary)', color: selectedCount > 0 ? 'var(--btn-primary-text)' : 'var(--text-muted)' }}
+              >
+                Batch Update
+              </button>
+              <button
+                onClick={() => setSelectedEnrollmentOpen(true)}
+                disabled={selectedEnrollmentRows.length === 0}
+                title={selectedCount === 0 ? 'Select students first to set enrollment.' : selectedEnrollmentRows.length === 0 ? 'The selected students do not have scholarship records that can be verified.' : `Set enrollment for ${selectedEnrollmentRows.length} selected student${selectedEnrollmentRows.length === 1 ? '' : 's'}.`}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${selectedEnrollmentRows.length > 0 ? 'cursor-pointer hover:bg-[var(--btn-primary-hover)]' : 'cursor-not-allowed opacity-50'}`}
+                style={{ background: selectedEnrollmentRows.length > 0 ? 'var(--btn-primary-bg)' : 'var(--bg-secondary)', color: selectedEnrollmentRows.length > 0 ? 'var(--btn-primary-text)' : 'var(--text-muted)' }}
+              >
+                Set Enrollment
+              </button>
+              <button
+                onClick={exportSelectedPdf}
+                disabled={selectedCount === 0 || exportingPdf}
+                title={selectedCount === 0 ? 'Select students first to export.' : `Export ${selectedCount} selected student${selectedCount === 1 ? '' : 's'}.`}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${selectedCount > 0 && !exportingPdf ? 'cursor-pointer hover:bg-[var(--btn-primary-hover)]' : 'cursor-not-allowed opacity-50'}`}
+                style={{ background: selectedCount > 0 ? 'var(--btn-primary-bg)' : 'var(--bg-secondary)', color: selectedCount > 0 ? 'var(--btn-primary-text)' : 'var(--text-muted)' }}
+              >
+                {exportingPdf ? 'Preparing PDF…' : 'Export as PDF'}
+              </button>
+            </div>
+            {selectedCount === 0 && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Select one or more students to enable these actions.</p>}
           </div>
         </div>
 

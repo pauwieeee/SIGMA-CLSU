@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { CircleHelp, LogOut, Settings } from 'lucide-react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { CircleHelp, LogOut, Menu, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
 import { NotificationBell } from '@/components/layout/NotificationBell'
@@ -17,7 +17,9 @@ const topNav = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [enteringFromIntro] = useState(() => sessionStorage.getItem('sigmaDashboardEntrance') === 'true')
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -30,6 +32,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (enteringFromIntro) sessionStorage.removeItem('sigmaDashboardEntrance')
   }, [enteringFromIntro])
+
+  useEffect(() => {
+    setMobileNavOpen(false)
+  }, [location.pathname])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -51,23 +57,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className={`min-h-screen${enteringFromIntro ? ' sigma-app-enter' : ''}`} style={{ background: 'var(--bg-app)' }}>
-      <header className="border-b" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <img src={clsuLogo} alt="CLSU seal" className="h-9 w-9" />
-            <div>
-              <p className="text-[10px] font-semibold tracking-wider" style={{ color: 'var(--text-muted)' }}>
+      <header className="sigma-site-header border-b" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
+        <div className="mx-auto flex min-h-[76px] max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:min-h-[82px] sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+            <img src={clsuLogo} alt="CLSU seal" className="h-11 w-11 shrink-0 sm:h-12 sm:w-12" />
+            <div className="min-w-0 leading-none">
+              <p className="truncate text-[10px] font-semibold tracking-[0.14em] sm:text-[11px]" style={{ color: 'var(--text-muted)' }}>
                 OFFICE OF ADMISSIONS
               </p>
-              <p className="text-xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+              <p className="mt-1.5 text-2xl font-extrabold tracking-[0.04em] sm:text-[27px]" style={{ color: 'var(--nav-header-dark)' }}>
                 SIGMA
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-4 lg:gap-5">
             <span
-              className="hidden items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium sm:flex"
+              className="hidden items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold sm:flex"
               style={{ background: 'var(--menu-active-bg)', color: 'var(--menu-active-text)' }}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--btn-primary-bg)' }} />
@@ -82,7 +88,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 title={user?.email ?? ''}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-transform hover:scale-105"
                 style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
               >
                 {initials}
@@ -138,28 +144,44 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </div>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((open) => !open)}
+              aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileNavOpen}
+              aria-controls="sigma-mobile-navigation"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border md:hidden"
+              style={{ borderColor: 'var(--border-default)', color: 'var(--nav-header-dark)', background: 'var(--bg-card)' }}
+            >
+              {mobileNavOpen ? <X size={21} /> : <Menu size={21} />}
+            </button>
           </div>
         </div>
 
         <nav
-          className="flex overflow-x-auto px-2 sm:px-6"
+          className="sigma-primary-nav hidden md:block"
+          aria-label="Primary navigation"
           style={{ background: `linear-gradient(to right, var(--nav-gradient-start), var(--nav-gradient-end))` }}
         >
-          {topNav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/dashboard'}
-              className={({ isActive }) =>
-                `shrink-0 px-4 py-3 text-sm font-medium text-white/90 transition ${
-                  isActive ? 'border-b-2 border-white font-semibold text-white' : 'hover:text-white'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          <div className="mx-auto flex h-[58px] max-w-[1600px] items-stretch px-4 sm:px-6 lg:px-8">
+            {topNav.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.to === '/dashboard'} className={({ isActive }) => `sigma-nav-link ${isActive ? 'sigma-nav-link-active' : ''}`}>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         </nav>
+
+        {mobileNavOpen && (
+          <nav id="sigma-mobile-navigation" className="sigma-mobile-nav md:hidden" aria-label="Mobile primary navigation">
+            {topNav.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.to === '/dashboard'} className={({ isActive }) => `sigma-mobile-nav-link ${isActive ? 'sigma-mobile-nav-link-active' : ''}`}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
       </header>
 
       <div className="mx-auto max-w-[1600px]">

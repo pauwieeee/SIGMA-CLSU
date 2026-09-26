@@ -177,6 +177,112 @@ body {
   box-sizing: border-box;
 }
 
+/* Institutional application header and primary navigation */
+.sigma-site-header {
+  position: relative;
+  z-index: 45;
+  box-shadow: 0 2px 12px rgba(11, 46, 19, 0.07);
+}
+
+.sigma-primary-nav {
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.12), 0 3px 12px rgba(25, 78, 27, 0.14);
+}
+
+.sigma-nav-link {
+  position: relative;
+  display: flex;
+  min-width: max-content;
+  align-items: center;
+  padding: 0 24px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.012em;
+  transition: color 200ms ease, background-color 200ms ease;
+}
+
+.sigma-nav-link::after {
+  position: absolute;
+  right: 20px;
+  bottom: 0;
+  left: 20px;
+  height: 4px;
+  border-radius: 4px 4px 0 0;
+  background: #c7f2ae;
+  content: '';
+  opacity: 0;
+  transform: scaleX(0.35);
+  transform-origin: center;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.sigma-nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.sigma-nav-link:hover::after {
+  opacity: 0.55;
+  transform: scaleX(1);
+}
+
+.sigma-nav-link-active {
+  color: #fff;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sigma-nav-link-active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.sigma-mobile-nav {
+  padding: 8px 12px 12px;
+  background: linear-gradient(135deg, var(--nav-gradient-start), var(--nav-gradient-end));
+  box-shadow: 0 8px 20px rgba(11, 46, 19, 0.18);
+  animation: sigma-mobile-nav-enter 180ms ease-out;
+}
+
+.sigma-mobile-nav-link {
+  position: relative;
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  border-radius: 9px;
+  padding: 0 14px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.sigma-mobile-nav-link:hover,
+.sigma-mobile-nav-link-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.sigma-mobile-nav-link-active::before {
+  width: 4px;
+  height: 24px;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: #c7f2ae;
+  content: '';
+}
+
+@keyframes sigma-mobile-nav-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sigma-nav-link { padding-right: 19px; padding-left: 19px; }
+  .sigma-nav-link::after { right: 16px; left: 16px; }
+}
+
 /* First-login product tour */
 .sigma-tour-modal-backdrop,
 .sigma-tour-layer {

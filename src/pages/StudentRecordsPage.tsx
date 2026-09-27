@@ -526,6 +526,9 @@ export default function StudentRecordsPage() {
         open={enrollmentModalOpen}
         onClose={() => setEnrollmentModalOpen(false)}
         onDone={() => { void refetch() }}
+        onVerificationComplete={({ enrolled, notEnrolled, academicYear, semester }) => {
+          pushToast(`Enrollment verification completed. ${enrolled} student${enrolled === 1 ? '' : 's'} marked Enrolled; ${notEnrolled} student${notEnrolled === 1 ? '' : 's'} marked Not Enrolled. Academic Year: ${academicYear} • ${semester}`)
+        }}
       />
 
       <EnrollmentVerificationModal

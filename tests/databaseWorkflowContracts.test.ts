@@ -11,6 +11,8 @@ const allMigrations = [
   'supabase/migrations/0032_final_workflow_improvements.sql',
   'supabase/migrations/0033_audit_notifications_and_duplicate_reasons.sql',
   'supabase/migrations/0035_fix_student_import_results.sql',
+  'supabase/migrations/0036_separate_import_duplicates_and_flags.sql',
+  'supabase/migrations/0037_separate_student_audit_from_duplicate_history.sql',
 ].map((path) => readFileSync(path, 'utf8')).join('\n')
 
 test('student create, edit, archive, and restore remain audit-backed', () => {
@@ -38,4 +40,25 @@ test('latest importer avoids ambiguous student_id conflict references', () => {
 test('timeline receives student, scholarship, enrollment, and duplicate events', () => {
   assert.match(allMigrations, /get_student_activity_timeline/)
   for (const entity of ["'student'", "'student_scholarship'", "'duplicate_flag'"]) assert.match(allMigrations, new RegExp(entity))
+})
+
+test('student import separates duplicate Excel rows from created review flags', () => {
+  const importer = readFileSync('supabase/migrations/0036_separate_import_duplicates_and_flags.sql', 'utf8')
+  const client = readFileSync('src/utils/importStudents.ts', 'utf8')
+  assert.match(importer, /duplicate_flag_created boolean/)
+  assert.match(importer, /perform public\.detect_duplicates_for_student/)
+  assert.match(importer, /Existing student and scholarship assignment updated/)
+  assert.match(importer, /Duplicate scholarship flag created for review/)
+  assert.doesNotMatch(importer, /result_status\s*:=\s*'Skipped'/)
+  assert.match(client, /errorType:'Duplicate Row'/)
+  assert.match(client, /message:'Duplicate within uploaded file\.'/)
+  assert.match(client, /duplicateFlagsCreated/)
+})
+
+test('student audit timeline excludes duplicate case events', () => {
+  const migration = readFileSync('supabase/migrations/0037_separate_student_audit_from_duplicate_history.sql', 'utf8')
+  assert.match(migration, /entity_type = 'student'/)
+  assert.match(migration, /entity_type = 'student_scholarship'/)
+  assert.doesNotMatch(migration, /entity_type = 'duplicate_flag'/)
+  assert.match(migration, /order by al\.created_at desc/)
 })

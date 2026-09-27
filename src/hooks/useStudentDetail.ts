@@ -49,6 +49,9 @@ export interface DuplicateFlagDetail {
   reason: string
   status: string
   created_at: string
+  resolved_at: string | null
+  resolution_type: string | null
+  resolution_notes: string | null
   scholarship_a: string
   scholarship_b: string
   academic_year: string
@@ -80,7 +83,7 @@ export function useStudentDetail(studentId: string | null) {
       supabase
         .from('duplicate_flags')
         .select(
-          `id, reason, status, created_at,
+          `id, reason, status, created_at, resolved_at, resolution_type, resolution_notes,
            a:student_scholarship_id_a ( academic_year, semester, scholarships ( name ) ),
            b:student_scholarship_id_b ( academic_year, semester, scholarships ( name ) )`
         )
@@ -126,7 +129,7 @@ export function useStudentDetail(studentId: string | null) {
       }))
     )
 
-    setTimeline((activities ?? []) as StudentActivityItem[])
+    setTimeline(((activities ?? []) as StudentActivityItem[]).filter((item) => item.entity_type !== 'duplicate_flag'))
 
     setFlags(
       (f ?? []).map((r: any) => ({
@@ -134,6 +137,9 @@ export function useStudentDetail(studentId: string | null) {
         reason: r.reason,
         status: r.status,
         created_at: r.created_at,
+        resolved_at: r.resolved_at,
+        resolution_type: r.resolution_type,
+        resolution_notes: r.resolution_notes,
         scholarship_a: r.a?.scholarships?.name ?? '—',
         scholarship_b: r.b?.scholarships?.name ?? '—',
         academic_year: r.a?.academic_year ?? r.b?.academic_year ?? '—',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, AlertTriangle, Archive, RotateCcw, RefreshCw } from 'lucide-react'
+import { X, AlertTriangle, Archive, RotateCcw, RefreshCw, UserPlus, Pencil, BookOpen, BadgeCheck, History, UserCog } from 'lucide-react'
 import { useStudentDetail, type ScholarshipHistoryRow } from '@/hooks/useStudentDetail'
 import { Avatar } from '@/components/ui/Avatar'
 import { StudentFormModal } from '@/components/students/StudentFormModal'
@@ -205,22 +205,28 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
                   Duplicate Flag History
                 </h3>
                 <ul className="ml-2 border-l-2 pl-5" style={{ borderColor: 'var(--divider-light)' }}>
-                  {flags.map((f) => (
-                    <li key={f.id} className="relative pb-5 text-sm last:pb-0">
-                      <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2" style={{ background: 'var(--bg-card)', borderColor: f.status === 'Open' || f.status === 'Under Review' ? 'var(--status-duplicate-text)' : 'var(--status-success-text)' }} />
+                  {flags.flatMap((f) => {
+                    const context = { academicYear: f.academic_year, semester: f.semester, scholarshipA: f.scholarship_a, scholarshipB: f.scholarship_b }
+                    const created = { ...context, key: `${f.id}-created`, title: 'Duplicate Flag Created', date: f.created_at, badge: f.status === 'Open' || f.status === 'Under Review' ? 'Open' : f.resolution_type === 'Approved Exception' ? 'Exception' : 'Resolved', details: f.reason || `Student has multiple Active scholarships: ${f.scholarship_a} and ${f.scholarship_b}.` }
+                    const resolved = f.resolved_at ? [{ ...context, key: `${f.id}-resolved`, title: f.resolution_type === 'Approved Exception' ? 'Approved Exception' : 'Duplicate Flag Resolved', date: f.resolved_at, badge: f.resolution_type === 'Approved Exception' ? 'Exception' : 'Resolved', details: f.resolution_notes || f.reason }] : []
+                    return [created, ...resolved]
+                  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((event) => (
+                    <li key={event.key} className="relative pb-5 text-sm last:pb-0">
+                      <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2" style={{ background: 'var(--bg-card)', borderColor: event.badge === 'Open' ? 'var(--status-duplicate-text)' : 'var(--status-success-text)' }} />
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Duplicate Flag Created</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.academic_year} • {f.semester}</p>
-                          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>Student had multiple Active scholarships ({f.scholarship_a} and {f.scholarship_b}).</p>
+                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{event.title}</p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(event.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · {event.academicYear} • {event.semester}</p>
+                          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>{event.details}</p>
+                          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Scholarships: {event.scholarshipA} and {event.scholarshipB}</p>
                         </div>
                         <span
                           className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                          style={f.status === 'Open' || f.status === 'Under Review'
+                          style={event.badge === 'Open'
                             ? { background: 'var(--status-duplicate-bg)', color: 'var(--status-duplicate-text)' }
                             : { background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}
                         >
-                          {f.status === 'Open' ? 'Duplicate Open' : f.status}
+                          {event.badge}
                         </span>
                       </div>
                     </li>
@@ -232,7 +238,7 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
             <div>
               <h3 className="mb-2 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Student Activity Timeline</h3>
               {timeline.length === 0 ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recorded activity yet.</p> : (
-                <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-default)' }}><table className="w-full min-w-[560px] text-left text-sm"><thead style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}><tr><th className="px-3 py-2">Date &amp; Time</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Performed By</th></tr></thead><tbody className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>{timeline.map((item) => <tr key={item.id}><td className="whitespace-nowrap px-3 py-2 text-xs">{new Date(item.occurred_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td><td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{item.description}</td><td className="whitespace-nowrap px-3 py-2">{item.actor_name || item.actor_email || 'System'}</td></tr>)}</tbody></table></div>
+                <ul className="space-y-2">{timeline.map((item) => <ActivityTimelineItem key={item.id} item={item} />)}</ul>
               )}
             </div>
           </div>
@@ -252,6 +258,15 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
       {renewing && <RenewScholarshipModal row={renewing} onClose={() => setRenewing(null)} onSaved={async () => { setRenewing(null); await refetch(); onChanged?.() }} />}
     </div>
   )
+}
+
+function ActivityTimelineItem({ item }: { item: import('@/hooks/useStudentDetail').StudentActivityItem }) {
+  const action = item.action.toLowerCase()
+  const Icon = action === 'create' ? UserPlus : action === 'renew' ? RefreshCw : action === 'verify_enrollment' ? BadgeCheck : action === 'archive' || action === 'restore' ? Archive : action === 'update' ? Pencil : item.entity_type === 'student_scholarship' ? BookOpen : History
+  return <li className="flex gap-3 rounded-lg border p-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}>
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: 'var(--menu-active-bg)', color: 'var(--btn-primary-bg)' }}><Icon size={17} /></span>
+    <div className="min-w-0 flex-1"><p className="font-medium" style={{ color: 'var(--text-primary)' }}>{item.description}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--text-muted)' }}><span>{new Date(item.occurred_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span><span className="inline-flex items-center gap-1"><UserCog size={12} /> Performed by {item.actor_name || item.actor_email || 'System'}</span></div></div>
+  </li>
 }
 
 function RenewScholarshipModal({ row, onClose, onSaved }: { row: ScholarshipHistoryRow; onClose: () => void; onSaved: () => void }) {

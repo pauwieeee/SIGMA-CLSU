@@ -26,10 +26,6 @@ export default function DashboardPage() {
   const displayName = typeof profileName === 'string' && profileName.trim()
     ? profileName.trim()
     : 'Admin'
-  const now = new Date()
-  const academicYearStart = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1
-  const currentAcademicYear = `${academicYearStart}–${academicYearStart + 1}`
-
   return (
     <div className="space-y-6">
       <section className="sigma-dashboard-hero" aria-labelledby="dashboard-welcome-heading">
@@ -48,11 +44,6 @@ export default function DashboardPage() {
             <p className="sigma-dashboard-hero-subtitle">
               Here's what's happening across scholarship records today.
             </p>
-            <div className="sigma-dashboard-hero-chips" aria-label="Dashboard information">
-              <span>Office of Admissions</span>
-              <span>Academic Year {currentAcademicYear}</span>
-              <span className="sigma-dashboard-hero-active"><i aria-hidden="true" />System Active</span>
-            </div>
           </div>
         </div>
       </section>

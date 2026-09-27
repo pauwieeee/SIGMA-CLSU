@@ -934,10 +934,10 @@ body {
   align-items: center;
   overflow: hidden;
   border-radius: 20px;
-  padding: 24px 28px;
+  padding: 26px 30px;
   color: #fff;
-  background: linear-gradient(120deg, #0b5126 0%, #177438 56%, #2f8f46 100%);
-  box-shadow: 0 12px 28px rgba(11, 81, 38, 0.18);
+  background: linear-gradient(120deg, #2e7d32 0%, #43a047 100%);
+  box-shadow: 0 12px 28px rgba(46, 125, 50, 0.18);
   isolation: isolate;
 }
 
@@ -982,7 +982,7 @@ body {
 .sigma-dashboard-hero h1 {
   margin: 0;
   color: #fff;
-  font-size: clamp(28px, 3vw, 32px);
+  font-size: clamp(32px, 3vw, 36px);
   font-weight: 800;
   letter-spacing: -0.025em;
   line-height: 1.15;
@@ -990,38 +990,9 @@ body {
 
 .sigma-dashboard-hero-subtitle {
   margin: 9px 0 0;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 16px;
   line-height: 1.45;
-}
-
-.sigma-dashboard-hero-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 13px;
-}
-
-.sigma-dashboard-hero-chips span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  padding: 4px 10px;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.11);
-  font-size: 11px;
-  font-weight: 600;
-  backdrop-filter: blur(3px);
-}
-
-.sigma-dashboard-hero-active i {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #9df5a9;
-  box-shadow: 0 0 0 3px rgba(157, 245, 169, 0.14);
 }
 
 .sigma-dashboard-hero-decoration {
@@ -1035,8 +1006,8 @@ body {
 .sigma-dashboard-hero-wave {
   position: absolute;
   display: block;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.065);
 }
 
 .sigma-dashboard-hero-circle { border-radius: 999px; }
@@ -1064,7 +1035,6 @@ body {
   .sigma-dashboard-hero-label { font-size: 10px; }
   .sigma-dashboard-hero h1 { font-size: 26px; }
   .sigma-dashboard-hero-subtitle { font-size: 15px; }
-  .sigma-dashboard-hero-chips { justify-content: flex-start; }
   .sigma-dashboard-hero-circle-large { right: -70px; }
   .sigma-dashboard-hero-circle-small { display: none; }
   .sigma-dashboard-hero-wave { right: -160px; }

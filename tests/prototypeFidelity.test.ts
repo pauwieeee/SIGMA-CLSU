@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const html = readFileSync('prototypes/sigma-high-fidelity.html', 'utf8')
+const deployedHtml = readFileSync('public/sigma-high-fidelity.html', 'utf8')
 
 test('high-fidelity prototype script is valid and major workflows are interactive', () => {
   const script = html.slice(html.indexOf('<script>') + 8, html.indexOf('</script>'))
@@ -20,4 +21,12 @@ test('prototype includes complete analytics and scholarship program structures',
   assert.ok((html.match(/class="card scholar-card"/g) ?? []).length >= 6)
   assert.match(html, /id="reportFilters"/)
   assert.match(html, /id="scholarGrid"/)
+})
+
+test('deployable prototype contains the synchronized interactive screens', () => {
+  for (const marker of ['id="scholarshipActual"', 'id="reportsActual"', 'id="loginForm"', 'View All Notifications']) {
+    assert.match(deployedHtml, new RegExp(marker))
+  }
+  assert.match(deployedHtml, /\/assets\/clsu-logo-/)
+  assert.match(deployedHtml, /\/assets\/cobra-assistant-/)
 })

@@ -16,8 +16,12 @@ export function NotificationDetailModal({ notification, onClose }: Props) {
     ? { label: 'Review Duplicate Flag', path: `/reports?duplicateFlag=${notification.related_entity_id ?? ''}` }
     : notification.type === 'expiring_soon'
       ? { label: 'View and Edit Scholarship', path: `/scholarships?edit=${notification.related_entity_id ?? ''}` }
-      : notification.type === 'import_complete'
+      : notification.type === 'import_complete' || notification.type === 'import_failed'
         ? { label: 'View Student Records', path: '/students' }
+        : notification.type === 'enrollment_complete'
+          ? { label: 'View Student Records', path: '/students' }
+          : notification.type === 'duplicate_review'
+            ? { label: 'Review Duplicate Flags', path: '/reports' }
         : null
 
   function openRelatedRecord() {

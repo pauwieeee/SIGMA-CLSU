@@ -30,8 +30,10 @@ import { useDuplicateFlagTrend } from '@/hooks/useTrends'
 import { usePrograms } from '@/hooks/usePrograms'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
 import { logActivity } from '@/utils/logActivity'
+import { useAuth } from '@/lib/AuthProvider'
 
 export default function ReportsPage() {
+  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const { stats, refetch: refetchStats } = useDashboardStats()
   const { data: duplicateTrend } = useDuplicateFlagTrend()
@@ -98,6 +100,7 @@ export default function ReportsPage() {
         categoryData,
         trendData,
         duplicateFlagCount: stats?.duplicate_flags_open ?? 0,
+        generatedBy: user?.user_metadata?.preferred_username || user?.user_metadata?.full_name || 'Administrator',
       })
     } finally {
       setExportingPdf(false)

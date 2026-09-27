@@ -18,6 +18,7 @@ export interface StudentDetail {
 
 export interface ScholarshipHistoryRow {
   id: string
+  scholarship_id: string
   scholarship_name: string
   category_name: string
   academic_year: string
@@ -27,8 +28,20 @@ export interface ScholarshipHistoryRow {
   end_date: string | null
   is_enrolled: boolean | null
   term_closed_at: string | null
+  archived_at: string | null
   min_gwa: number | null
   min_units: number | null
+}
+
+export interface StudentActivityItem {
+  id: string
+  occurred_at: string
+  action: string
+  description: string
+  actor_name: string | null
+  actor_email: string | null
+  actor_role: string | null
+  entity_type: string
 }
 
 export interface DuplicateFlagDetail {
@@ -46,13 +59,14 @@ export function useStudentDetail(studentId: string | null) {
   const [student, setStudent] = useState<StudentDetail | null>(null)
   const [history, setHistory] = useState<ScholarshipHistoryRow[]>([])
   const [flags, setFlags] = useState<DuplicateFlagDetail[]>([])
+  const [timeline, setTimeline] = useState<StudentActivityItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
     if (!studentId) return
     setLoading(true)
 
-    const [{ data: s }, { data: h }, { data: f }] = await Promise.all([
+    const [{ data: s }, { data: h }, { data: f }, { data: activities }] = await Promise.all([
       supabase
         .from('students')
         .select('id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level, address, contact_number, email, gwa, participation_org, created_at, programs ( name, colleges ( name ) )')
@@ -60,7 +74,7 @@ export function useStudentDetail(studentId: string | null) {
         .single(),
       supabase
         .from('student_scholarships')
-        .select('id, academic_year, semester, status, start_date, end_date, is_enrolled, term_closed_at, scholarships ( name, min_gwa, min_units, scholarship_categories ( name ) )')
+        .select('id, scholarship_id, academic_year, semester, status, start_date, end_date, is_enrolled, term_closed_at, archived_at, scholarships ( name, min_gwa, min_units, scholarship_categories ( name ) )')
         .eq('student_id', studentId)
         .order('academic_year', { ascending: false }),
       supabase
@@ -72,6 +86,7 @@ export function useStudentDetail(studentId: string | null) {
         )
         .eq('student_id', studentId)
         .order('created_at', { ascending: false }),
+      (supabase as any).rpc('get_student_activity_timeline', { p_student_id: studentId }),
     ])
 
     if (s) {
@@ -95,6 +110,7 @@ export function useStudentDetail(studentId: string | null) {
     setHistory(
       (h ?? []).map((r: any) => ({
         id: r.id,
+        scholarship_id: r.scholarship_id,
         scholarship_name: r.scholarships?.name ?? '—',
         category_name: r.scholarships?.scholarship_categories?.name ?? '—',
         academic_year: r.academic_year,
@@ -104,10 +120,13 @@ export function useStudentDetail(studentId: string | null) {
         end_date: r.end_date,
         is_enrolled: r.is_enrolled,
         term_closed_at: r.term_closed_at,
+        archived_at: r.archived_at,
         min_gwa: r.scholarships?.min_gwa ?? null,
         min_units: r.scholarships?.min_units ?? null,
       }))
     )
+
+    setTimeline((activities ?? []) as StudentActivityItem[])
 
     setFlags(
       (f ?? []).map((r: any) => ({
@@ -128,5 +147,5 @@ export function useStudentDetail(studentId: string | null) {
     load()
   }, [load])
 
-  return { student, history, flags, loading, refetch: load }
+  return { student, history, flags, timeline, loading, refetch: load }
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { X, AlertTriangle } from 'lucide-react'
-import { useStudentDetail } from '@/hooks/useStudentDetail'
+import { X, AlertTriangle, Archive, RotateCcw, RefreshCw } from 'lucide-react'
+import { useStudentDetail, type ScholarshipHistoryRow } from '@/hooks/useStudentDetail'
 import { Avatar } from '@/components/ui/Avatar'
 import { StudentFormModal } from '@/components/students/StudentFormModal'
 import { supabase } from '@/lib/supabase'
@@ -18,9 +18,10 @@ interface Props {
 }
 
 export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
-  const { student, history, flags, loading, refetch } = useStudentDetail(studentId)
+  const { student, history, flags, timeline, loading, refetch } = useStudentDetail(studentId)
   const [editing, setEditing] = useState(false)
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
+  const [renewing, setRenewing] = useState<ScholarshipHistoryRow | null>(null)
 
   if (!studentId) return null
 
@@ -39,6 +40,21 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
     setSavingStatusId(null)
     void logActivity('update', 'student_scholarship', `Changed status of "${scholarshipName}" to "${newStatus}" for ${student?.full_name}.`, historyId)
       .catch((activityError) => console.error('Activity logging failed:', activityError))
+  }
+
+  async function toggleArchive(row: ScholarshipHistoryRow) {
+    setSavingStatusId(row.id)
+    const restoring = Boolean(row.archived_at)
+    const { error } = await (supabase as any).from('student_scholarships')
+      .update({ archived_at: restoring ? null : new Date().toISOString() })
+      .eq('id', row.id)
+    if (error) console.error(`${restoring ? 'Restore' : 'Archive'} failed:`, error)
+    else {
+      await logActivity(restoring ? 'restore' : 'archive', 'student_scholarship', `${restoring ? 'Restored' : 'Archived'} "${row.scholarship_name}" for ${student?.full_name}.`, row.id)
+      await refetch()
+      onChanged?.()
+    }
+    setSavingStatusId(null)
   }
 
   return (
@@ -159,7 +175,7 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
                           )}
                           <select
                             value={h.status}
-                            disabled={savingStatusId === h.id}
+                            disabled={savingStatusId === h.id || Boolean(h.archived_at)}
                             onChange={(e) => changeStatus(h.id, h.scholarship_name, e.target.value)}
                             className="rounded-full border-0 px-2.5 py-1 text-xs font-medium disabled:opacity-60"
                             style={{ background: 'var(--menu-active-bg)', color: 'var(--nav-header-dark)' }}
@@ -168,6 +184,8 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
                               <option key={s} value={s}>{s}</option>
                             ))}
                           </select>
+                          <button type="button" onClick={() => setRenewing(h)} className="rounded-lg border p-1.5" title="Renew scholarship" style={{ borderColor: 'var(--border-default)', color: 'var(--btn-primary-bg)' }}><RefreshCw size={14} /></button>
+                          <button type="button" onClick={() => toggleArchive(h)} disabled={savingStatusId === h.id} className="rounded-lg border p-1.5 disabled:opacity-50" title={h.archived_at ? 'Restore archived record' : 'Archive record'} style={{ borderColor: 'var(--border-default)', color: h.archived_at ? 'var(--status-success-text)' : 'var(--status-warning-text)' }}>{h.archived_at ? <RotateCcw size={14} /> : <Archive size={14} />}</button>
                         </div>
                       </li>
                     )
@@ -205,6 +223,19 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
                 </ul>
               </div>
             )}
+
+            <div>
+              <h3 className="mb-2 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Student Activity History</h3>
+              {timeline.length === 0 ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recorded activity yet.</p> : (
+                <ol className="ml-2 border-l-2 pl-5" style={{ borderColor: 'var(--divider-light)' }}>
+                  {timeline.map((item) => <li key={item.id} className="relative pb-4 text-sm last:pb-0">
+                    <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2" style={{ background: 'var(--bg-card)', borderColor: 'var(--btn-primary-bg)' }} />
+                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{item.description}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(item.occurred_at).toLocaleString()} · {item.actor_name || item.actor_email || 'System'}</p>
+                  </li>)}
+                </ol>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -219,8 +250,33 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
           }}
         />
       )}
+      {renewing && <RenewScholarshipModal row={renewing} onClose={() => setRenewing(null)} onSaved={async () => { setRenewing(null); await refetch(); onChanged?.() }} />}
     </div>
   )
+}
+
+function RenewScholarshipModal({ row, onClose, onSaved }: { row: ScholarshipHistoryRow; onClose: () => void; onSaved: () => void }) {
+  const [academicYear, setAcademicYear] = useState('')
+  const [semester, setSemester] = useState('1st Semester')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [status, setStatus] = useState('Active')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  async function save() {
+    if (!academicYear.trim()) return setError('Academic year is required.')
+    setSaving(true); setError('')
+    const { error: rpcError } = await (supabase as any).rpc('renew_student_scholarship', { p_assignment_id: row.id, p_academic_year: academicYear.trim(), p_semester: semester, p_start_date: startDate || null, p_end_date: endDate || null, p_status: status })
+    setSaving(false)
+    if (rpcError) return setError(rpcError.message)
+    onSaved()
+  }
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"><div className="w-full max-w-md rounded-xl p-5 shadow-xl" style={{ background: 'var(--bg-card)' }}>
+    <div className="flex items-center justify-between"><div><h3 className="font-bold" style={{ color: 'var(--nav-header-dark)' }}>Renew Scholarship</h3><p className="text-sm" style={{ color: 'var(--text-muted)' }}>{row.scholarship_name}</p></div><button onClick={onClose}><X size={18} /></button></div>
+    <div className="mt-4 grid grid-cols-2 gap-3 text-sm"><label>Academic Year<input value={academicYear} onChange={e => setAcademicYear(e.target.value)} placeholder="2026-2027" className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label>Semester<select value={semester} onChange={e => setSemester(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2"><option>1st Semester</option><option>2nd Semester</option><option>Summer</option></select></label><label>Start Date<input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label>Expiration Date<input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="col-span-2">Status<select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2">{statusChoices.map(option => <option key={option}>{option}</option>)}</select></label></div>
+    {error && <p className="mt-3 text-sm" style={{ color: 'var(--status-error-text)' }}>{error}</p>}
+    <div className="mt-5 flex justify-end gap-2"><button onClick={onClose} disabled={saving} className="rounded-lg border px-4 py-2 text-sm">Cancel</button><button onClick={save} disabled={saving} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{saving ? 'Renewing…' : 'Create Renewal'}</button></div>
+  </div></div>
 }
 
 function DetailField({ label, value }: { label: string; value: string }) {

@@ -10,6 +10,10 @@ export function useDashboardStats() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    // Reconcile date-driven scholarship statuses before reading dashboard totals.
+    // The database function is idempotent and remains the source of truth.
+    const { error: expirationError } = await (supabase as any).rpc('flag_expiring_scholarships')
+    if (expirationError) console.error('Scholarship expiration refresh failed:', expirationError)
     const { data, error } = await supabase.from('dashboard_stats').select('*').single()
     if (error) setError(error.message)
     setStats(data as DashboardStats | null)

@@ -22,6 +22,8 @@ export interface StudentRecordRow {
   archiveReason: string | null
   archivedAt: string | null
   archivedBy: string | null
+  email: string | null
+  contactNumber: string | null
 }
 
 interface Filters {
@@ -45,7 +47,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
     let studentsQuery = supabase
       .from('students')
       .select(
-        `id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level,
+        `id, student_number, last_name, first_name, middle_initial, middle_name, suffix, yr_level, email, contact_number,
          archived_at, archived_by_name, archived_by_email, archive_reason,
          programs ( name, colleges ( id, name ) ),
          student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
@@ -94,6 +96,8 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
         archiveReason: s.archive_reason ?? null,
         archivedAt: s.archived_at ?? null,
         archivedBy: s.archived_by_name ?? s.archived_by_email ?? null,
+        email: s.email ?? null,
+        contactNumber: s.contact_number ?? null,
       }
     })
 
@@ -110,7 +114,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
 
     return rows.filter((r) => {
       if (search) {
-        const haystack = `${r.student_number} ${r.full_name} ${r.college} ${r.program}`.toLowerCase()
+        const haystack = `${r.student_number} ${r.full_name} ${r.college} ${r.program} ${r.scholarship ?? ''} ${r.email ?? ''} ${r.contactNumber ?? ''}`.toLowerCase()
         if (!haystack.includes(search)) return false
       }
       if (filters.collegeId && r.college !== filters.collegeId) return false

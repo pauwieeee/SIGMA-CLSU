@@ -173,6 +173,11 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
         leftUnchanged: preview.unlistedRows.length - notEnrolled,
       })
       setReviewStage('closed'); setReviewDecisions({}); setReviewIncluded(new Set()); onDone()
+      void (supabase as any).from('notifications').insert({
+        type: 'enrollment_complete',
+        title: 'Enrollment verification completed',
+        message: `${academicYear} • ${semester}: ${enrolled} marked Enrolled, ${notEnrolled} marked Not Enrolled, ${failed.length} failed.`,
+      })
       onVerificationComplete?.({ enrolled, notEnrolled, academicYear, semester })
     } catch (updateError) { setError((updateError as Error).message) } finally { setRunning(false) }
   }

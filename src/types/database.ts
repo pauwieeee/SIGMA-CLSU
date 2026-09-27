@@ -156,7 +156,7 @@ export interface ActivityLog {
 
 export interface AppNotification {
   id: string
-  type: 'expiring_soon' | 'duplicate_flag' | 'import_complete'
+  type: 'expiring_soon' | 'duplicate_flag' | 'import_complete' | 'import_failed' | 'enrollment_complete' | 'duplicate_review'
   title: string
   message: string
   is_read: boolean

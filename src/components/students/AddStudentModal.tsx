@@ -24,6 +24,23 @@ interface ScholarshipOption {
   categoryName: string
 }
 
+type CollegeOption = [string, string]
+
+let cachedColleges: CollegeOption[] | null = null
+let cachedScholarships: ScholarshipOption[] | null = null
+const cachedProgramsByCollege = new Map<string, ProgramOption[]>()
+
+function currentAcademicDefaults() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const academicStart = month >= 8 ? year : year - 1
+  return {
+    academicYear: `${academicStart}-${academicStart + 1}`,
+    semester: month >= 8 ? '1st Semester' : month <= 5 ? '2nd Semester' : 'Summer',
+  }
+}
+
 interface FormValues {
   studentNumber: string
   firstName: string
@@ -48,11 +65,14 @@ interface FormValues {
   dateAwarded: string
 }
 
-const EMPTY_FORM: FormValues = {
+function emptyForm(): FormValues {
+  const defaults = currentAcademicDefaults()
+  return {
   studentNumber: '', firstName: '', middleName: '', lastName: '', suffix: '',
   dateOfBirth: '', sex: '', email: '', contactNumber: '', collegeId: '', programId: '',
-  address: '', gwa: '', participationOrg: '', yearLevel: '', academicYear: '', semester: '', scholarshipId: '', scholarshipType: '',
+  address: '', gwa: '', participationOrg: '', yearLevel: '', academicYear: defaults.academicYear, semester: defaults.semester, scholarshipId: '', scholarshipType: '',
   scholarshipStatus: '', dateAwarded: '',
+  }
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -92,54 +112,76 @@ function Field({ label, required, error, children }: { label: string; required?:
 const controlClass = 'w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-100'
 
 export function AddStudentModal({ open, onClose, onAdded }: Props) {
-  const [form, setForm] = useState<FormValues>(EMPTY_FORM)
+  const [form, setForm] = useState<FormValues>(() => emptyForm())
+  const [colleges, setColleges] = useState<CollegeOption[]>(() => cachedColleges ?? [])
   const [programs, setPrograms] = useState<ProgramOption[]>([])
   const [programText, setProgramText] = useState('')
   const [scholarships, setScholarships] = useState<ScholarshipOption[]>([])
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
-  const [loadingOptions, setLoadingOptions] = useState(false)
+  const [loadingColleges, setLoadingColleges] = useState(false)
+  const [loadingPrograms, setLoadingPrograms] = useState(false)
+  const [loadingScholarships, setLoadingScholarships] = useState(false)
 
   useEffect(() => {
     if (!open) return
-    setForm(EMPTY_FORM)
+    setForm(emptyForm())
     setProgramText('')
     setErrors({})
-    setLoadingOptions(true)
+    setPrograms([])
 
-    Promise.all([
-      supabase.from('programs').select('id, name, college_id, colleges ( name )').order('name'),
-      supabase.from('scholarships').select('id, name, scholarship_categories ( name )').is('archived_at', null).order('name'),
-    ]).then(([programResult, scholarshipResult]) => {
-      if (programResult.error || scholarshipResult.error) {
-        console.error('Add Student options failed to load:', programResult.error ?? scholarshipResult.error)
-        setErrors({ form: 'Unable to load the form options. Please refresh and try again.' })
-        setLoadingOptions(false)
-        return
-      }
-      setPrograms((programResult.data ?? []).map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        collegeId: row.college_id,
-        collegeName: row.colleges?.name ?? 'Unknown College',
-      })))
-      setScholarships((scholarshipResult.data ?? []).map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        categoryName: row.scholarship_categories?.name ?? 'Uncategorized',
-      })))
-      setLoadingOptions(false)
-    })
+    if (cachedColleges) setColleges(cachedColleges)
+    else {
+      setLoadingColleges(true)
+      supabase.from('colleges').select('id, name').order('name').then(({ data, error }: any) => {
+        if (error) setErrors((current) => ({ ...current, form: 'Unable to load colleges. Please refresh and try again.' }))
+        else {
+          cachedColleges = (data ?? []).map((row: any) => [row.id, row.name] as CollegeOption)
+          setColleges(cachedColleges ?? [])
+        }
+        setLoadingColleges(false)
+      })
+    }
+
+    if (cachedScholarships) setScholarships(cachedScholarships)
+    else {
+      setLoadingScholarships(true)
+      supabase.from('scholarships').select('id, name, scholarship_categories ( name )').is('archived_at', null).order('name').then(({ data, error }: any) => {
+        if (error) console.error('Add Student scholarships failed to load:', error)
+        else {
+          cachedScholarships = (data ?? []).map((row: any) => ({ id: row.id, name: row.name, categoryName: row.scholarship_categories?.name ?? 'Uncategorized' }))
+          setScholarships(cachedScholarships ?? [])
+        }
+        setLoadingScholarships(false)
+      })
+    }
   }, [open])
 
-  const colleges = useMemo(() => {
-    const map = new Map<string, string>()
-    programs.forEach((program) => map.set(program.collegeId, program.collegeName))
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [programs])
+  useEffect(() => {
+    if (!open || !form.collegeId) return
+    let active = true
+    const cached = cachedProgramsByCollege.get(form.collegeId)
+    if (cached) {
+      setPrograms(cached)
+      return
+    }
+    setLoadingPrograms(true)
+    setPrograms([])
+    supabase.from('programs').select('id, name, college_id, colleges ( name )').eq('college_id', form.collegeId).order('name').then(({ data, error }: any) => {
+      if (!active) return
+      if (error) setErrors((current) => ({ ...current, programId: 'Unable to load programs for this college.' }))
+      else {
+        const loaded = (data ?? []).map((row: any) => ({ id: row.id, name: row.name, collegeId: row.college_id, collegeName: row.colleges?.name ?? '' }))
+        cachedProgramsByCollege.set(form.collegeId, loaded)
+        setPrograms(loaded)
+      }
+      setLoadingPrograms(false)
+    })
+    return () => { active = false }
+  }, [open, form.collegeId])
 
   const visiblePrograms = useMemo(
-    () => form.collegeId ? programs.filter((program) => program.collegeId === form.collegeId) : [],
+    () => form.collegeId ? programs : [],
     [programs, form.collegeId],
   )
 
@@ -155,7 +197,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
 
   const emailValid = !form.email.trim() || EMAIL_PATTERN.test(form.email.trim())
   const yearLevelValid = STUDENT_YEAR_LEVEL_OPTIONS.includes(form.yearLevel.trim() as (typeof STUDENT_YEAR_LEVEL_OPTIONS)[number])
-  const canSubmit = !saving && !loadingOptions
+  const canSubmit = !saving && Boolean(form.studentNumber.trim() && form.firstName.trim() && form.lastName.trim() && form.collegeId && form.programId && form.yearLevel)
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -324,7 +366,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
             <h2 id="add-student-title" className="text-lg font-bold" style={{ color: 'var(--nav-header-dark)' }}>Add New Student</h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>Create one student record. Scholarship information is optional.</p>
           </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label="Close Add Student" style={{ color: 'var(--icon-muted)' }}><X size={20} /></button>
+          <button type="button" onClick={onClose} aria-label="Close Add Student" style={{ color: 'var(--icon-muted)' }}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5">
@@ -359,7 +401,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
             <h3 className="mb-3 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Academic Information</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="College/Department" required error={errors.collegeId}>
-                <select value={form.collegeId} onChange={(e) => { update('collegeId', e.target.value); update('programId', ''); setProgramText('') }} className={controlClass} style={inputStyle(Boolean(errors.collegeId))}><option value="">Select college</option>{colleges.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
+                <select disabled={loadingColleges} value={form.collegeId} onChange={(e) => { update('collegeId', e.target.value); update('programId', ''); setProgramText('') }} className={controlClass} style={inputStyle(Boolean(errors.collegeId))}><option value="">{loadingColleges ? 'Loading colleges…' : 'Select college'}</option>{colleges.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
               </Field>
               <Field label="Program/Course" required error={errors.programId}>
                 <input
@@ -374,10 +416,10 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
                     setProgramText(value)
                     update('programId', selectedProgram?.id ?? '')
                   }}
-                  disabled={loadingOptions || !form.collegeId}
+                  disabled={loadingPrograms || !form.collegeId}
                   className={controlClass}
                   style={inputStyle(Boolean(errors.programId))}
-                  placeholder={loadingOptions ? 'Loading programs…' : !form.collegeId ? 'Select college first' : 'Type program/course'}
+                  placeholder={loadingPrograms ? 'Loading programs…' : !form.collegeId ? 'Select college first' : 'Type program/course'}
                   autoComplete="off"
                 />
                 <datalist id="add-student-programs">
@@ -400,8 +442,8 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
           <section className="mt-6 border-t pt-5" style={{ borderColor: 'var(--divider-light)' }}>
             <h3 className="mb-3 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Scholarship Information <span className="font-normal normal-case" style={{ color: 'var(--text-muted)' }}>(Optional)</span></h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Scholarship Type"><select value={form.scholarshipType} onChange={(e) => { update('scholarshipType', e.target.value); update('scholarshipId', '') }} className={controlClass} style={inputStyle()}><option value="">All types</option>{scholarshipTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>
-              <Field label="Scholarship Program"><select value={form.scholarshipId} onChange={(e) => { const id = e.target.value; update('scholarshipId', id); const selected = scholarships.find((item) => item.id === id); if (selected) update('scholarshipType', selected.categoryName) }} className={controlClass} style={inputStyle()}><option value="">No scholarship</option>{visibleScholarships.map((scholarship) => <option key={scholarship.id} value={scholarship.id}>{scholarship.name}</option>)}</select></Field>
+              <Field label="Scholarship Type"><select disabled={loadingScholarships} value={form.scholarshipType} onChange={(e) => { update('scholarshipType', e.target.value); update('scholarshipId', '') }} className={controlClass} style={inputStyle()}><option value="">{loadingScholarships ? 'Loading…' : 'All types'}</option>{scholarshipTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>
+              <Field label="Scholarship Program"><select disabled={loadingScholarships} value={form.scholarshipId} onChange={(e) => { const id = e.target.value; update('scholarshipId', id); const selected = scholarships.find((item) => item.id === id); if (selected) update('scholarshipType', selected.categoryName) }} className={controlClass} style={inputStyle()}><option value="">{loadingScholarships ? 'Loading scholarships…' : 'No scholarship'}</option>{visibleScholarships.map((scholarship) => <option key={scholarship.id} value={scholarship.id}>{scholarship.name}</option>)}</select></Field>
               <Field label="Scholarship Status" error={errors.scholarshipStatus}><select value={form.scholarshipStatus} onChange={(e) => update('scholarshipStatus', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.scholarshipStatus))}><option value="">Select status</option>{STUDENT_SCHOLARSHIP_STATUS_OPTIONS.map((value) => <option key={value} value={value}>{statusShortLabel(value)}</option>)}</select></Field>
               <Field label="Date Awarded" error={errors.dateAwarded}><input type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateAwarded} onChange={(e) => update('dateAwarded', e.target.value)} className={controlClass} style={inputStyle(Boolean(errors.dateAwarded))} /></Field>
             </div>
@@ -410,7 +452,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
           {errors.form && <p role="alert" className="mt-5 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{errors.form}</p>}
 
           <div className="sticky bottom-0 -mx-6 mt-6 flex justify-end gap-2 border-t px-6 pt-4 pb-1" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
-            <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-[var(--menu-hover-bg)] disabled:opacity-60" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
+            <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-[var(--menu-hover-bg)]" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
             <button type="submit" disabled={!canSubmit} className="rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50" style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>{saving ? 'Adding Student…' : 'Add Student'}</button>
           </div>
         </form>

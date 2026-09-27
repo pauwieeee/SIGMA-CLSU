@@ -525,18 +525,18 @@ export default function StudentRecordsPage() {
       <EnrollmentVerificationModal
         open={enrollmentModalOpen}
         onClose={() => setEnrollmentModalOpen(false)}
-        onDone={refetch}
+        onDone={() => { void refetch() }}
       />
 
       <EnrollmentVerificationModal
         open={selectedEnrollmentOpen}
         selectedStudents={selectedEnrollmentRows}
         onClose={() => setSelectedEnrollmentOpen(false)}
-        onDone={async () => {
+        onDone={(updatedCount = selectedEnrollmentRows.length) => {
           setSelectedEnrollmentOpen(false)
           setSelected(new Set())
-          await refetch()
-          pushToast('Enrollment statuses updated successfully.')
+          void refetch()
+          pushToast(`Enrollment updated successfully for ${updatedCount} student${updatedCount === 1 ? '' : 's'}.`)
         }}
       />
 

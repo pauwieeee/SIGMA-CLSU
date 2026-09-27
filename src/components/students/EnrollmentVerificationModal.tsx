@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { CheckCircle2, TriangleAlert, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CheckCircle2, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SEMESTER_OPTIONS } from '@/types/database'
 
@@ -9,7 +9,7 @@ interface SelectedStudent {
   name: string
   currentStatus: boolean | null
 }
-interface Props { open: boolean; onClose: () => void; onDone: () => void; selectedStudents?: SelectedStudent[] }
+interface Props { open: boolean; onClose: () => void; onDone: (updatedCount?: number) => void; selectedStudents?: SelectedStudent[] }
 interface EnrollmentRow {
   id: string
   studentNumber: string
@@ -38,6 +38,17 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, selectedStu
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [manualStatuses, setManualStatuses] = useState<Record<string, string>>({})
+  const [manualRowsReady, setManualRowsReady] = useState(false)
+
+  useEffect(() => {
+    if (!open || selectedStudents.length === 0) {
+      setManualRowsReady(false)
+      return
+    }
+    const frame = requestAnimationFrame(() => setManualRowsReady(true))
+    return () => cancelAnimationFrame(frame)
+  }, [open, selectedStudents.length])
+
   if (!open) return null
 
   const isManualMode = selectedStudents.length > 0
@@ -76,7 +87,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, selectedStu
       const { error: updateError } = await (supabase as any).rpc('set_selected_enrollment_statuses', { p_updates: updates })
       if (updateError) throw new Error(updateError.message)
       setManualStatuses({})
-      onDone()
+      onDone(selectedStudents.length)
     } catch (updateError) {
       setError((updateError as Error).message)
     } finally {
@@ -154,28 +165,23 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, selectedStu
     <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
       <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}><h2 id="verify-enrollment-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{isManualMode ? 'Set Selected Enrollment' : 'Verify Enrollment'}</h2><button onClick={close} aria-label="Close" style={{ color: 'var(--icon-muted)' }}><X size={18} /></button></div>
       <div className="space-y-4 px-5 py-4">
-        {isManualMode ? <>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Choose the enrollment result for every selected student's current scholarship record.</p>
-          <div className="max-h-[55vh] space-y-2 overflow-y-auto">
-            {selectedStudents.map((student) => (
-              <div key={student.assignmentId} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_180px] sm:items-center" style={{ borderColor: 'var(--border-default)' }}>
-                <div className="min-w-0"><p className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{student.name}</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{student.studentNumber}</p></div>
-                <select
-                  value={manualStatuses[student.assignmentId] ?? (student.currentStatus === true ? 'enrolled' : student.currentStatus === false ? 'not_enrolled' : '')}
-                  onChange={(event) => setManualStatuses((current) => ({ ...current, [student.assignmentId]: event.target.value }))}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  style={{ borderColor: 'var(--input-border)', background: 'var(--bg-card)' }}
-                >
-                  <option value="">Select status</option>
-                  <option value="enrolled">Enrolled</option>
-                  <option value="not_enrolled">Not Enrolled</option>
-                </select>
-              </div>
-            ))}
+        {isManualMode ? <div className="flex min-h-0 flex-col">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Update the enrollment status of the selected students for their current scholarship record.</p>
+          <p className="mt-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--btn-primary-bg)' }}>{selectedStudents.length} student{selectedStudents.length === 1 ? '' : 's'} selected</p>
+          <div className="mt-3 overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border-default)' }}>
+            <div className="grid grid-cols-[minmax(0,1fr)_170px] gap-3 px-3 py-2 text-xs font-bold uppercase tracking-wide" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}><span>Student</span><span>Enrollment Status</span></div>
+            <div className="max-h-[45vh] overflow-y-auto">
+              {!manualRowsReady ? Array.from({ length: Math.min(selectedStudents.length, 5) }, (_, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_170px] gap-3 border-t p-3" style={{ borderColor: 'var(--divider-light)' }}><div className="space-y-2"><div className="h-3 w-40 animate-pulse rounded bg-gray-200" /><div className="h-2.5 w-20 animate-pulse rounded bg-gray-100" /></div><div className="h-9 animate-pulse rounded-lg bg-gray-100" /></div>) : selectedStudents.map((student) => (
+                <div key={student.assignmentId} className="grid grid-cols-[minmax(0,1fr)_170px] items-center gap-3 border-t p-3" style={{ borderColor: 'var(--divider-light)' }}>
+                  <div className="min-w-0"><p className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{student.name}</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{student.studentNumber}</p></div>
+                  <select value={manualStatuses[student.assignmentId] ?? (student.currentStatus === true ? 'enrolled' : student.currentStatus === false ? 'not_enrolled' : '')} onChange={(event) => setManualStatuses((current) => ({ ...current, [student.assignmentId]: event.target.value }))} className="w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)', background: 'var(--bg-card)' }}><option value="">Select status</option><option value="enrolled">Enrolled</option><option value="not_enrolled">Not Enrolled</option></select>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex justify-end gap-2 border-t pt-4" style={{ borderColor: 'var(--divider-light)' }}><button onClick={close} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Cancel</button><button onClick={applySelectedStatuses} disabled={running} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{running ? 'Saving…' : `Save ${selectedStudents.length} Status${selectedStudents.length === 1 ? '' : 'es'}`}</button></div>
-          {error && <p role="alert" className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{error}</p>}
-        </> : <>
+          {error && <p role="alert" className="mt-3 rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{error}</p>}
+          <div className="sticky bottom-0 -mx-5 mt-4 flex justify-end gap-2 border-t px-5 pt-4" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}><button onClick={close} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-60" style={{ borderColor: 'var(--border-default)' }}>Cancel</button><button onClick={applySelectedStatuses} disabled={running || !manualRowsReady || selectedStudents.length === 0} className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{running && <LoaderCircle size={15} className="animate-spin" />}{running ? 'Saving…' : 'Save Changes'}</button></div>
+        </div> : <>
         {verificationResult ? <VerificationResultPanel result={verificationResult} onClose={close} /> : <>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Use the official enrollment list to verify which students are enrolled for the selected Academic Year and Semester. SIGMA will compare the Student IDs with existing records and show the changes before applying them.</p>
           <div className="grid grid-cols-2 gap-3"><SelectField label="Academic Year" value={academicYear} onChange={(value) => { setAcademicYear(value); resetPreview() }} options={ACADEMIC_YEARS} /><SelectField label="Semester" value={semester} onChange={(value) => { setSemester(value); resetPreview() }} options={[...SEMESTER_OPTIONS]} /></div>

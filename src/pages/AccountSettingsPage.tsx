@@ -200,8 +200,6 @@ export default function AccountSettingsPage() {
         {passwordStatus && <p className="mt-4 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--status-complete-bg)', color: 'var(--status-complete-text)' }}>{passwordStatus}</p>}
       </Card>
 
-      <Card className="shadow-sm"><CardTitle>Account Information</CardTitle><div className="mt-3 text-sm"><p style={{ color: 'var(--text-muted)' }}>Role</p><p className="mt-1 font-semibold" style={{ color: 'var(--text-primary)' }}>Admin</p></div></Card>
-
       {passwordDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
           <div className="relative max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl p-6 shadow-2xl" style={{ background: 'var(--bg-card)' }}>

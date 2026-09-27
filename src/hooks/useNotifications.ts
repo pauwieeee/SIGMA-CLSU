@@ -17,7 +17,34 @@ export function useNotifications(limit = 50) {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit)
-    setNotifications((data ?? []) as AppNotification[])
+    let rows = (data ?? []) as AppNotification[]
+    const expiringIds = [...new Set(rows
+      .filter((notification) => notification.type === 'expiring_soon' && notification.related_entity_id)
+      .map((notification) => notification.related_entity_id as string))]
+
+    // Defensively hide stale legacy notifications even before the cleanup
+    // migration is applied to an older deployment.
+    if (expiringIds.length > 0) {
+      const { data: scholarships, error } = await (supabase as any)
+        .from('scholarships')
+        .select('id, status, end_date, archived_at')
+        .in('id', expiringIds)
+      if (!error) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const cutoff = new Date(today)
+        cutoff.setDate(cutoff.getDate() + 30)
+        const validIds = new Set((scholarships ?? []).filter((scholarship: any) => {
+          if (!scholarship.end_date || scholarship.archived_at || ['Archived', 'Inactive', 'Expired'].includes(scholarship.status)) return false
+          const endDate = new Date(`${scholarship.end_date}T00:00:00`)
+          return endDate >= today && endDate <= cutoff
+        }).map((scholarship: any) => scholarship.id))
+        rows = rows.filter((notification) => notification.type !== 'expiring_soon'
+          || (notification.related_entity_id != null && validIds.has(notification.related_entity_id)))
+      }
+    }
+
+    setNotifications(rows)
     setLoading(false)
   }, [limit])
 
@@ -29,7 +56,7 @@ export function useNotifications(limit = 50) {
     // full NotificationsPage) would otherwise fight over the same topic.
     const channel = supabase
       .channel(`notifications-changes-${instanceId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => load())
       .subscribe()
 
     return () => {

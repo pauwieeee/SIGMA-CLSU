@@ -944,29 +944,8 @@ body {
 .sigma-dashboard-hero-content {
   position: relative;
   z-index: 1;
-  display: flex;
   width: 100%;
   max-width: 850px;
-  align-items: center;
-  gap: 20px;
-}
-
-.sigma-dashboard-hero-logo-wrap {
-  display: grid;
-  width: 66px;
-  height: 66px;
-  flex: 0 0 66px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.48);
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(3, 42, 19, 0.22);
-}
-
-.sigma-dashboard-hero-logo {
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
 }
 
 .sigma-dashboard-hero-copy { min-width: 0; }
@@ -985,7 +964,7 @@ body {
 }
 
 .sigma-dashboard-hero-office {
-  color: #fff;
+  color: #b9f4c5;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -993,7 +972,7 @@ body {
 
 .sigma-dashboard-hero-label {
   color: rgba(255, 255, 255, 0.76);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.08em;
   line-height: 1.3;
@@ -1077,18 +1056,15 @@ body {
     min-height: 0;
     border-radius: 18px;
     padding: 20px;
-    text-align: center;
+    text-align: left;
   }
 
-  .sigma-dashboard-hero-content { flex-direction: column; gap: 12px; }
-  .sigma-dashboard-hero-logo-wrap { width: 62px; height: 62px; flex-basis: 62px; }
-  .sigma-dashboard-hero-logo { width: 52px; height: 52px; }
-  .sigma-dashboard-hero-identity { flex-direction: column; align-items: center; gap: 2px; }
+  .sigma-dashboard-hero-identity { flex-direction: column; align-items: flex-start; gap: 2px; }
   .sigma-dashboard-hero-office { font-size: 11px; }
   .sigma-dashboard-hero-label { font-size: 10px; }
   .sigma-dashboard-hero h1 { font-size: 26px; }
   .sigma-dashboard-hero-subtitle { font-size: 15px; }
-  .sigma-dashboard-hero-chips { justify-content: center; }
+  .sigma-dashboard-hero-chips { justify-content: flex-start; }
   .sigma-dashboard-hero-circle-large { right: -70px; }
   .sigma-dashboard-hero-circle-small { display: none; }
   .sigma-dashboard-hero-wave { right: -160px; }

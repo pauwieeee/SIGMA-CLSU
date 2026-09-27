@@ -35,6 +35,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
   const [preview, setPreview] = useState<Preview | null>(null)
   const [reviewStage, setReviewStage] = useState<'closed' | 'review' | 'confirm'>('closed')
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
+  const [reviewIncluded, setReviewIncluded] = useState<Set<string>>(() => new Set())
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +56,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
 
   const isManualMode = selectedStudents.length > 0
   const matchedChanges = preview?.matchedRows.filter((row) => row.currentEnrollment !== true) ?? []
-  const selectedUnlisted = preview?.unlistedRows.filter((row) => reviewDecisions[row.id] === 'not_enrolled') ?? []
+  const selectedUnlisted = preview?.unlistedRows.filter((row) => reviewIncluded.has(row.id) && reviewDecisions[row.id] === 'not_enrolled') ?? []
   const reviewedUnlisted = preview?.unlistedRows.filter((row) => reviewDecisions[row.id] && reviewDecisions[row.id] !== 'pending') ?? []
   const unchangedUnlisted = preview?.unlistedRows.filter((row) => reviewDecisions[row.id] === 'unchanged') ?? []
   const pendingUnlisted = (preview?.unlistedRows.length ?? 0) - reviewedUnlisted.length
@@ -63,6 +64,17 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
 
   function setReviewDecision(id: string, decision: ReviewDecision) {
     setReviewDecisions((current) => ({ ...current, [id]: decision }))
+  }
+
+  function toggleReviewIncluded(id: string) {
+    const wasIncluded = reviewIncluded.has(id)
+    setReviewIncluded((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+    if (wasIncluded) setReviewDecision(id, 'pending')
   }
 
   function openUnlistedReview() {
@@ -97,14 +109,14 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
     }
   }
 
-  function resetPreview() { setPreview(null); setReviewStage('closed'); setReviewDecisions({}); setVerificationResult(null); setError(null); setSuccess(null) }
+  function resetPreview() { setPreview(null); setReviewStage('closed'); setReviewDecisions({}); setReviewIncluded(new Set()); setVerificationResult(null); setError(null); setSuccess(null) }
   function close() { setIdList(''); setManualStatuses({}); resetPreview(); onClose() }
   function normalizedIds() { return [...new Set(idList.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean))] }
 
   async function previewVerification() {
     const submittedIds = normalizedIds()
     if (!submittedIds.length) { setError('Paste at least one official Student ID.'); return }
-    setRunning(true); setError(null); setSuccess(null); setReviewStage('closed'); setReviewDecisions({}); setVerificationResult(null)
+    setRunning(true); setError(null); setSuccess(null); setReviewStage('closed'); setReviewDecisions({}); setReviewIncluded(new Set()); setVerificationResult(null)
     const { data, error: fetchError } = await (supabase as any).from('student_scholarships')
       .select('id, academic_year, semester, is_enrolled, students!inner(student_number, first_name, middle_name, last_name, programs(name, colleges(name))), scholarships!inner(name, status)')
       .eq('academic_year', academicYear).eq('semester', semester).eq('status', 'Active')
@@ -133,7 +145,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
       .filter((row) => row.currentEnrollment !== true)
       .map((row) => ({ assignment_id: row.id, is_enrolled: true, expected_is_enrolled: row.currentEnrollment }))
     const notEnrolledUpdates = preview.unlistedRows
-      .filter((row) => reviewDecisions[row.id] === 'not_enrolled' && row.currentEnrollment !== false)
+      .filter((row) => reviewIncluded.has(row.id) && reviewDecisions[row.id] === 'not_enrolled' && row.currentEnrollment !== false)
       .map((row) => ({ assignment_id: row.id, is_enrolled: false, expected_is_enrolled: row.currentEnrollment }))
     const updates = [...matchedUpdates, ...notEnrolledUpdates]
     if (!updates.length) {
@@ -160,7 +172,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
         unchanged,
         leftUnchanged: preview.unlistedRows.length - notEnrolled,
       })
-      setReviewStage('closed'); setReviewDecisions({}); onDone()
+      setReviewStage('closed'); setReviewDecisions({}); setReviewIncluded(new Set()); onDone()
       onVerificationComplete?.({ enrolled, notEnrolled, academicYear, semester })
     } catch (updateError) { setError((updateError as Error).message) } finally { setRunning(false) }
   }
@@ -197,7 +209,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
           {!preview && <div className="flex justify-end gap-2 pt-2"><button onClick={close} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Cancel</button><button onClick={previewVerification} disabled={running} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{running ? 'Comparing…' : 'Preview Verification'}</button></div>}
           {preview && <VerificationPreview preview={preview} matchedChanges={matchedChanges.length} selectedNotEnrolled={selectedUnlisted.length} reviewed={reviewedUnlisted.length} pending={pendingUnlisted} explicitUnchanged={unchangedUnlisted.length} />}
           {preview && reviewStage === 'closed' && <div className="space-y-3 border-t pt-4" style={{ borderColor: 'var(--divider-light)' }}>{preview.unlistedRows.length > 0 && <button onClick={openUnlistedReview} className="w-full rounded-lg px-4 py-3 text-sm font-bold shadow-sm transition-colors hover:bg-[var(--btn-primary-hover)]" style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>Review {preview.unlistedRows.length} Student{preview.unlistedRows.length === 1 ? '' : 's'} Requiring Enrollment Review</button>}{readyChanges === 0 && <p className="rounded-md px-3 py-2 text-xs" style={{ background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' }}>{preview.unlistedRows.length > 0 ? 'No changes are ready to apply. Review unmatched scholarship records first.' : 'No changes are ready to apply. All matched records are already verified.'}</p>}<div className="flex justify-end gap-2"><button onClick={resetPreview} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Back</button><button onClick={() => setReviewStage('confirm')} disabled={running || readyChanges === 0} title={readyChanges === 0 ? 'Review and select records before applying changes.' : undefined} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{`Continue to Confirmation (${readyChanges})`}</button></div></div>}
-          {preview && reviewStage === 'review' && <UnlistedReviewTable rows={preview.unlistedRows} decisions={reviewDecisions} onDecision={setReviewDecision} onSelectAll={() => setReviewDecisions(Object.fromEntries(preview.unlistedRows.map((row) => [row.id, row.currentEnrollment === false ? 'unchanged' : 'not_enrolled'])))} selectedCount={selectedUnlisted.length} reviewedCount={reviewedUnlisted.length} pendingCount={pendingUnlisted} readyCount={readyChanges} onBack={() => setReviewStage('closed')} onContinue={() => setReviewStage('confirm')} />}
+          {preview && reviewStage === 'review' && <UnlistedReviewTable rows={preview.unlistedRows} decisions={reviewDecisions} included={reviewIncluded} onDecision={setReviewDecision} onToggle={toggleReviewIncluded} onSelectAll={() => setReviewIncluded(new Set(preview.unlistedRows.map((row) => row.id)))} readyCount={readyChanges} onBack={() => setReviewStage('closed')} onContinue={() => setReviewStage('confirm')} />}
           {preview && reviewStage === 'confirm' && <div className="rounded-lg border p-4" style={{ borderColor: 'var(--status-warning-text)', background: 'var(--status-warning-bg)' }}><p className="font-bold" style={{ color: 'var(--status-warning-text)' }}>Confirm Enrollment Update</p><p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>You are about to update enrollment for <strong>{academicYear} • {semester}</strong>.</p><div className="mt-3 rounded-md bg-white/60 p-3 text-sm" style={{ color: 'var(--text-secondary)' }}><p><strong>{preview.matchedRows.length}</strong> matched scholarship record(s) will be Enrolled ({matchedChanges.length} require an update).</p><p><strong>{selectedUnlisted.length}</strong> student(s) will be marked Not Enrolled.</p><p><strong>{preview.unlistedRows.length - selectedUnlisted.length}</strong> record(s) will remain unchanged.</p></div><p className="mt-3 text-xs" style={{ color: 'var(--text-secondary)' }}>Only apply these changes after administrator confirmation.</p><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => setReviewStage(selectedUnlisted.length ? 'review' : 'closed')} disabled={running} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Cancel</button><button onClick={applyVerification} disabled={running || readyChanges === 0} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60" style={{ background: 'var(--status-warning-text)', color: 'white' }}>{running ? 'Processing…' : 'Confirm Update'}</button></div></div>}
           {error && <p role="alert" className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{error}</p>}{success && <p className="rounded-md px-3 py-2 text-sm" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>{success}</p>}
         </>}
@@ -224,8 +236,47 @@ function VerificationPreview({ preview, matchedChanges, selectedNotEnrolled, rev
   </div>
 }
 
-function UnlistedReviewTable({ rows, decisions, onDecision, onSelectAll, selectedCount, reviewedCount, pendingCount, readyCount, onBack, onContinue }: { rows: EnrollmentRow[]; decisions: Record<string, ReviewDecision>; onDecision: (id: string, decision: ReviewDecision) => void; onSelectAll: () => void; selectedCount: number; reviewedCount: number; pendingCount: number; readyCount: number; onBack: () => void; onContinue: () => void }) {
-  return <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: 'var(--border-default)' }}><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Students Requiring Enrollment Review</p><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{selectedCount} selected · {reviewedCount} reviewed · {pendingCount} pending review</p></div><button onClick={onSelectAll} className="rounded-md border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: 'var(--status-warning-text)', color: 'var(--status-warning-text)' }}>Select all intentionally</button></div><div className="max-h-[42vh] overflow-auto rounded-md border" style={{ borderColor: 'var(--border-default)' }}><table className="min-w-[1200px] w-full text-left text-xs"><thead className="sticky top-0" style={{ background: 'var(--bg-secondary)' }}><tr><th className="p-2">Select</th><th className="p-2">Student ID</th><th className="p-2">Name</th><th className="p-2">College</th><th className="p-2">Scholarship</th><th className="p-2">Current Status</th><th className="p-2">Suggested Result</th><th className="p-2">Review Decision</th></tr></thead><tbody>{rows.map((row) => { const decision = decisions[row.id] ?? 'pending'; const alreadyNotEnrolled = row.currentEnrollment === false; return <tr key={row.id} className="border-t" style={{ borderColor: 'var(--divider-light)' }}><td className="p-2"><input type="checkbox" checked={decision === 'not_enrolled'} disabled={alreadyNotEnrolled} onChange={(event) => onDecision(row.id, event.target.checked ? 'not_enrolled' : 'pending')} aria-label={`Select ${row.studentName}`} /></td><td className="p-2 font-semibold">{row.studentNumber}</td><td className="p-2">{row.studentName}</td><td className="p-2">{row.college}</td><td className="p-2">{row.scholarshipName}</td><td className="p-2">{row.currentEnrollment === true ? 'Enrolled' : row.currentEnrollment === false ? 'Not Enrolled' : 'Not Yet Verified'}</td><td className="p-2 font-medium" style={{ color: 'var(--status-warning-text)' }}>Not Found in Official List</td><td className="p-2"><select value={decision} onChange={(event) => onDecision(row.id, event.target.value as ReviewDecision)} className="rounded border px-2 py-1" style={{ borderColor: 'var(--input-border)', background: 'var(--bg-card)' }}><option value="pending">Keep Under Review</option><option value="not_enrolled" disabled={alreadyNotEnrolled}>Mark Not Enrolled</option><option value="unchanged">Leave Unchanged</option></select></td></tr> })}</tbody></table></div>{selectedCount === 0 && <p className="text-xs" style={{ color: 'var(--status-warning-text)' }}>No records are selected. Nothing will be marked Not Enrolled.</p>}<div className="flex justify-end gap-2"><button onClick={onBack} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Back</button><button onClick={onContinue} disabled={selectedCount === 0} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{`Continue to Confirmation (${readyCount})`}</button></div></div>
+function UnlistedReviewTable({ rows, decisions, included, onDecision, onToggle, onSelectAll, readyCount, onBack, onContinue }: { rows: EnrollmentRow[]; decisions: Record<string, ReviewDecision>; included: Set<string>; onDecision: (id: string, decision: ReviewDecision) => void; onToggle: (id: string) => void; onSelectAll: () => void; readyCount: number; onBack: () => void; onContinue: () => void }) {
+  const confirmCount = rows.filter((row) => included.has(row.id) && decisions[row.id] === 'not_enrolled').length
+  const noChangeCount = rows.filter((row) => included.has(row.id) && decisions[row.id] === 'unchanged').length
+  const needsReviewCount = rows.length - confirmCount - noChangeCount
+
+  return <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: 'var(--border-default)' }}>
+    <div>
+      <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Students Requiring Enrollment Review</p>
+      <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>These students were not found in the official enrollment list for the selected Academic Year and Semester. They are not automatically Not Enrolled—administrator confirmation is required.</p>
+    </div>
+    <div className="rounded-lg px-3 py-3" style={{ background: 'var(--status-warning-bg)' }}>
+      <p className="text-sm font-bold" style={{ color: 'var(--status-warning-text)' }}>{rows.length} student{rows.length === 1 ? '' : 's'} require review</p>
+      <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>These records were not matched with the official enrollment list. Review each student before applying enrollment changes.</p>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="rounded-md bg-white/60 p-2"><strong className="block text-lg">{needsReviewCount}</strong>Needs Review</div>
+        <div className="rounded-md bg-white/60 p-2"><strong className="block text-lg">{confirmCount}</strong>Confirm Not Enrolled</div>
+        <div className="rounded-md bg-white/60 p-2"><strong className="block text-lg">{noChangeCount}</strong>No Change</div>
+      </div>
+    </div>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Select the students you want to include, then choose a review decision for each selected record.</p>
+      <button onClick={onSelectAll} className="rounded-md border px-3 py-1.5 text-xs font-semibold" style={{ borderColor: 'var(--status-warning-text)', color: 'var(--status-warning-text)' }}>Include all students</button>
+    </div>
+    <div className="max-h-[42vh] overflow-auto rounded-md border" style={{ borderColor: 'var(--border-default)' }}>
+      <table className="min-w-[1200px] w-full text-left text-xs">
+        <thead className="sticky top-0" style={{ background: 'var(--bg-secondary)' }}><tr><th className="p-2">Include</th><th className="p-2">Student ID</th><th className="p-2">Name</th><th className="p-2">College</th><th className="p-2">Scholarship</th><th className="p-2">Verification Result</th><th className="p-2">Review Decision</th></tr></thead>
+        <tbody>{rows.map((row) => {
+          const isIncluded = included.has(row.id)
+          const decision = decisions[row.id] ?? 'pending'
+          const alreadyNotEnrolled = row.currentEnrollment === false
+          return <tr key={row.id} className="border-t" style={{ borderColor: 'var(--divider-light)' }}>
+            <td className="p-2"><input type="checkbox" checked={isIncluded} onChange={() => onToggle(row.id)} aria-label={`Include ${row.studentName} in batch update`} /></td>
+            <td className="p-2 font-semibold">{row.studentNumber}</td><td className="p-2">{row.studentName}</td><td className="p-2">{row.college}</td><td className="p-2">{row.scholarshipName}</td>
+            <td className="p-2 font-medium" style={{ color: 'var(--status-warning-text)' }}>✕ Not found in official list</td>
+            <td className="p-2"><select disabled={!isIncluded} value={decision} onChange={(event) => onDecision(row.id, event.target.value as ReviewDecision)} className="rounded border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50" style={{ borderColor: 'var(--input-border)', background: 'var(--bg-card)' }}><option value="pending">Needs Review</option><option value="not_enrolled" disabled={alreadyNotEnrolled}>Confirm Not Enrolled</option><option value="unchanged">No Change</option></select></td>
+          </tr>
+        })}</tbody>
+      </table>
+    </div>
+    <div className="flex justify-end gap-2"><button onClick={onBack} className="rounded-lg border px-4 py-2 text-sm font-medium" style={{ borderColor: 'var(--border-default)' }}>Back</button><button onClick={onContinue} disabled={readyCount === 0} className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50" style={{ background: 'var(--btn-primary-bg)', color: 'white' }}>{`Continue to Confirmation (${readyCount})`}</button></div>
+  </div>
 }
 
 function VerificationResultPanel({ result, onClose }: { result: VerificationResult; onClose: () => void }) {

@@ -11,7 +11,6 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { ActivityActor } from '@/components/activity/ActivityActor'
-import clsuLogo from '@/assets/clsu-logo.png'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -40,9 +39,6 @@ export default function DashboardPage() {
           <span className="sigma-dashboard-hero-wave" />
         </div>
         <div className="sigma-dashboard-hero-content">
-          <div className="sigma-dashboard-hero-logo-wrap">
-            <img src={clsuLogo} alt="Central Luzon State University seal" className="sigma-dashboard-hero-logo" />
-          </div>
           <div className="sigma-dashboard-hero-copy">
             <div className="sigma-dashboard-hero-identity">
               <p className="sigma-dashboard-hero-office">Office of Admissions</p>

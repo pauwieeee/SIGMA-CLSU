@@ -10,7 +10,6 @@ import { CategoryPieLegend } from '@/components/dashboard/CategoryPieLegend'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
-import { getUserDisplayName } from '@/utils/userDisplayName'
 import { ActivityActor } from '@/components/activity/ActivityActor'
 
 export default function DashboardPage() {
@@ -20,18 +19,30 @@ export default function DashboardPage() {
   const categoryData = sortByCategoryOrder(categoryDataRaw)
   const { data: activity, loading: activityLoading, error: activityError } = useRecentActivity()
 
-  const displayName = getUserDisplayName(user)
+  const profileName = user?.user_metadata?.preferred_username
+    ?? user?.user_metadata?.full_name
+    ?? user?.user_metadata?.display_name
+    ?? user?.user_metadata?.name
+  const displayName = typeof profileName === 'string' && profileName.trim()
+    ? profileName.trim()
+    : 'Admin'
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
-          Welcome back, {displayName}
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Here's what's happening across scholarship records today.
-        </p>
-      </div>
+      <section className="sigma-dashboard-hero" aria-labelledby="dashboard-welcome-heading">
+        <div className="sigma-dashboard-hero-decoration" aria-hidden="true">
+          <span className="sigma-dashboard-hero-circle sigma-dashboard-hero-circle-large" />
+          <span className="sigma-dashboard-hero-circle sigma-dashboard-hero-circle-small" />
+          <span className="sigma-dashboard-hero-wave" />
+        </div>
+        <div className="sigma-dashboard-hero-content">
+          <p className="sigma-dashboard-hero-label">CLSU Scholarship Management System</p>
+          <h1 id="dashboard-welcome-heading">Welcome back, {displayName} <span aria-hidden="true">👋</span></h1>
+          <p className="sigma-dashboard-hero-subtitle">
+            Here's what's happening across scholarship records today.
+          </p>
+        </div>
+      </section>
 
       <section data-tour="dashboard-stats" className="space-y-3" aria-labelledby="student-overview-heading">
         <h2 id="student-overview-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>

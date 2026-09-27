@@ -926,3 +926,91 @@ body {
   .sigma-loader-mascot-trail,
   .sigma-app-enter { animation: none; }
 }
+.sigma-dashboard-hero {
+  position: relative;
+  display: flex;
+  min-height: 132px;
+  width: 100%;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 24px 28px;
+  color: #fff;
+  background: linear-gradient(120deg, #0b5126 0%, #177438 56%, #2f8f46 100%);
+  box-shadow: 0 12px 28px rgba(11, 81, 38, 0.18);
+  isolation: isolate;
+}
+
+.sigma-dashboard-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 700px;
+}
+
+.sigma-dashboard-hero-label {
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.sigma-dashboard-hero h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(28px, 3vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.sigma-dashboard-hero-subtitle {
+  margin: 9px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.sigma-dashboard-hero-decoration {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sigma-dashboard-hero-circle,
+.sigma-dashboard-hero-wave {
+  position: absolute;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sigma-dashboard-hero-circle { border-radius: 999px; }
+.sigma-dashboard-hero-circle-large { top: -78px; right: 4%; width: 210px; height: 210px; }
+.sigma-dashboard-hero-circle-small { right: 23%; bottom: -62px; width: 120px; height: 120px; }
+.sigma-dashboard-hero-wave {
+  right: -50px;
+  bottom: -105px;
+  width: 390px;
+  height: 175px;
+  border-radius: 50% 50% 0 0;
+  transform: rotate(-7deg);
+}
+
+@media (max-width: 640px) {
+  .sigma-dashboard-hero {
+    min-height: 128px;
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .sigma-dashboard-hero-label { font-size: 11px; }
+  .sigma-dashboard-hero h1 { font-size: 26px; }
+  .sigma-dashboard-hero-subtitle { font-size: 15px; }
+  .sigma-dashboard-hero-circle-large { right: -70px; }
+  .sigma-dashboard-hero-circle-small { display: none; }
+  .sigma-dashboard-hero-wave { right: -160px; }
+}

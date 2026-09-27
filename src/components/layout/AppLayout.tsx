@@ -54,10 +54,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
       .map((p) => p[0]?.toUpperCase())
       .slice(0, 2)
       .join('') || 'SA'
-  const activeNavIndex = topNav.findIndex((item) =>
-    item.to === '/dashboard' ? location.pathname === item.to : location.pathname.startsWith(item.to)
-  )
-
   return (
     <div className={`min-h-screen${enteringFromIntro ? ' sigma-app-enter' : ''}`} style={{ background: 'var(--bg-app)' }}>
       <header className="sigma-site-header border-b" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
@@ -168,11 +164,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           style={{ background: `linear-gradient(to right, var(--nav-gradient-start), var(--nav-gradient-end))` }}
         >
           <div className="sigma-nav-menu">
-            <span
-              className="sigma-nav-active-pill"
-              aria-hidden="true"
-              style={{ transform: `translateX(${Math.max(activeNavIndex, 0) * 100}%)`, opacity: activeNavIndex >= 0 ? 1 : 0 }}
-            />
             {topNav.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.to === '/dashboard'} className={({ isActive }) => `sigma-nav-link ${isActive ? 'sigma-nav-link-active' : ''}`}>
                 {item.label}

@@ -7,6 +7,7 @@
 // same either way.
 
 import { supabase } from '@/lib/supabase'
+import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 
@@ -35,6 +36,13 @@ export interface AssistantScholarContext {
   filterLabel: string
   assignments: any[]
   studentIds: string[]
+  mode: ScholarQueryMode
+  academicYear: string | null
+  semester: string | null
+  scholarshipStatus: string | null
+  scholarships: string[]
+  colleges: string[]
+  programs: string[]
 }
 
 export type AssistantQueryContext = AssistantScholarContext
@@ -158,12 +166,6 @@ function extractStudentNumber(question: string): string | null {
   return match ? `${match[1]}-${match[2]}` : null
 }
 
-function extractAcademicYear(question: string): string | null {
-  const matches = [...question.matchAll(/\b(20\d{2})\s*[-–—]\s*(20\d{2})\b/g)]
-  const match = matches.at(-1)
-  return match ? `${match[1]}-${match[2]}` : null
-}
-
 function plainStudentName(student: any): string {
   return [student?.first_name, student?.middle_name, student?.last_name, student?.suffix]
     .filter(Boolean)
@@ -215,8 +217,7 @@ function orderedChain(): string[] {
 // still governs exactly what data comes back.
 // ------------------------------------------------------------
 function isFollowUpQuestion(question: string): boolean {
-  return /\b(it|that|those|them|they|their|there|these|this|same|previous|above)\b/i.test(question)
-    || /^(and|also|what about|how about|are|is|do|does|can|only)\b/i.test(question.trim())
+  return isContextualFollowUp(question)
 }
 
 function questionWithContext(question: string, history: AssistantConversationMessage[]): string {
@@ -286,7 +287,11 @@ async function resolveIntent(
   previousContext: AssistantQueryContext | null = null,
 ): Promise<QueryResult> {
   const q = question.toLowerCase()
-  const contextualQuestion = questionWithContext(question, history)
+  let contextualQuestion = questionWithContext(question, history)
+  const resolvedRelativeYear = previousContext?.kind === 'scholars'
+    ? relativeAcademicYear(question, previousContext.academicYear)
+    : null
+  if (resolvedRelativeYear) contextualQuestion += ` academic year ${resolvedRelativeYear}`
   const contextualQ = contextualQuestion.toLowerCase()
 
   // Exact Student ID lookups always win over generic scholar analytics. A
@@ -375,27 +380,6 @@ async function resolveIntent(
         `**Scholarship Status:** ${current?.status ?? '—'}`,
         `**Enrollment Status:** ${current?.is_enrolled == null ? 'Not yet verified' : current.is_enrolled ? 'Enrolled' : 'Not Enrolled'}`,
       ].join('\n\n'),
-    }
-  }
-
-  // Academic-year totals are distinct-student analytics, not scholarship
-  // provider searches. Resolve them before entity-name matching.
-  const exactAcademicYear = extractAcademicYear(contextualQuestion)
-  const asksForScholarCount = /\b(?:how many|count|number of|total)\b/i.test(question)
-    && /\bscholars?\b|\bstudents?\b/i.test(question)
-  if (exactAcademicYear && asksForScholarCount) {
-    const { data, error } = await supabase
-      .from('student_scholarships')
-      .select('student_id, students!inner(archived_at)')
-      .eq('academic_year', exactAcademicYear)
-      .is('archived_at', null)
-      .is('students.archived_at', null)
-    assertQuerySucceeded(error)
-    const studentIds = new Set(((data ?? []) as any[]).map((row) => row.student_id).filter(Boolean))
-    return {
-      intent: 'academic_year_scholar_count',
-      data: { academicYear: exactAcademicYear, count: studentIds.size },
-      answer: `### A.Y. ${exactAcademicYear} Summary\n\n**Total Scholars:** ${studentIds.size}`,
     }
   }
 
@@ -514,7 +498,6 @@ async function resolveIntent(
     assertQuerySucceeded(error)
 
     const assignments = (data ?? []) as any[]
-    const year = contextualQ.match(/\b(20\d{2}\s*[-–]\s*20\d{2})\b/)?.[1].replace(/\s|–/g, '-')
     const semester = contextualQ.includes('1st semester') || contextualQ.includes('first semester')
       ? '1st Semester'
       : contextualQ.includes('2nd semester') || contextualQ.includes('second semester')
@@ -522,8 +505,7 @@ async function resolveIntent(
         : contextualQ.includes('summer')
           ? 'Summer'
           : null
-    const yearMatches = [...contextualQuestion.matchAll(/\b(20\d{2}\s*-\s*20\d{2})\b/g)]
-    const appliedYear = yearMatches.at(-1)?.[1].replace(/\s/g, '-') ?? year
+    const appliedYear = lastAcademicYearText(contextualQuestion)
     const semesterMatches = [...contextualQuestion.matchAll(/\b(1st|first|2nd|second)\s+semester\b|\bsummer\b/gi)]
     const latestSemester = semesterMatches.at(-1)?.[0].toLowerCase()
     const appliedSemester = latestSemester?.includes('1st') || latestSemester?.includes('first')
@@ -571,14 +553,18 @@ async function resolveIntent(
     }
     const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => {
       const entities = [...entityAliases[type].entries()]
+      const currentQuestionMatches = entities
+        .filter(([name, aliases]) => includesEntity(question, name, [...aliases]))
+        .map(([name]) => name)
       const directNames = entities
         .filter(([name]) => includesEntity(contextualQuestion, name))
         .map(([name]) => name)
-      const names = type === 'scholarship' && directNames.length > 0
+      const inheritedNames = type === 'scholarship' && directNames.length > 0
         ? directNames
         : entities
             .filter(([name, aliases]) => includesEntity(contextualQuestion, name, [...aliases]))
             .map(([name]) => name)
+      const names = currentQuestionMatches.length > 0 ? currentQuestionMatches : inheritedNames
       return { type, names }
     }).filter((match) => match.names.length > 0)
 
@@ -615,11 +601,22 @@ async function resolveIntent(
 
     const scholarRows = distinctScholarRows(filtered)
     const filterLabel = [requestedStatus, matchedEntities.join(' / '), appliedYear, appliedSemester].filter(Boolean).join(', ') || 'all scholar records'
+    const asksToListNow = /list|show|who|names|which|give me|\ball\b/.test(q)
+    const asksToCountNow = /how many|count|number|total/.test(q)
+    const mode: ScholarQueryMode = asksToListNow ? 'list' : asksToCountNow ? 'count'
+      : isFollowUpQuestion(question) ? previousContext?.mode ?? 'count' : 'count'
     const scholarContext: AssistantScholarContext = {
       kind: 'scholars',
       filterLabel,
       assignments: filtered,
       studentIds: scholarRows.map((row) => row.students.id),
+      mode,
+      academicYear: appliedYear ?? null,
+      semester: appliedSemester ?? null,
+      scholarshipStatus: requestedStatus,
+      scholarships: matchedByType.find((match) => match.type === 'scholarship')?.names ?? [],
+      colleges: matchedByType.find((match) => match.type === 'college')?.names ?? [],
+      programs: matchedByType.find((match) => match.type === 'program')?.names ?? [],
     }
 
     if (q.includes('per college') || q.includes('by college')) {
@@ -636,16 +633,14 @@ async function resolveIntent(
       return { intent: 'scholars_per_college', data: breakdown, answer, context: scholarContext }
     }
 
-    const wantsList = /list|show|who|names|which|give me|\ball\b/.test(q)
-    const wantsCount = /how many|count|number|total/.test(q)
-    if (wantsList) {
+    if (mode === 'list') {
       return { intent: 'scholar_list', data: scholarRows, answer: formatScholarList(filtered, filterLabel), context: scholarContext }
     }
-    if (wantsCount || q.includes('scholar')) {
+    if (mode === 'count' || q.includes('scholar')) {
       return {
         intent: 'scholar_count',
         data: { count: scholarRows.length, filter: filterLabel, studentIds: scholarContext.studentIds },
-        answer: `**Matching Scholars (${filterLabel}):** ${scholarRows.length}`,
+        answer: `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${scholarRows.length}`,
         context: scholarContext,
       }
     }

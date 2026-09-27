@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { chartAxisTick, chartGridStroke, chartTooltipStyle, colorForCategory, sortByCategoryOrder } from '@/utils/chartTheme'
 import { ActivityActor } from '@/components/activity/ActivityActor'
+import clsuLogo from '@/assets/clsu-logo.png'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -26,6 +27,9 @@ export default function DashboardPage() {
   const displayName = typeof profileName === 'string' && profileName.trim()
     ? profileName.trim()
     : 'Admin'
+  const now = new Date()
+  const academicYearStart = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1
+  const currentAcademicYear = `${academicYearStart}–${academicYearStart + 1}`
 
   return (
     <div className="space-y-6">
@@ -36,11 +40,24 @@ export default function DashboardPage() {
           <span className="sigma-dashboard-hero-wave" />
         </div>
         <div className="sigma-dashboard-hero-content">
-          <p className="sigma-dashboard-hero-label">CLSU Scholarship Management System</p>
-          <h1 id="dashboard-welcome-heading">Welcome back, {displayName} <span aria-hidden="true">👋</span></h1>
-          <p className="sigma-dashboard-hero-subtitle">
-            Here's what's happening across scholarship records today.
-          </p>
+          <div className="sigma-dashboard-hero-logo-wrap">
+            <img src={clsuLogo} alt="Central Luzon State University seal" className="sigma-dashboard-hero-logo" />
+          </div>
+          <div className="sigma-dashboard-hero-copy">
+            <div className="sigma-dashboard-hero-identity">
+              <p className="sigma-dashboard-hero-office">Office of Admissions</p>
+              <p className="sigma-dashboard-hero-label">CLSU Scholarship Management System</p>
+            </div>
+            <h1 id="dashboard-welcome-heading">Welcome back, {displayName} <span aria-hidden="true">👋</span></h1>
+            <p className="sigma-dashboard-hero-subtitle">
+              Here's what's happening across scholarship records today.
+            </p>
+            <div className="sigma-dashboard-hero-chips" aria-label="Dashboard information">
+              <span>Office of Admissions</span>
+              <span>Academic Year {currentAcademicYear}</span>
+              <span className="sigma-dashboard-hero-active"><i aria-hidden="true" />System Active</span>
+            </div>
+          </div>
         </div>
       </section>
 

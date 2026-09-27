@@ -125,7 +125,7 @@ export default function StudentRecordsPage() {
       const { commitStudentsImport } = await import('@/utils/importStudents')
       const result = await commitStudentsImport(importPreview)
       setImportResult(result); setImportResultsOpen(true); setImportPreview(null); await refetch()
-      pushToast(`Import completed — ${result.addedCount} new record(s) added.`)
+      pushToast(`Import complete: ${result.newStudentsCreated} new, ${result.updatedExistingCount} updated, ${result.existingCount} duplicate${result.existingCount === 1 ? '' : 's'} skipped${result.validationErrorCount + result.databaseErrorCount ? `, ${result.validationErrorCount + result.databaseErrorCount} failed` : ''}.`)
     } catch (error) { pushToast(`Import failed: ${(error as Error).message}`, 'error') }
     finally { setImporting(false) }
   }
@@ -221,7 +221,7 @@ export default function StudentRecordsPage() {
           }}
         >
           <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            Import completed: {importResult.addedCount} added, {importResult.existingCount} existing skipped, {importResult.conflictCount} conflict(s) reviewed, and {importResult.invalidCount} invalid.
+            Import completed: {importResult.newStudentsCreated} new, {importResult.updatedExistingCount} updated, {importResult.existingCount} duplicate(s) skipped, {importResult.validationErrorCount} validation error(s), and {importResult.databaseErrorCount} database error(s).
             {' '}Student Records: {importResult.beforeStudentCount} → {importResult.afterStudentCount}.
           </p>
           {importResult.errors.length > 0 && (

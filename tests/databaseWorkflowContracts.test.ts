@@ -10,6 +10,7 @@ const allMigrations = [
   'supabase/migrations/0029_selective_enrollment_reconciliation.sql',
   'supabase/migrations/0032_final_workflow_improvements.sql',
   'supabase/migrations/0033_audit_notifications_and_duplicate_reasons.sql',
+  'supabase/migrations/0035_fix_student_import_results.sql',
 ].map((path) => readFileSync(path, 'utf8')).join('\n')
 
 test('student create, edit, archive, and restore remain audit-backed', () => {
@@ -24,6 +25,14 @@ test('import reports isolate bad rows and preserve successful rows', () => {
   assert.match(allMigrations, /for item in select value from jsonb_array_elements/)
   assert.match(allMigrations, /exception when others/)
   assert.match(allMigrations, /result_status := 'Failed'/)
+})
+
+test('latest importer avoids ambiguous student_id conflict references', () => {
+  const importer = readFileSync('supabase/migrations/0035_fix_student_import_results.sql', 'utf8')
+  assert.match(importer, /from public\.students as s/)
+  assert.match(importer, /update public\.students as s/)
+  assert.match(importer, /on conflict do nothing/)
+  assert.doesNotMatch(importer, /on conflict\s*\(student_id/i)
 })
 
 test('timeline receives student, scholarship, enrollment, and duplicate events', () => {

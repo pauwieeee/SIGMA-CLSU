@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { studentSearchText } from '@/utils/workflowRules'
 
 export interface StudentRecordRow {
   id: string
@@ -114,7 +115,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
 
     return rows.filter((r) => {
       if (search) {
-        const haystack = `${r.student_number} ${r.full_name} ${r.college} ${r.program} ${r.scholarship ?? ''} ${r.email ?? ''} ${r.contactNumber ?? ''}`.toLowerCase()
+        const haystack = studentSearchText(r)
         if (!haystack.includes(search)) return false
       }
       if (filters.collegeId && r.college !== filters.collegeId) return false

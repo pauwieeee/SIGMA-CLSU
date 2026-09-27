@@ -24,10 +24,26 @@ function groupLabelFor(isoDate: string): (typeof GROUP_ORDER)[number] {
 
 export default function ActivityLogPage() {
   const { data: logs, loading, error } = useRecentActivity(200)
+  const [administrator, setAdministrator] = useState('')
+  const [student, setStudent] = useState('')
+  const [action, setAction] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const filteredLogs = useMemo(() => logs.filter((log) => {
+    const actor = `${log.actor_name ?? ''} ${log.actor_email ?? ''}`.toLowerCase()
+    if (administrator && !actor.includes(administrator.toLowerCase())) return false
+    if (student && !log.description.toLowerCase().includes(student.toLowerCase())) return false
+    if (action && log.action !== action) return false
+    const occurred = new Date(log.created_at).getTime()
+    if (dateFrom && occurred < new Date(`${dateFrom}T00:00:00`).getTime()) return false
+    if (dateTo && occurred > new Date(`${dateTo}T23:59:59`).getTime()) return false
+    return true
+  }), [logs, administrator, student, action, dateFrom, dateTo])
 
   const grouped = GROUP_ORDER.map((label) => ({
     label,
-    items: logs.filter((l) => groupLabelFor(l.created_at) === label),
+    items: filteredLogs.filter((l) => groupLabelFor(l.created_at) === label),
   })).filter((g) => g.items.length > 0)
 
   return (
@@ -37,6 +53,17 @@ export default function ActivityLogPage() {
           Activity Log
         </h1>
       </div>
+
+      <Card>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <input value={administrator} onChange={(e) => setAdministrator(e.target.value)} placeholder="Administrator" className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)' }} />
+          <input value={student} onChange={(e) => setStudent(e.target.value)} placeholder="Student name or ID" className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)' }} />
+          <select value={action} onChange={(e) => setAction(e.target.value)} className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)' }}><option value="">All actions</option><option value="create">Created</option><option value="update">Edited / Status Changed</option><option value="delete">Deleted</option><option value="archive">Archived</option><option value="restore">Restored</option><option value="renew">Renewed</option><option value="verify_enrollment">Verified Enrollment</option><option value="resolve">Duplicate Resolved</option></select>
+          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>From<input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)' }} /></label>
+          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>To<input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)' }} /></label>
+        </div>
+        <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>{filteredLogs.length} matching activit{filteredLogs.length === 1 ? 'y' : 'ies'}</p>
+      </Card>
 
       {error ? (
         <Card>
@@ -86,3 +113,4 @@ export default function ActivityLogPage() {
     </div>
   )
 }
+import { useMemo, useState } from 'react'

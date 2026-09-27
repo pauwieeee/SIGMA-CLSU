@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/AuthProvider'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
@@ -9,10 +10,10 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage'
 import DashboardPage from '@/pages/DashboardPage'
 import StudentRecordsPage from '@/pages/StudentRecordsPage'
 import ScholarshipsPage from '@/pages/ScholarshipsPage'
-import ReportsPage from '@/pages/ReportsPage'
-import AccountSettingsPage from '@/pages/AccountSettingsPage'
-import NotificationsPage from '@/pages/NotificationsPage'
-import ActivityLogPage from '@/pages/ActivityLogPage'
+const ReportsPage = lazy(() => import('@/pages/ReportsPage'))
+const AccountSettingsPage = lazy(() => import('@/pages/AccountSettingsPage'))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'))
+const ActivityLogPage = lazy(() => import('@/pages/ActivityLogPage'))
 import { AuthenticatedHistoryBoundary } from '@/components/layout/AuthenticatedHistoryBoundary'
 
 function App() {
@@ -21,7 +22,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AuthenticatedHistoryBoundary />
-        <Routes>
+        <Suspense fallback={<div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading module…</div>}><Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -96,7 +97,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Routes>
+        </Routes></Suspense>
       </AuthProvider>
     </BrowserRouter>
     </ConfigGate>

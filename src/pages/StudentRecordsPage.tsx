@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Archive, Plus, RotateCcw, Search, Upload } from 'lucide-react'
 import { useStudentRecords } from '@/hooks/useStudentRecords'
 import { useColleges } from '@/hooks/useColleges'
@@ -55,6 +56,7 @@ function FilterSelect({
 }
 
 export default function StudentRecordsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -92,6 +94,13 @@ export default function StudentRecordsPage() {
   const [importResultsOpen, setImportResultsOpen] = useState(false)
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [exportingPdf, setExportingPdf] = useState(false)
+
+  useEffect(() => {
+    const linkedStudent = searchParams.get('student')
+    if (!linkedStudent) return
+    setViewingId(linkedStudent)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

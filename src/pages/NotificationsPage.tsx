@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Archive, X } from 'lucide-react'
 import { useNotifications } from '@/hooks/useNotifications'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import type { AppNotification } from '@/types/database'
@@ -28,7 +29,7 @@ function groupByDate(notifications: AppNotification[]): { label: string; items: 
 }
 
 export default function NotificationsPage() {
-  const { notifications, unreadCount, loading, markAllRead, markOneRead } = useNotifications(100)
+  const { notifications, unreadCount, loading, markAllRead, markOneRead, dismiss, archive } = useNotifications(100)
   const groups = useMemo(() => groupByDate(notifications), [notifications])
   const [viewing, setViewing] = useState<AppNotification | null>(null)
 
@@ -79,9 +80,9 @@ export default function NotificationsPage() {
                     const unread = !n.is_read
                     return (
                       <li key={n.id}>
-                        <button
+                        <div
                           onClick={() => openNotification(n)}
-                          className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--menu-hover-bg)]"
+                          className="flex w-full cursor-pointer items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--menu-hover-bg)]"
                           style={unread ? { background: 'var(--menu-active-bg)' } : undefined}
                         >
                           <span
@@ -102,7 +103,11 @@ export default function NotificationsPage() {
                               {formatRelativeTime(n.created_at)}
                             </p>
                           </div>
-                        </button>
+                          <div className="flex shrink-0 gap-1">
+                            <button onClick={(event) => { event.stopPropagation(); void archive(n.id) }} className="rounded p-1.5 hover:bg-white" title="Archive notification" aria-label="Archive notification"><Archive size={15}/></button>
+                            <button onClick={(event) => { event.stopPropagation(); void dismiss(n.id) }} className="rounded p-1.5 hover:bg-white" title="Dismiss notification" aria-label="Dismiss notification"><X size={15}/></button>
+                          </div>
+                        </div>
                       </li>
                     )
                   })}

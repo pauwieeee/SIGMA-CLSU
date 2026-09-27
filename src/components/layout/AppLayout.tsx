@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CircleHelp, LogOut, Menu, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
-import { SigmaAssistant } from '@/components/assistant/SigmaAssistant'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import clsuLogo from '@/assets/clsu-logo.png'
-import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+const SigmaAssistant = lazy(() => import('@/components/assistant/SigmaAssistant').then((module) => ({ default: module.SigmaAssistant })))
+const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour').then((module) => ({ default: module.OnboardingTour })))
 
 const topNav = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -187,8 +187,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
 
-      <SigmaAssistant />
-      <OnboardingTour />
+      <Suspense fallback={null}><SigmaAssistant /></Suspense>
+      <Suspense fallback={null}><OnboardingTour /></Suspense>
     </div>
   )
 }

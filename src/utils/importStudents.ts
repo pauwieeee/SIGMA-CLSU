@@ -2,6 +2,7 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { supabase as typedSupabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
+import { studentNamesMatch } from '@/utils/workflowRules'
 const supabase = typedSupabase as any
 
 export interface ImportRow { 'ID Number': string; 'Last Name': string; 'First Name': string; 'M.I.': string; Degree: string; 'Yr Lvl': string; Address: string; 'Contact #': string; Email: string; 'Acad Year': string; Semester: string; 'Type of Scholarship': string; Scholarship: string; Remarks: string }
@@ -10,7 +11,7 @@ export interface ImportPreviewItem { row: number; classification: ImportClassifi
 export interface ImportPreview { filename: string; totalRows: number; beforeStudentCount: number; newRecords: ImportPreviewItem[]; existingRecords: ImportPreviewItem[]; conflicts: ImportPreviewItem[]; invalidRecords: ImportPreviewItem[] }
 export type ImportRowStatus = 'Success' | 'Failed' | 'Skipped'
 export interface ImportRowResult { row: number; studentNumber: string; studentName: string; status: ImportRowStatus; errorType: string | null; message: string; suggestedCorrection: string; importedData: ImportRow }
-export interface ImportResult { filename: string; totalRows: number; addedCount: number; updatedExistingCount: number; existingCount: number; conflictCount: number; invalidCount: number; beforeStudentCount: number; afterStudentCount: number; status: 'Completed' | 'Completed with Errors' | 'Failed'; rows: ImportRowResult[]; errors: { row: number; message: string }[] }
+export interface ImportResult { filename: string; totalRows: number; addedCount: number; newStudentsCreated: number; updatedExistingCount: number; assignmentsAdded: number; existingCount: number; conflictCount: number; invalidCount: number; beforeStudentCount: number; afterStudentCount: number; status: 'Completed' | 'Completed with Errors' | 'Failed'; rows: ImportRowResult[]; errors: { row: number; message: string }[] }
 
 const REQUIRED = ['ID Number','Last Name','First Name','Degree','Yr Lvl','Acad Year','Semester','Scholarship']
 const YEARS = new Set(['1st Year','2nd Year','3rd Year','4th Year','5th Year','Graduate'])
@@ -55,7 +56,7 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
     if(!SEMESTERS.has(semester))return invalid(`Invalid semester "${semester}".`); if(!scholarship)return invalid(`Unknown scholarship "${scholarshipName}".`); if(String(row.Email??'').trim()&&!EMAIL.test(String(row.Email).trim()))return invalid(`Invalid email "${row.Email}".`)
     const key=keyOf(studentNumber,scholarshipName,year,semester); if(seen.has(key))return out.existingRecords.push({...base,classification:'existing',message:'Duplicate within uploaded file.'}); seen.add(key)
     if(existing.has(key))return out.existingRecords.push({...base,classification:'existing',message:'Duplicate — already exists.'})
-    const old=studentMap.get(norm(studentNumber)); if(old&&(norm(old.first_name)!==norm(row['First Name'])||norm(old.last_name)!==norm(row['Last Name'])))return invalid('Student ID exists with a different name; existing profile was not overwritten.')
+    const old=studentMap.get(norm(studentNumber)); if(old&&!studentNamesMatch(old.first_name,old.last_name,String(row['First Name']),String(row['Last Name'])))return invalid('Student ID exists with a different name; existing profile was not overwritten.')
     const payload={student_number:studentNumber,last_name:String(row['Last Name']).trim(),first_name:String(row['First Name']).trim(),middle_initial:String(row['M.I.']??'').trim()||null,program_id:program.id,yr_level:String(row['Yr Lvl']).trim(),address:String(row.Address??'').trim()||null,contact_number:String(row['Contact #']??'').trim()||null,email:String(row.Email??'').trim()||null,scholarship_id:scholarship.id,academic_year:year,semester,status:STATUSES[norm(row.Remarks)]??'Active'}
     const item={...base,payload,existingStudent:Boolean(old),classification:'new' as const,message:old?'Ready to add a scholarship record to the existing student.':'Ready to add.'}
     out.newRecords.push(item)
@@ -84,7 +85,7 @@ export async function commitStudentsImport(preview: ImportPreview): Promise<Impo
   await supabase.from('import_batches').insert({filename:preview.filename,row_count:preview.totalRows,error_count:failed,successful_rows:added,failed_rows:failed,skipped_rows:skipped,status:importStatus,error_log:failedDetails})
   await supabase.from('notifications').insert({type:failed>0?'import_failed':'import_complete',title:failed>0?'Import completed with errors':'Import complete',message:`${preview.filename}: ${added} succeeded (${updatedExistingCount} updated existing), ${failed} failed, ${skipped} duplicate Student ID/term rows skipped.`})
   await logActivity('import','student',`Imported ${preview.filename}: ${preview.totalRows} rows; ${added} succeeded, ${failed} failed, ${skipped} skipped.`)
-  return {filename:preview.filename,totalRows:preview.totalRows,addedCount:added,updatedExistingCount,existingCount:skipped,conflictCount:preview.conflicts.length,invalidCount:failed,beforeStudentCount:preview.beforeStudentCount,afterStudentCount:after,status:importStatus,rows,errors:failedDetails.map(item=>({row:item.row,message:item.message}))}
+  return {filename:preview.filename,totalRows:preview.totalRows,addedCount:added,newStudentsCreated:Math.max(0,added-updatedExistingCount),updatedExistingCount,assignmentsAdded:added,existingCount:skipped,conflictCount:preview.conflicts.length,invalidCount:failed,beforeStudentCount:preview.beforeStudentCount,afterStudentCount:after,status:importStatus,rows,errors:failedDetails.map(item=>({row:item.row,message:item.message}))}
 }
 
 function errorTypeFor(message:string){const value=message.toLowerCase();if(value.includes('missing')||value.includes('required'))return'Missing Required Field';if(value.includes('duplicate')||value.includes('already exists'))return'Duplicate Record';if(value.includes('email')||value.includes('format'))return'Invalid Format';if(value.includes('unknown')||value.includes('invalid'))return'Invalid Value';return'Validation Error'}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SEMESTER_OPTIONS } from '@/types/database'
+import { notifySaveFailure } from '@/utils/notifySaveFailure'
 
 interface SelectedStudent {
   assignmentId: string
@@ -179,7 +180,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
         message: `${academicYear} • ${semester}: ${enrolled} marked Enrolled, ${notEnrolled} marked Not Enrolled, ${failed.length} failed.`,
       })
       onVerificationComplete?.({ enrolled, notEnrolled, academicYear, semester })
-    } catch (updateError) { setError((updateError as Error).message) } finally { setRunning(false) }
+    } catch (updateError) { void notifySaveFailure('Applying enrollment verification', updateError); setError((updateError as Error).message) } finally { setRunning(false) }
   }
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="verify-enrollment-title">

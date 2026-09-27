@@ -53,10 +53,10 @@ export function ImportResultsModal({ result, onClose }: { result: ImportResult |
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-7">
           {[
-            ['Total Rows', result.totalRows], ['Successfully Imported', result.addedCount], ['Updated Existing', result.updatedExistingCount],
-            ['Duplicate IDs Skipped', result.existingCount], ['Invalid / Failed', failedCount], ['Import Status', result.status],
+            ['Total Rows', result.totalRows], ['New Students Created', result.newStudentsCreated], ['Existing Students Updated', result.updatedExistingCount],
+            ['Assignments Added', result.assignmentsAdded], ['Duplicate Rows Skipped', result.existingCount], ['Invalid Rows', failedCount], ['Import Status', result.status],
           ].map(([label, value]) => <div key={String(label)} className="rounded-lg border p-3" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-secondary)' }}><p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p><p className="mt-1 text-xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{value}</p></div>)}
         </div>
 

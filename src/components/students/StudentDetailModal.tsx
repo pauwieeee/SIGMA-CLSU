@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { StudentFormModal } from '@/components/students/StudentFormModal'
 import { supabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
+import { notifySaveFailure } from '@/utils/notifySaveFailure'
 
 const statusChoices = ['Active', 'For Renewal', 'Documents Incomplete', 'Pending Verification', 'Inactive']
 
@@ -32,6 +33,7 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
     const { error } = await (supabase as any).from('student_scholarships').update({ status: newStatus }).eq('id', historyId)
     if (error) {
       console.error('Status update failed:', error)
+      void notifySaveFailure(`Changing ${scholarshipName} status`, error, studentId)
       setSavingStatusId(null)
       return
     }
@@ -48,7 +50,10 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
     const { error } = await (supabase as any).from('student_scholarships')
       .update({ archived_at: restoring ? null : new Date().toISOString() })
       .eq('id', row.id)
-    if (error) console.error(`${restoring ? 'Restore' : 'Archive'} failed:`, error)
+    if (error) {
+      console.error(`${restoring ? 'Restore' : 'Archive'} failed:`, error)
+      void notifySaveFailure(`${restoring ? 'Restoring' : 'Archiving'} ${row.scholarship_name}`, error, studentId)
+    }
     else {
       await logActivity(restoring ? 'restore' : 'archive', 'student_scholarship', `${restoring ? 'Restored' : 'Archived'} "${row.scholarship_name}" for ${student?.full_name}.`, row.id)
       await refetch()
@@ -225,15 +230,9 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
             )}
 
             <div>
-              <h3 className="mb-2 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Student Activity History</h3>
+              <h3 className="mb-2 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>Student Activity Timeline</h3>
               {timeline.length === 0 ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No recorded activity yet.</p> : (
-                <ol className="ml-2 border-l-2 pl-5" style={{ borderColor: 'var(--divider-light)' }}>
-                  {timeline.map((item) => <li key={item.id} className="relative pb-4 text-sm last:pb-0">
-                    <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2" style={{ background: 'var(--bg-card)', borderColor: 'var(--btn-primary-bg)' }} />
-                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{item.description}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(item.occurred_at).toLocaleString()} · {item.actor_name || item.actor_email || 'System'}</p>
-                  </li>)}
-                </ol>
+                <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-default)' }}><table className="w-full min-w-[560px] text-left text-sm"><thead style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}><tr><th className="px-3 py-2">Date &amp; Time</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Performed By</th></tr></thead><tbody className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>{timeline.map((item) => <tr key={item.id}><td className="whitespace-nowrap px-3 py-2 text-xs">{new Date(item.occurred_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td><td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{item.description}</td><td className="whitespace-nowrap px-3 py-2">{item.actor_name || item.actor_email || 'System'}</td></tr>)}</tbody></table></div>
               )}
             </div>
           </div>
@@ -268,7 +267,7 @@ function RenewScholarshipModal({ row, onClose, onSaved }: { row: ScholarshipHist
     setSaving(true); setError('')
     const { error: rpcError } = await (supabase as any).rpc('renew_student_scholarship', { p_assignment_id: row.id, p_academic_year: academicYear.trim(), p_semester: semester, p_start_date: startDate || null, p_end_date: endDate || null, p_status: status })
     setSaving(false)
-    if (rpcError) return setError(rpcError.message)
+    if (rpcError) { void notifySaveFailure(`Renewing ${row.scholarship_name}`, rpcError); return setError(rpcError.message) }
     onSaved()
   }
   return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"><div className="w-full max-w-md rounded-xl p-5 shadow-xl" style={{ background: 'var(--bg-card)' }}>

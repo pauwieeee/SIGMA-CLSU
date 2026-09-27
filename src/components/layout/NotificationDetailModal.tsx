@@ -12,7 +12,9 @@ export function NotificationDetailModal({ notification, onClose }: Props) {
   const navigate = useNavigate()
   if (!notification) return null
 
-  const action = notification.type === 'duplicate_flag'
+  const action = notification.related_student_id
+    ? { label: 'View Related Student', path: `/students?student=${notification.related_student_id}` }
+    : notification.type === 'duplicate_flag'
     ? { label: 'Review Duplicate Flag', path: `/reports?duplicateFlag=${notification.related_entity_id ?? ''}` }
     : notification.type === 'expiring_soon'
       ? { label: 'View and Edit Scholarship', path: `/scholarships?edit=${notification.related_entity_id ?? ''}` }

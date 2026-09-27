@@ -42,9 +42,17 @@ export async function exportReportPdf(input: ReportPdfInput) {
   const marginX = 14
   let y = 18
 
+  doc.setFontSize(10)
+  doc.setTextColor(46, 125, 50)
+  doc.text('CLSU OFFICE OF ADMISSIONS', marginX, y)
+  y += 5
+  doc.setFontSize(12)
+  doc.setTextColor(11, 46, 19)
+  doc.text('SIGMA Scholarship Management System', marginX, y)
+  y += 7
   doc.setFontSize(16)
   doc.setTextColor(11, 46, 19) // --nav-header-dark
-  doc.text('SIGMA Reports & Analytics', marginX, y)
+  doc.text('Reports & Analytics', marginX, y)
   y += 8
 
   doc.setFontSize(10)

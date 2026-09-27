@@ -132,6 +132,7 @@ export interface DuplicateFlag {
   student_scholarship_id_a: string
   student_scholarship_id_b: string
   reason: string
+  reason_code: 'MULTIPLE_ACTIVE_SAME_TERM' | 'DUPLICATE_ASSIGNMENT' | 'STUDENT_ID_NAME_MISMATCH' | 'APPROVED_EXCEPTION'
   status: DuplicateFlagStatus
   resolved_by: string | null
   resolved_by_email: string | null
@@ -156,11 +157,14 @@ export interface ActivityLog {
 
 export interface AppNotification {
   id: string
-  type: 'expiring_soon' | 'duplicate_flag' | 'import_complete' | 'import_failed' | 'enrollment_complete' | 'duplicate_review'
+  type: 'expiring_soon' | 'duplicate_flag' | 'import_complete' | 'import_failed' | 'enrollment_complete' | 'duplicate_review' | 'save_failed'
   title: string
   message: string
   is_read: boolean
   related_entity_id: string | null
+  related_student_id: string | null
+  dismissed_at: string | null
+  archived_at: string | null
   created_at: string
 }
 

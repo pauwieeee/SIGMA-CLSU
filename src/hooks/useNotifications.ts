@@ -15,6 +15,8 @@ export function useNotifications(limit = 50) {
     const { data } = await supabase
       .from('notifications')
       .select('*')
+      .is('dismissed_at', null)
+      .is('archived_at', null)
       .order('created_at', { ascending: false })
       .limit(limit)
     let rows = (data ?? []) as AppNotification[]
@@ -80,5 +82,15 @@ export function useNotifications(limit = 50) {
     await (supabase as any).from('notifications').update({ is_read: true }).eq('id', id)
   }
 
-  return { notifications, unreadCount, loading, markAllRead, markOneRead, refetch: load }
+  async function dismiss(id: string) {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    await (supabase as any).from('notifications').update({ dismissed_at: new Date().toISOString() }).eq('id', id)
+  }
+
+  async function archive(id: string) {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    await (supabase as any).from('notifications').update({ archived_at: new Date().toISOString() }).eq('id', id)
+  }
+
+  return { notifications, unreadCount, loading, markAllRead, markOneRead, dismiss, archive, refetch: load }
 }

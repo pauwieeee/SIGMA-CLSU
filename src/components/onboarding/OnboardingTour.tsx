@@ -22,7 +22,7 @@ const steps: TourStep[] = [
   {
     path: '/dashboard', target: '[data-tour="dashboard-stats"]', title: 'Dashboard Overview',
     description: 'This is your Dashboard. These cards automatically update as your records change.',
-    bullets: ['Total Students', 'Active Scholarships', 'Expiring Scholarships', 'Open Scholarship Conflict Cases'],
+    bullets: ['Total Students', 'Active Scholarships', 'Expiring Scholarships', 'Open Duplicate Flags'],
   },
   {
     path: '/students', target: '[data-tour="student-records"]', title: 'Student Records',
@@ -42,20 +42,20 @@ const steps: TourStep[] = [
     bullets: ['Charts refresh with the selected filters', 'Review category totals and term trends', 'Export the current report as a PDF'],
   },
   {
-    path: '/reports', target: '[data-tour="scholarship-conflicts"]', title: 'Scholarship Conflict Cases',
+    path: '/reports', target: '[data-tour="scholarship-conflicts"]', title: 'Duplicate Flags',
     description: 'SIGMA detects two or more Active scholarships for the same student in the same Academic Year and Semester.',
-    bullets: ['Open the flagged student', 'Compare the conflicting scholarships', 'Review the academic term', 'Keep the case open until it is resolved'],
+    bullets: ['Open the flagged student', 'Compare the Active scholarships', 'Review the academic term', 'Keep the flag open until it is resolved'],
   },
   {
-    path: '/reports', target: '[data-tour="scholarship-conflicts"]', title: 'Resolve Scholarship Conflict',
-    description: 'Open a conflict case, review both records, and choose the outcome that accurately describes what happened.',
+    path: '/reports', target: '[data-tour="scholarship-conflicts"]', title: 'Resolve Duplicate Flag',
+    description: 'Open a duplicate flag, review both records, and choose the outcome that accurately describes what happened.',
     bullets: ['Scholarship Deactivated or Record Corrected', 'Duplicate Entry Removed', 'Approved Exception or False Positive', 'Other, with a required audit note'],
     tip: 'Every resolution is saved in the case history for audit transparency.',
   },
   {
     path: '/reports', target: '[data-tour="sigmai-launcher"]', title: 'Meet SIGMAI',
     description: 'SIGMAI retrieves information from the system using natural-language questions.',
-    bullets: ['“List DOST scholars in CEN”', '“How many scholars for A.Y. 2025–2026?”', '“Student 24-0760”', '“Show scholarship conflict cases”'],
+    bullets: ['“List DOST scholars in CEN”', '“How many scholars for A.Y. 2025–2026?”', '“Student 24-0760”', '“Show duplicate flags”'],
     tip: 'SIGMAI answers using the records currently stored in SIGMA.',
   },
 ]
@@ -172,7 +172,7 @@ export function OnboardingTour() {
           : <div className="sigma-tour-welcome-icon">👋</div>}
         <p className="sigma-tour-kicker">CLSU Scholarship Management System</p>
         <h2 id="sigma-tour-modal-title">{complete ? "You're All Set!" : 'Welcome to SIGMA!'}</h2>
-        <p>{complete ? "You're now ready to use the SIGMA Scholarship Management System. Use the navigation menu to manage scholars, verify enrollment, generate reports, and use SIGMAI." : 'This one-minute guided tour will show you how to manage records, verify enrollment, review conflicts, generate reports, and use SIGMAI.'}</p>
+        <p>{complete ? "You're now ready to use the SIGMA Scholarship Management System. Use the navigation menu to manage scholars, verify enrollment, generate reports, and use SIGMAI." : 'This one-minute guided tour will show you how to manage records, verify enrollment, review duplicate flags, generate reports, and use SIGMAI.'}</p>
         {!complete && <ul><li><Check size={16} /> Follow the real administrator workflow</li><li><Check size={16} /> Learn without changing any records</li><li><Check size={16} /> Replay anytime from the profile menu</li></ul>}
         <div className="sigma-tour-welcome-actions">
           {complete ? <>

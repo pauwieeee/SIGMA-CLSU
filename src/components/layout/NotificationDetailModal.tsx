@@ -13,7 +13,7 @@ export function NotificationDetailModal({ notification, onClose }: Props) {
   if (!notification) return null
 
   const action = notification.type === 'duplicate_flag'
-    ? { label: 'Review Duplicate Case', path: `/reports?duplicateFlag=${notification.related_entity_id ?? ''}` }
+    ? { label: 'Review Duplicate Flag', path: `/reports?duplicateFlag=${notification.related_entity_id ?? ''}` }
     : notification.type === 'expiring_soon'
       ? { label: 'View and Edit Scholarship', path: `/scholarships?edit=${notification.related_entity_id ?? ''}` }
       : notification.type === 'import_complete'

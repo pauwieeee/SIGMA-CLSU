@@ -83,10 +83,10 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
               >
                 <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                 <span>
-                  <strong className="block">Scholarship Conflict Detected</strong>
-                  This student currently has multiple Active scholarships during {openFlags[0].academic_year} • {openFlags[0].semester}:
-                  {' '}{openFlags[0].scholarship_a} and {openFlags[0].scholarship_b}. Review whether one record should be deactivated or if this combination is an approved exception.
-                  {openFlags.length > 1 ? ` (${openFlags.length} open scholarship conflict cases.)` : ''}
+                  <strong className="block">Duplicate Flag Detected</strong>
+                  <span className="block"><strong>Reason:</strong> This student has 2 Active scholarships in {openFlags[0].academic_year} • {openFlags[0].semester}.</span>
+                  <span className="mt-1 block">Review the scholarship history below and resolve the duplicate if necessary.</span>
+                  {openFlags.length > 1 ? <span className="mt-1 block">This student has {openFlags.length} open duplicate flags.</span> : null}
                 </span>
               </div>
             )}
@@ -179,20 +179,25 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
             {flags.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--widget-heading-text)' }}>
-                  Scholarship Conflict History
+                  Duplicate Flag History
                 </h3>
-                <ul className="divide-y" style={{ borderColor: 'var(--divider-light)' }}>
+                <ul className="ml-2 border-l-2 pl-5" style={{ borderColor: 'var(--divider-light)' }}>
                   {flags.map((f) => (
-                    <li key={f.id} className="py-2.5 text-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <p style={{ color: 'var(--text-secondary)' }}>{f.reason}</p>
+                    <li key={f.id} className="relative pb-5 text-sm last:pb-0">
+                      <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2" style={{ background: 'var(--bg-card)', borderColor: f.status === 'Open' || f.status === 'Under Review' ? 'var(--status-duplicate-text)' : 'var(--status-success-text)' }} />
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Duplicate Flag Created</p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.academic_year} • {f.semester}</p>
+                          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>Student had multiple Active scholarships ({f.scholarship_a} and {f.scholarship_b}).</p>
+                        </div>
                         <span
-                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                           style={f.status === 'Open' || f.status === 'Under Review'
                             ? { background: 'var(--status-duplicate-bg)', color: 'var(--status-duplicate-text)' }
                             : { background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}
                         >
-                          {f.status === 'Open' ? 'Conflict Open' : f.status}
+                          {f.status === 'Open' ? 'Duplicate Open' : f.status}
                         </span>
                       </div>
                     </li>

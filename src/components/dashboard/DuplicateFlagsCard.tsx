@@ -5,14 +5,11 @@ import { Card, CardTitle } from '@/components/ui/Card'
 
 export function DuplicateFlagsCard({ className }: { className?: string }) {
   const { rows, loading } = useDuplicateFlags('All')
-  const unresolved = rows.filter((row) => row.status === 'Open').length
-  const underReview = rows.filter((row) => row.status === 'Under Review').length
-  const resolved = rows.filter((row) => row.status === 'Resolved').length
-  const confirmedValid = rows.filter((row) => row.status === 'Confirmed Valid').length
-  const hasIssues = !loading && unresolved + underReview > 0
+  const open = rows.filter((row) => ['Open', 'Under Review'].includes(row.status)).length
+  const resolved = rows.filter((row) => ['Resolved', 'Confirmed Valid'].includes(row.status)).length
+  const hasIssues = !loading && open > 0
   const metrics = [
-    ['Total Conflicts', rows.length], ['Unresolved', unresolved], ['Under Review', underReview],
-    ['Resolved', resolved], ['Confirmed Valid', confirmedValid],
+    ['Open Cases', open], ['Resolved', resolved], ['Total Flagged', rows.length],
   ] as const
 
   return (
@@ -25,19 +22,16 @@ export function DuplicateFlagsCard({ className }: { className?: string }) {
           {hasIssues
             ? <AlertTriangle size={19} style={{ color: 'var(--status-warning-text)' }} />
             : <CheckCircle2 size={19} style={{ color: '#4CAF50' }} />}
-          <CardTitle>Potential Scholarship Conflicts</CardTitle>
+          <CardTitle>Duplicate Flags</CardTitle>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-3 gap-x-5 gap-y-3">
           {metrics.map(([label, value]) => <div key={label}>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#66806F' }}>{label}</p>
-            <p className="text-2xl font-bold" style={{ color: '#285943' }}>{loading ? '—' : value}</p>
+            <p className={label === 'Open Cases' ? 'text-3xl font-extrabold' : 'text-2xl font-bold'} style={{ color: label === 'Open Cases' ? '#174D2D' : '#285943' }}>{loading ? '—' : value}</p>
           </div>)}
         </div>
-        <p className="mt-2 max-w-2xl text-xs" style={{ color: '#66806F' }}>
-          {loading ? 'Checking records…' : hasIssues ? 'Records require administrator review.' : 'No records currently need review.'}
-        </p>
-        <p className="mt-1 max-w-2xl text-xs" style={{ color: '#66806F' }}>
-          A scholarship conflict occurs when the same student has two or more Active scholarships within the same Academic Year and Semester. These cases require administrator review before approval.
+        <p className="mt-3 max-w-2xl text-xs leading-relaxed" style={{ color: '#66806F' }}>
+          {loading ? 'Checking records…' : 'A duplicate flag is created when one student has 2 or more Active scholarships in the same Academic Year and Semester.'}
         </p>
       </div>
       <Link
@@ -45,7 +39,7 @@ export function DuplicateFlagsCard({ className }: { className?: string }) {
         className="w-fit shrink-0 rounded-md px-4 py-2 text-sm font-semibold"
         style={{ background: 'var(--btn-primary-bg)', color: 'white' }}
       >
-        Review Records
+        Review Duplicate Flags
       </Link>
     </Card>
   )

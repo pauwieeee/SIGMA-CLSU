@@ -16,6 +16,12 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => { setReasonChoice(''); setOtherReason(''); setError(null); setSaving(false) }, [student, mode])
+  useEffect(() => {
+    if (!student || saving) return
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [student, saving, onClose])
   if (!student) return null
 
   const restoring = mode === 'restore'
@@ -44,17 +50,17 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
+    <div className="fixed inset-0 z-50 flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/40 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
+      <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{restoring ? 'Restore Student Record' : 'Archive Student Record'}</h2>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{restoring ? 'Restore Student Record?' : 'Archive Student Record?'}</h2>
           <button onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button>
         </div>
         <div className="space-y-4 px-5 py-4">
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {restoring
               ? <>Do you want to restore <strong>{student.name}</strong>? The student will appear in the active Student Records list again, and all existing historical information will remain preserved.</>
-              : <>Are you sure you want to archive <strong>{student.name}</strong>? The student will be hidden from the active records list, but their information and history will be preserved.</>}
+              : <>This student record will be moved to the Archived Students section. You can restore it later if needed.</>}
           </p>
           {!restoring && <div>
             <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Archive Reason <span style={{ color: 'var(--status-error-text)' }}>*</span></label>
@@ -75,7 +81,7 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>
               <span className="flex items-center gap-2">
                 {restoring ? <RotateCcw size={15} /> : <Archive size={15} />}
-                {saving ? (restoring ? 'Restoring…' : 'Archiving…') : (restoring ? 'Confirm Restore' : 'Confirm Archive')}
+                {saving ? (restoring ? 'Restoring…' : 'Archiving…') : (restoring ? 'Restore' : 'Archive')}
               </span>
             </button>
           </div>

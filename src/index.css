@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 :root {
   /* Backgrounds */
   --bg-app: #F4F6F3;

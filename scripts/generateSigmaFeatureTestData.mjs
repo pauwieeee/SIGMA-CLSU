@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 
-const output = 'sample-data/SIGMA_Feature_Test_Data_2023_to_2026_Corrected.xlsx'
-const mismatchOutput = 'sample-data/SIGMA_Name_Mismatch_Reimport_Test_Corrected.xlsx'
+const output = 'sample-data/SIGMA_Feature_Test_Data_2023_to_2026_V2.xlsx'
+const mismatchOutput = 'sample-data/SIGMA_Name_Mismatch_Reimport_Test_V2.xlsx'
 const years = ['2023-2024', '2024-2025', '2025-2026', '2026-2027']
 const semesters = ['1st Semester', '2nd Semester']
 const programs = [
@@ -33,7 +33,10 @@ function baseRow(index) {
   const [degree, yearLevel] = programs[index % programs.length]
   const [category, scholarship] = scholarships[index % scholarships.length]
   const first = firstNames[index % firstNames.length]
-  const last = lastNames[index % lastNames.length]
+  // Combine the name lists by cohort so two different Student IDs never
+  // represent the same fictional person.
+  const cohortIndex = Math.floor(index / 12)
+  const last = lastNames[(index + cohortIndex * 3) % lastNames.length]
   return {
     'ID Number': `${idPrefix}-${idSequence}`,
     'Last Name': last,
@@ -65,10 +68,27 @@ for (const [studentIndex, scholarshipIndex] of [[0, 1], [12, 5], [24, 6], [36, 3
 }
 
 // Valid history/renewal cases: same profile, different term or academic year.
+const nextYearLevel = {
+  '1st Year': '2nd Year',
+  '2nd Year': '3rd Year',
+  '3rd Year': '4th Year',
+  '4th Year': '5th Year',
+  '5th Year': 'Graduate',
+  Graduate: 'Graduate',
+}
 for (const studentIndex of [1, 13, 25, 37]) {
   const original = students[studentIndex]
   const yearIndex = years.indexOf(original['Acad Year'])
-  rows.push({ ...original, 'Acad Year': years[Math.min(yearIndex + 1, years.length - 1)], Semester: original.Semester === '1st Semester' ? '2nd Semester' : '1st Semester', Remarks: 'Active' })
+  const nextAcademicYearIndex = Math.min(yearIndex + 1, years.length - 1)
+  rows.push({
+    ...original,
+    'Acad Year': years[nextAcademicYearIndex],
+    Semester: original.Semester === '1st Semester' ? '2nd Semester' : '1st Semester',
+    'Yr Lvl': nextAcademicYearIndex > yearIndex
+      ? (nextYearLevel[original['Yr Lvl']] ?? original['Yr Lvl'])
+      : original['Yr Lvl'],
+    Remarks: 'Active',
+  })
 }
 
 // Exact duplicates inside the file: preview should classify these as skipped.
@@ -94,6 +114,7 @@ XLSX.utils.book_append_sheet(workbook, importSheet, 'STUDENT IMPORT')
 const scenarios = [
   ['Feature', 'Test Data / Action', 'Expected Result'],
   ['Academic-year coverage', years.join(', '), 'Reports and SIGMAI can filter every year through the current 2026-2027 year'],
+  ['Permanent Student IDs', 'A student keeps the admission-year ID (for example, 23-9002) in every later term', 'Renewal/history rows reuse the same Student ID and advance the year level'],
   ['Valid imports', 'First 48 rows', 'New fictional student profiles and scholarship assignments are created'],
   ['Duplicate flags', 'IDs 23-9001, 24-9001, 25-9001, 26-9001 each have two Active scholarships in one term', 'Four Duplicate Flags are created for administrator review'],
   ['Renewal/history', 'IDs 23-9002, 24-9002, 25-9002, 26-9002 have another term', 'Student profile is reused; scholarship history shows both terms'],

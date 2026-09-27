@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
 import type { StudentDetail } from '@/hooks/useStudentDetail'
 import { STUDENT_YEAR_LEVEL_OPTIONS } from '@/types/database'
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 interface FormValues {
   yr_level: string
@@ -31,21 +32,33 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [initialForm, setInitialForm] = useState<FormValues | null>(null)
+  const [discardOpen, setDiscardOpen] = useState(false)
 
   useEffect(() => {
     if (!student) return
-    setForm({
+    const values = {
       yr_level: student.yr_level ?? '',
       address: student.address ?? '',
       contact_number: student.contact_number ?? '',
       email: student.email ?? '',
       gwa: student.gwa != null ? String(student.gwa) : '',
       participation_org: student.participation_org ?? '',
-    })
+    }
+    setForm(values)
+    setInitialForm(values)
+    setDiscardOpen(false)
     setError(null)
   }, [student])
 
   if (!student) return null
+
+  const dirty = initialForm != null && (Object.keys(form) as Array<keyof FormValues>).some((key) => form[key] !== initialForm[key])
+  const requestClose = () => {
+    if (saving) return
+    if (dirty) setDiscardOpen(true)
+    else onClose()
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -91,14 +104,14 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
       .catch((activityError) => console.error('Activity logging failed:', activityError))
   }
 
-  return (
+  return <>
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
           <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             Edit Record — {student.full_name}
           </h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
+          <button onClick={requestClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
             <X size={18} />
           </button>
         </div>
@@ -182,7 +195,7 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-[var(--menu-hover-bg)]"
               style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
             >
@@ -200,5 +213,6 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
         </form>
       </div>
     </div>
-  )
+    <ConfirmationDialog open={discardOpen} title="Discard Changes?" message="You have unsaved changes. Are you sure you want to close this window? Your edits will not be saved." cancelLabel="Keep Editing" confirmLabel="Discard Changes" tone="danger" onCancel={() => setDiscardOpen(false)} onConfirm={onClose}/>
+  </>
 }

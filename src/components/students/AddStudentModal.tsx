@@ -8,6 +8,7 @@ import {
   STUDENT_YEAR_LEVEL_OPTIONS,
 } from '@/types/database'
 import { statusShortLabel } from '@/utils/statusStyle'
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog'
 
 const supabase = typedSupabase as any
 
@@ -122,6 +123,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   const [loadingColleges, setLoadingColleges] = useState(false)
   const [loadingPrograms, setLoadingPrograms] = useState(false)
   const [loadingScholarships, setLoadingScholarships] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -129,6 +131,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
     setProgramText('')
     setErrors({})
     setPrograms([])
+    setDiscardOpen(false)
 
     if (cachedColleges) setColleges(cachedColleges)
     else {
@@ -198,6 +201,14 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   const emailValid = !form.email.trim() || EMAIL_PATTERN.test(form.email.trim())
   const yearLevelValid = STUDENT_YEAR_LEVEL_OPTIONS.includes(form.yearLevel.trim() as (typeof STUDENT_YEAR_LEVEL_OPTIONS)[number])
   const canSubmit = !saving && Boolean(form.studentNumber.trim() && form.firstName.trim() && form.lastName.trim() && form.collegeId && form.programId && form.yearLevel)
+  const defaultValues = emptyForm()
+  const dirty = programText.trim() !== '' || (Object.keys(form) as Array<keyof FormValues>).some((key) => form[key] !== defaultValues[key])
+
+  function requestClose() {
+    if (saving) return
+    if (dirty) setDiscardOpen(true)
+    else onClose()
+  }
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -358,7 +369,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
 
   const inputStyle = (hasError?: boolean) => ({ borderColor: hasError ? 'var(--status-error-text)' : 'var(--input-border)' })
 
-  return (
+  return <>
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="add-student-title">
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--divider-light)' }}>
@@ -366,7 +377,7 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
             <h2 id="add-student-title" className="text-lg font-bold" style={{ color: 'var(--nav-header-dark)' }}>Add New Student</h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>Create one student record. Scholarship information is optional.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close Add Student" style={{ color: 'var(--icon-muted)' }}><X size={20} /></button>
+          <button type="button" onClick={requestClose} aria-label="Close Add Student" style={{ color: 'var(--icon-muted)' }}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5">
@@ -452,11 +463,12 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
           {errors.form && <p role="alert" className="mt-5 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>{errors.form}</p>}
 
           <div className="sticky bottom-0 -mx-6 mt-6 flex justify-end gap-2 border-t px-6 pt-4 pb-1" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
-            <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-[var(--menu-hover-bg)]" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
+            <button type="button" onClick={requestClose} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-[var(--menu-hover-bg)]" style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}>Cancel</button>
             <button type="submit" disabled={!canSubmit} className="rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50" style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>{saving ? 'Adding Student…' : 'Add Student'}</button>
           </div>
         </form>
       </div>
     </div>
-  )
+    <ConfirmationDialog open={discardOpen} title="Discard Changes?" message="You have unsaved changes. Are you sure you want to close this window? Your edits will not be saved." cancelLabel="Keep Editing" confirmLabel="Discard Changes" tone="danger" onCancel={() => setDiscardOpen(false)} onConfirm={onClose}/>
+  </>
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound, X } from 'lucide-react'
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Phone, ShieldCheck, UserRound, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { getUserDisplayName } from '@/utils/userDisplayName'
 import { logActivity } from '@/utils/logActivity'
+import { validateAccountProfile } from '@/utils/accountProfileRules'
 
 function formatPasswordChangedAt(value: unknown) {
   if (typeof value !== 'string') return 'Not recorded yet'
@@ -16,6 +17,9 @@ function formatPasswordChangedAt(value: unknown) {
 export default function AccountSettingsPage() {
   const { user } = useAuth()
   const [preferredUsername, setPreferredUsername] = useState(() => getUserDisplayName(user, ''))
+  const [fullName, setFullName] = useState(() => String(user?.user_metadata?.full_name ?? ''))
+  const [contactNumber, setContactNumber] = useState(() => String(user?.user_metadata?.contact_number ?? ''))
+  const [touched, setTouched] = useState({ username: false, fullName: false, contact: false })
   const [profileStatus, setProfileStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
@@ -29,30 +33,53 @@ export default function AccountSettingsPage() {
   const [passwordStatus, setPasswordStatus] = useState<string | null>(null)
   const [updatingPassword, setUpdatingPassword] = useState(false)
 
-  useEffect(() => setPreferredUsername(getUserDisplayName(user, '')), [user])
+  useEffect(() => {
+    setPreferredUsername(getUserDisplayName(user, ''))
+    setFullName(String(user?.user_metadata?.full_name ?? ''))
+    setContactNumber(String(user?.user_metadata?.contact_number ?? ''))
+  }, [user])
 
   const passwordIsValid = newPassword.length >= 8
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword
   const canUpdatePassword = Boolean(currentPassword && passwordIsValid && confirmPassword && passwordsMatch && !updatingPassword)
+  const profileErrors = validateAccountProfile(preferredUsername, fullName, contactNumber)
+  const usernameError = profileErrors.username
+  const fullNameError = profileErrors.fullName
+  const contactError = profileErrors.contact
   const profileHasChanges = preferredUsername.trim() !== getUserDisplayName(user, '')
+    || fullName.trim() !== String(user?.user_metadata?.full_name ?? '')
+    || contactNumber.trim() !== String(user?.user_metadata?.contact_number ?? '')
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault()
     const username = preferredUsername.trim()
     setProfileStatus(null)
-    if (username.length < 2 || username.length > 50) {
-      setProfileStatus({ type: 'error', message: 'Preferred username must contain 2 to 50 characters.' })
+    setTouched({ username: true, fullName: true, contact: true })
+    if (usernameError || fullNameError || contactError) {
+      setProfileStatus({ type: 'error', message: usernameError || fullNameError || contactError })
       return
     }
 
     setSavingProfile(true)
-    const { error } = await supabase.auth.updateUser({ data: { preferred_username: username } })
+    const { data: available, error: availabilityError } = await (supabase as any).rpc('is_preferred_username_available', { p_username: username })
+    if (availabilityError) {
+      setSavingProfile(false)
+      setProfileStatus({ type: 'error', message: 'Username availability could not be verified. Please try again.' })
+      return
+    }
+    if (!available) {
+      setSavingProfile(false)
+      setProfileStatus({ type: 'error', message: 'That preferred username is already in use.' })
+      return
+    }
+    const { error } = await supabase.auth.updateUser({ data: { preferred_username: username, full_name: fullName.trim() || null, contact_number: contactNumber.trim() || null } })
     setSavingProfile(false)
     if (error) {
       setProfileStatus({ type: 'error', message: 'We could not save your profile. Please try again.' })
       return
     }
-    setProfileStatus({ type: 'success', message: 'Profile changes saved successfully.' })
+    await supabase.auth.refreshSession()
+    setProfileStatus({ type: 'success', message: 'Account information updated successfully.' })
     await logActivity('update', 'account_profile', 'Updated account profile information.', user?.id)
   }
 
@@ -137,14 +164,26 @@ export default function AccountSettingsPage() {
           <div>
             <label htmlFor="preferred-username" className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Preferred Username</label>
             <input id="preferred-username" type="text" minLength={2} maxLength={50} required value={preferredUsername}
-              onChange={(e) => { setPreferredUsername(e.target.value); setProfileStatus(null) }}
+              onBlur={() => setTouched((value) => ({ ...value, username: true }))}
+              onChange={(e) => { setTouched((value) => ({ ...value, username: true })); setPreferredUsername(e.target.value); setProfileStatus(null) }}
               className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none sm:max-w-lg" style={{ borderColor: 'var(--input-border)' }} />
+            {touched.username && usernameError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{usernameError}</p>}
             <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>This username will be displayed throughout the system, including your Dashboard greeting.</p>
+          </div>
+          <div>
+            <label htmlFor="full-name" className="mb-1.5 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}><UserRound size={15}/> Full Name</label>
+            <input id="full-name" value={fullName} onBlur={() => setTouched((value) => ({ ...value, fullName: true }))} onChange={(e) => { setTouched((value) => ({ ...value, fullName: true })); setFullName(e.target.value); setProfileStatus(null) }} className="w-full rounded-lg border px-3 py-2.5 text-sm sm:max-w-lg" style={{ borderColor: 'var(--input-border)' }}/>
+            {touched.fullName && fullNameError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{fullNameError}</p>}
+          </div>
+          <div>
+            <label htmlFor="contact-number" className="mb-1.5 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}><Phone size={15}/> Contact Number</label>
+            <input id="contact-number" type="tel" value={contactNumber} onBlur={() => setTouched((value) => ({ ...value, contact: true }))} onChange={(e) => { setTouched((value) => ({ ...value, contact: true })); setContactNumber(e.target.value); setProfileStatus(null) }} className="w-full rounded-lg border px-3 py-2.5 text-sm sm:max-w-lg" style={{ borderColor: 'var(--input-border)' }}/>
+            {touched.contact && contactError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{contactError}</p>}
           </div>
           {profileStatus && <p className="rounded-lg px-3 py-2 text-sm" style={{ background: profileStatus.type === 'success' ? 'var(--status-complete-bg)' : 'var(--status-incomplete-bg)', color: profileStatus.type === 'success' ? 'var(--status-complete-text)' : 'var(--status-incomplete-text)' }}>{profileStatus.message}</p>}
           <button type="submit" disabled={savingProfile || !profileHasChanges}
             className="rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--btn-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>{savingProfile ? 'Saving...' : 'Save Changes'}</button>
+            style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}>{savingProfile ? <span className="flex items-center gap-2"><LoaderCircle size={15} className="animate-spin"/>Saving...</span> : 'Save Changes'}</button>
         </form>
       </Card>
 

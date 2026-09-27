@@ -127,6 +127,12 @@ function referenceAliases(name: string, code?: string | null): string[] {
   if (collegeSubject) {
     const compactSubject = normalize(collegeSubject).replace(/\s+/g, '')
     if (compactSubject.length >= 2) aliases.add(`C${compactSubject.slice(0, 2)}`.toUpperCase())
+    const subjectWords = collegeSubject.split(/[^A-Za-z0-9]+/).filter((word) => word && !['and', 'of', 'the'].includes(word.toLowerCase()))
+    const subjectInitials = subjectWords.map((word) => word[0]).join('').toUpperCase()
+    if (subjectInitials) {
+      aliases.add(`C${subjectInitials}`)
+      aliases.add(`CO${subjectInitials}`)
+    }
   }
 
   return [...aliases]
@@ -263,13 +269,13 @@ function formatScholarList(assignments: any[], filterLabel: string): string {
   }
 
   return `### Matching Scholars\n${rows.length} matching scholar${rows.length === 1 ? '' : 's'} found for ${filterLabel}. Showing all ${rows.length} record${rows.length === 1 ? '' : 's'}.\n\n${formatTable(
-    ['Student ID', 'Name', 'Program', 'College', 'Scholarship'],
+    ['Student ID', 'Name', 'Scholarship', 'Program', 'Status'],
     rows.map((row) => [
       row.students.student_number,
       studentName(row),
-      row.students.programs?.name,
-      row.students.programs?.colleges?.name,
       [...(scholarshipsByStudent.get(row.students.id) ?? [])].sort().join(', '),
+      row.students.programs?.name,
+      row.status,
     ])
   )}\n\n### Summary\n**Total Matching Scholars:** ${rows.length}`
 }
@@ -289,9 +295,9 @@ async function resolveIntent(
   if (studentNumber) {
     const { data, error } = await supabase
       .from('students')
-      .select(`id, student_number, first_name, middle_name, last_name, suffix, yr_level, archived_at,
+      .select(`id, student_number, first_name, middle_name, last_name, suffix, yr_level, email, contact_number, archived_at,
         programs(name, code, colleges(name, code)),
-        student_scholarships(id, academic_year, semester, status, archived_at, term_closed_at,
+        student_scholarships(id, academic_year, semester, status, is_enrolled, archived_at, term_closed_at,
           scholarships(name, status, archived_at))`)
       .eq('student_number', studentNumber)
       .maybeSingle()
@@ -301,7 +307,7 @@ async function resolveIntent(
       return {
         intent: 'student_id_not_found',
         data: null,
-        answer: `No student was found with Student ID **${studentNumber}**.`,
+        answer: `No student record was found for Student ID **${studentNumber}**.`,
       }
     }
 
@@ -351,6 +357,8 @@ async function resolveIntent(
       return { intent: 'active_scholarship_by_student_id', data: { student, assignments: activeAssignments }, answer }
     }
 
+    const assignments = (student.student_scholarships ?? []).filter((assignment: any) => !assignment.archived_at)
+    const current = assignments.sort((a: any, b: any) => `${b.academic_year}-${b.semester}`.localeCompare(`${a.academic_year}-${a.semester}`))[0]
     return {
       intent: 'student_by_id',
       data: student,
@@ -361,6 +369,11 @@ async function resolveIntent(
         `**College:** ${collegeLabel}`,
         `**Program:** ${programLabel}`,
         `**Year Level:** ${student.yr_level ?? '—'}`,
+        `**Scholarship:** ${current?.scholarships?.name ?? '—'}`,
+        `**Academic Year:** ${current?.academic_year ?? '—'}`,
+        `**Semester:** ${current?.semester ?? '—'}`,
+        `**Scholarship Status:** ${current?.status ?? '—'}`,
+        `**Enrollment Status:** ${current?.is_enrolled == null ? 'Not yet verified' : current.is_enrolled ? 'Enrolled' : 'Not Enrolled'}`,
       ].join('\n\n'),
     }
   }
@@ -413,24 +426,26 @@ async function resolveIntent(
 
   if (contextualQ.includes('expiring') || contextualQ.includes('expire')) {
     const today = new Date()
-    const cutoff = new Date(today.getTime() + 30 * 86400000)
+    const asksThisMonth = /this month|current month/.test(contextualQ)
+    const rangeStart = asksThisMonth ? new Date(today.getFullYear(), today.getMonth(), 1) : today
+    const cutoff = asksThisMonth ? new Date(today.getFullYear(), today.getMonth() + 1, 0) : new Date(today.getTime() + 30 * 86400000)
     const asDate = (date: Date) => date.toISOString().slice(0, 10)
     const { data, error } = await supabase
       .from('scholarships')
       .select('name, end_date')
       .not('end_date', 'is', null)
       .lte('end_date', asDate(cutoff))
-      .gte('end_date', asDate(today))
+      .gte('end_date', asDate(rangeStart))
       .is('archived_at', null)
       .order('end_date')
     assertQuerySucceeded(error)
     const rows = (data ?? []) as { name: string; end_date: string | null }[]
     const wantsCount = /how many|count|number|total/.test(q)
     const answer = wantsCount
-      ? `**Scholarships Expiring Within 30 Days:** ${rows.length}`
+      ? `**Scholarships Expiring ${asksThisMonth ? 'This Month' : 'Within 30 Days'}:** ${rows.length}`
       : rows.length === 0
-        ? 'No scholarships are expiring within the next 30 days.'
-        : `${rows.length} scholarship${rows.length === 1 ? '' : 's'} will expire within 30 days.\n\n${formatTable(
+        ? `No scholarships are expiring ${asksThisMonth ? 'this month' : 'within the next 30 days'}.`
+        : `${rows.length} scholarship${rows.length === 1 ? '' : 's'} will expire ${asksThisMonth ? 'this month' : 'within 30 days'}.\n\n${formatTable(
             ['Scholarship', 'End Date'],
             rows.map((row) => [row.name, row.end_date])
           )}`
@@ -492,7 +507,7 @@ async function resolveIntent(
         `id, academic_year, semester, status, is_enrolled,
          students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
            programs!inner(name, code, colleges!inner(name, code))),
-         scholarships!inner(name, scholarship_categories!inner(name), scholarship_agencies(name))`
+         scholarships!inner(name, code, scholarship_categories!inner(name), scholarship_agencies(name))`
       )
       .is('archived_at', null)
       .is('students.archived_at', null)
@@ -549,7 +564,7 @@ async function resolveIntent(
       addEntity('program', program?.name, programAliases(program?.name ?? '', program?.code))
       addEntity('college', program?.colleges?.name, referenceAliases(program?.colleges?.name ?? '', program?.colleges?.code))
       const scholarshipName = row.scholarships?.name as string | undefined
-      addEntity('scholarship', scholarshipName, referenceAliases(scholarshipName ?? ''))
+      addEntity('scholarship', scholarshipName, referenceAliases(scholarshipName ?? '', row.scholarships?.code))
       const agencyName = row.scholarships?.scholarship_agencies?.name as string | undefined
       addEntity('agency', agencyName, referenceAliases(agencyName ?? ''))
       addEntity('category', row.scholarships?.scholarship_categories?.name)

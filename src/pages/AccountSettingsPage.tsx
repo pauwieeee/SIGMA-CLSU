@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Phone, ShieldCheck, UserRound, X } from 'lucide-react'
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck, UserRound, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { getUserDisplayName } from '@/utils/userDisplayName'
 import { logActivity } from '@/utils/logActivity'
-import { validateAccountProfile } from '@/utils/accountProfileRules'
 
 function formatPasswordChangedAt(value: unknown) {
   if (typeof value !== 'string') return 'Not recorded yet'
@@ -17,9 +16,7 @@ function formatPasswordChangedAt(value: unknown) {
 export default function AccountSettingsPage() {
   const { user } = useAuth()
   const [preferredUsername, setPreferredUsername] = useState(() => getUserDisplayName(user, ''))
-  const [fullName, setFullName] = useState(() => String(user?.user_metadata?.full_name ?? ''))
-  const [contactNumber, setContactNumber] = useState(() => String(user?.user_metadata?.contact_number ?? ''))
-  const [touched, setTouched] = useState({ username: false, fullName: false, contact: false })
+  const [usernameTouched, setUsernameTouched] = useState(false)
   const [profileStatus, setProfileStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
@@ -35,28 +32,23 @@ export default function AccountSettingsPage() {
 
   useEffect(() => {
     setPreferredUsername(getUserDisplayName(user, ''))
-    setFullName(String(user?.user_metadata?.full_name ?? ''))
-    setContactNumber(String(user?.user_metadata?.contact_number ?? ''))
   }, [user])
 
   const passwordIsValid = newPassword.length >= 8
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword
   const canUpdatePassword = Boolean(currentPassword && passwordIsValid && confirmPassword && passwordsMatch && !updatingPassword)
-  const profileErrors = validateAccountProfile(preferredUsername, fullName, contactNumber)
-  const usernameError = profileErrors.username
-  const fullNameError = profileErrors.fullName
-  const contactError = profileErrors.contact
+  const usernameError = preferredUsername.trim().length < 2
+    ? 'Preferred username must contain at least 2 characters.'
+    : preferredUsername.trim().length > 50 ? 'Preferred username cannot exceed 50 characters.' : ''
   const profileHasChanges = preferredUsername.trim() !== getUserDisplayName(user, '')
-    || fullName.trim() !== String(user?.user_metadata?.full_name ?? '')
-    || contactNumber.trim() !== String(user?.user_metadata?.contact_number ?? '')
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault()
     const username = preferredUsername.trim()
     setProfileStatus(null)
-    setTouched({ username: true, fullName: true, contact: true })
-    if (usernameError || fullNameError || contactError) {
-      setProfileStatus({ type: 'error', message: usernameError || fullNameError || contactError })
+    setUsernameTouched(true)
+    if (usernameError) {
+      setProfileStatus({ type: 'error', message: usernameError })
       return
     }
 
@@ -72,7 +64,7 @@ export default function AccountSettingsPage() {
       setProfileStatus({ type: 'error', message: 'That preferred username is already in use.' })
       return
     }
-    const { error } = await supabase.auth.updateUser({ data: { preferred_username: username, full_name: fullName.trim() || null, contact_number: contactNumber.trim() || null } })
+    const { error } = await supabase.auth.updateUser({ data: { preferred_username: username } })
     setSavingProfile(false)
     if (error) {
       setProfileStatus({ type: 'error', message: 'We could not save your profile. Please try again.' })
@@ -153,7 +145,7 @@ export default function AccountSettingsPage() {
       <Card className="shadow-sm">
         <div className="mb-5 flex items-start gap-3">
           <span className="rounded-lg p-2" style={{ background: 'var(--menu-active-bg)', color: 'var(--btn-primary-bg)' }}><UserRound size={20} /></span>
-          <div><CardTitle>Profile Information</CardTitle><p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Update how your name appears inside SIGMA.</p></div>
+          <div><CardTitle>Profile Information</CardTitle><p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Update how your account appears inside SIGMA.</p></div>
         </div>
         <form onSubmit={saveProfile} className="space-y-5">
           <div>
@@ -164,21 +156,11 @@ export default function AccountSettingsPage() {
           <div>
             <label htmlFor="preferred-username" className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Preferred Username</label>
             <input id="preferred-username" type="text" minLength={2} maxLength={50} required value={preferredUsername}
-              onBlur={() => setTouched((value) => ({ ...value, username: true }))}
-              onChange={(e) => { setTouched((value) => ({ ...value, username: true })); setPreferredUsername(e.target.value); setProfileStatus(null) }}
+              onBlur={() => setUsernameTouched(true)}
+              onChange={(e) => { setUsernameTouched(true); setPreferredUsername(e.target.value); setProfileStatus(null) }}
               className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none sm:max-w-lg" style={{ borderColor: 'var(--input-border)' }} />
-            {touched.username && usernameError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{usernameError}</p>}
-            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>This username will be displayed throughout the system, including your Dashboard greeting.</p>
-          </div>
-          <div>
-            <label htmlFor="full-name" className="mb-1.5 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}><UserRound size={15}/> Full Name</label>
-            <input id="full-name" value={fullName} onBlur={() => setTouched((value) => ({ ...value, fullName: true }))} onChange={(e) => { setTouched((value) => ({ ...value, fullName: true })); setFullName(e.target.value); setProfileStatus(null) }} className="w-full rounded-lg border px-3 py-2.5 text-sm sm:max-w-lg" style={{ borderColor: 'var(--input-border)' }}/>
-            {touched.fullName && fullNameError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{fullNameError}</p>}
-          </div>
-          <div>
-            <label htmlFor="contact-number" className="mb-1.5 flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}><Phone size={15}/> Contact Number</label>
-            <input id="contact-number" type="tel" value={contactNumber} onBlur={() => setTouched((value) => ({ ...value, contact: true }))} onChange={(e) => { setTouched((value) => ({ ...value, contact: true })); setContactNumber(e.target.value); setProfileStatus(null) }} className="w-full rounded-lg border px-3 py-2.5 text-sm sm:max-w-lg" style={{ borderColor: 'var(--input-border)' }}/>
-            {touched.contact && contactError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{contactError}</p>}
+            {usernameTouched && usernameError && <p className="mt-1 text-xs" style={{ color: 'var(--status-incomplete-text)' }}>{usernameError}</p>}
+            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>This username will be displayed throughout the system, including your Dashboard greeting and activity records.</p>
           </div>
           {profileStatus && <p className="rounded-lg px-3 py-2 text-sm" style={{ background: profileStatus.type === 'success' ? 'var(--status-complete-bg)' : 'var(--status-incomplete-bg)', color: profileStatus.type === 'success' ? 'var(--status-complete-text)' : 'var(--status-incomplete-text)' }}>{profileStatus.message}</p>}
           <button type="submit" disabled={savingProfile || !profileHasChanges}

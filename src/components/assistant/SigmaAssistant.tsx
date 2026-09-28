@@ -37,6 +37,7 @@ function errorMessageFor(code: string): string {
 
 export function SigmaAssistant() {
   const [open, setOpen] = useState(false)
+  const [footerOffset, setFooterOffset] = useState(24)
   const [curious, setCurious] = useState(false)
   const [opening, setOpening] = useState(false)
   const [responding, setResponding] = useState(false)
@@ -52,6 +53,23 @@ export function SigmaAssistant() {
   const [queryContext, setQueryContext] = useState<AssistantQueryContext | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const responseTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const footer = document.querySelector<HTMLElement>('[data-sigma-footer]')
+    if (!footer) return
+    const updateOffset = () => {
+      const rect = footer.getBoundingClientRect()
+      const visibleFooterHeight = Math.max(0, window.innerHeight - Math.max(0, rect.top))
+      setFooterOffset(24 + Math.min(visibleFooterHeight, rect.height))
+    }
+    updateOffset()
+    window.addEventListener('scroll', updateOffset, { passive: true })
+    window.addEventListener('resize', updateOffset)
+    return () => {
+      window.removeEventListener('scroll', updateOffset)
+      window.removeEventListener('resize', updateOffset)
+    }
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -146,7 +164,8 @@ export function SigmaAssistant() {
           data-tour="sigmai-launcher"
           onClick={openAssistant}
           aria-label="Open SIGMAI virtual assistant"
-          className={`sigma-chat-launcher fixed right-6 bottom-6 z-40${curious ? ' sigma-cobra-curious' : ''}`}
+          className={`sigma-chat-launcher fixed right-6 z-40${curious ? ' sigma-cobra-curious' : ''}`}
+          style={{ bottom: footerOffset, transition: 'bottom 180ms ease-out' }}
         >
           <span className="sigma-cobra-image-shell"><img src={cobraMascot} alt="" /></span>
           <span className="sigma-chat-sparkle" aria-hidden="true" />

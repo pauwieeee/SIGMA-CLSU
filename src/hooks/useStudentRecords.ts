@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { studentSearchText } from '@/utils/workflowRules'
+import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
 
 export interface StudentRecordRow {
   id: string
@@ -108,6 +109,13 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
 
   useEffect(() => {
     load()
+    const refresh = () => void load()
+    window.addEventListener(DATA_CHANGED_EVENT, refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.removeEventListener(DATA_CHANGED_EVENT, refresh)
+      window.removeEventListener('focus', refresh)
+    }
   }, [load])
 
   const filtered = useMemo(() => {

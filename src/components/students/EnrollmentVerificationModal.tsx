@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { notifyDataChanged } from '@/utils/dataSync'
 import { SEMESTER_OPTIONS } from '@/types/database'
 import { notifySaveFailure } from '@/utils/notifySaveFailure'
 
@@ -102,6 +103,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
       const { error: updateError } = await (supabase as any).rpc('set_selected_enrollment_statuses', { p_updates: updates })
       if (updateError) throw new Error(updateError.message)
       setManualStatuses({})
+      notifyDataChanged({ source: 'enrollment' })
       onDone(selectedStudents.length)
     } catch (updateError) {
       setError((updateError as Error).message)
@@ -174,6 +176,7 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
         leftUnchanged: preview.unlistedRows.length - notEnrolled,
       })
       setReviewStage('closed'); setReviewDecisions({}); setReviewIncluded(new Set()); onDone()
+      notifyDataChanged({ source: 'enrollment' })
       void (supabase as any).from('notifications').insert({
         type: 'enrollment_complete',
         title: 'Enrollment verification completed',

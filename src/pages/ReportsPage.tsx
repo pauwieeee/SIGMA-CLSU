@@ -100,6 +100,7 @@ export default function ReportsPage() {
         categoryData,
         trendData,
         duplicateFlagCount: stats?.duplicate_flags_open ?? 0,
+        totalStudents: report.totalStudents,
         generatedBy: user?.user_metadata?.preferred_username || user?.user_metadata?.full_name || 'Administrator',
       })
     } finally {
@@ -207,7 +208,12 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Scholar totals by scholarship category">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Scholar totals by scholarship category">
+        <Card>
+          <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>Total Students</p>
+          <p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.totalStudents}</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Active student profiles in Supabase</p>
+        </Card>
         {(['Government', 'Institutional', 'Private'] as const).map((type) => (
           <Card key={type}>
             <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>

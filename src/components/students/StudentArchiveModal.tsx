@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Archive, RotateCcw, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { notifyDataChanged } from '@/utils/dataSync'
 
 interface Props {
   student: { id: string; name: string } | null
@@ -46,6 +47,7 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
       setSaving(false)
       return
     }
+    notifyDataChanged({ source: 'student' })
     await onDone()
   }
 

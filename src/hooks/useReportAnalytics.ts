@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { ScholarshipCategoryName, ScholarsPerCategory } from '@/types/database'
 import type { TrendPoint } from '@/hooks/useScholarsTrend'
+import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
 
 export interface ReportFilters {
   academicYear: string
@@ -37,26 +38,38 @@ export function useReportAnalytics(filters: ReportFilters) {
   const [rows, setRows] = useState<ReportAssignment[]>([])
   const [scholarshipOptions, setScholarshipOptions] = useState<ScholarshipOption[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalStudents, setTotalStudents] = useState(0)
   const [scholarshipOptionsLoading, setScholarshipOptionsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [scholarshipOptionsError, setScholarshipOptionsError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let active = true
+  const load = useCallback(async () => {
     setLoading(true)
-    supabase
+    const [assignmentsResult, countResult] = await Promise.all([
+      supabase
       .from('student_scholarships')
       .select(`student_id, academic_year, semester, status, is_enrolled,
         scholarships!inner(name, status, scholarship_categories!inner(name)),
-        students!inner(programs!inner(name, colleges!inner(name)))`)
-      .then((assignmentsResult) => {
-        if (!active) return
-        setError(assignmentsResult.error?.message ?? null)
-        setRows(assignmentsResult.error ? [] : (assignmentsResult.data as unknown as ReportAssignment[]) ?? [])
-        setLoading(false)
-      })
-    return () => { active = false }
+        students!inner(programs(name, colleges(name)))`)
+        .is('archived_at', null),
+      supabase.from('students').select('id', { count: 'exact', head: true }).is('archived_at', null),
+    ])
+    setError(assignmentsResult.error?.message ?? countResult.error?.message ?? null)
+    setRows(assignmentsResult.error ? [] : (assignmentsResult.data as unknown as ReportAssignment[]) ?? [])
+    setTotalStudents(countResult.count ?? 0)
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    void load()
+    const refresh = () => void load()
+    window.addEventListener(DATA_CHANGED_EVENT, refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.removeEventListener(DATA_CHANGED_EVENT, refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [load])
 
   useEffect(() => {
     let active = true
@@ -134,5 +147,6 @@ export function useReportAnalytics(filters: ReportFilters) {
       .sort((a, b) => a.term.localeCompare(b.term))
   }, [filtered])
 
-  return { categoryData, trendData, options, loading, error, scholarshipOptionsLoading, scholarshipOptionsError, matchingAssignments: filtered.length }
+  const matchingStudents = useMemo(() => new Set(filtered.map((row) => row.student_id)).size, [filtered])
+  return { categoryData, trendData, options, loading, error, scholarshipOptionsLoading, scholarshipOptionsError, totalStudents, matchingStudents, matchingAssignments: filtered.length, refetch: load }
 }

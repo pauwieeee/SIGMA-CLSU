@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { getUserDisplayName } from '@/utils/userDisplayName'
+import { notifyDataChanged } from '@/utils/dataSync'
 export const ACTIVITY_CREATED_EVENT = 'sigma:activity-created'
 
 // The RPC records the authenticated actor and database timestamp server-side.
@@ -37,6 +38,7 @@ export async function logActivity(action: string, entityType: string, descriptio
 
     if (!recentResult.error && recentResult.data) {
       window.dispatchEvent(new CustomEvent(ACTIVITY_CREATED_EVENT))
+      notifyDataChanged({ source: entityType })
       return
     }
 
@@ -63,4 +65,5 @@ export async function logActivity(action: string, entityType: string, descriptio
   }
 
   window.dispatchEvent(new CustomEvent(ACTIVITY_CREATED_EVENT))
+  notifyDataChanged({ source: entityType })
 }

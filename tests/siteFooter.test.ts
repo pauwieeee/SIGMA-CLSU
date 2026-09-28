@@ -26,6 +26,8 @@ test('footer includes compact branding, contact information, and copyright', () 
   assert.doesNotMatch(footer, /react-router-dom/)
   assert.match(footer, /data-sigma-footer/)
   assert.match(footer, /md:flex-row/)
+  assert.doesNotMatch(footer, /background: 'var\(--bg-app\)'/)
+  assert.match(footer, /border-t px-6 py-2 text-center/)
 })
 
 test('SIGMAI launcher moves above the visible footer', () => {

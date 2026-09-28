@@ -28,7 +28,7 @@ export function SiteFooter() {
         </section>
       </div>
 
-      <div className="border-t px-6 py-2 text-center" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-app)' }}>
+      <div className="border-t px-6 py-2 text-center" style={{ borderColor: 'var(--divider-light)' }}>
         <p className="text-[11px] leading-4" style={{ color: 'var(--text-secondary)' }}>
           © 2026 Central Luzon State University
           <span className="mx-1.5 hidden text-gray-300 sm:inline" aria-hidden="true">·</span>

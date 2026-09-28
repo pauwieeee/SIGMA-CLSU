@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CircleHelp, LogOut, Menu, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/AuthProvider'
 import { NotificationBell } from '@/components/layout/NotificationBell'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import clsuLogo from '@/assets/clsu-logo.png'
 const SigmaAssistant = lazy(() => import('@/components/assistant/SigmaAssistant').then((module) => ({ default: module.SigmaAssistant })))
 const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour').then((module) => ({ default: module.OnboardingTour })))
@@ -55,7 +56,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       .slice(0, 2)
       .join('') || 'SA'
   return (
-    <div className={`min-h-screen${enteringFromIntro ? ' sigma-app-enter' : ''}`} style={{ background: 'var(--bg-app)' }}>
+    <div className={`flex min-h-screen flex-col${enteringFromIntro ? ' sigma-app-enter' : ''}`} style={{ background: 'var(--bg-app)' }}>
       <header className="sigma-site-header border-b" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
         <div className="mx-auto flex min-h-[68px] max-w-[1600px] items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3.5">
@@ -183,9 +184,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      <div className="mx-auto max-w-[1600px]">
+      <div className="mx-auto w-full max-w-[1600px] flex-1">
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
+
+      <SiteFooter />
 
       <Suspense fallback={null}><SigmaAssistant /></Suspense>
       <Suspense fallback={null}><OnboardingTour /></Suspense>

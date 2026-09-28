@@ -8,6 +8,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
+import { normalizeAssistantQuestion } from '@/utils/assistantFuzzy'
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 
@@ -286,8 +287,8 @@ async function resolveIntent(
   history: AssistantConversationMessage[] = [],
   previousContext: AssistantQueryContext | null = null,
 ): Promise<QueryResult> {
-  const q = question.toLowerCase()
-  let contextualQuestion = questionWithContext(question, history)
+  const q = normalizeAssistantQuestion(question).toLowerCase()
+  let contextualQuestion = normalizeAssistantQuestion(questionWithContext(question, history))
   const resolvedRelativeYear = previousContext?.kind === 'scholars'
     ? relativeAcademicYear(question, previousContext.academicYear)
     : null
@@ -384,18 +385,31 @@ async function resolveIntent(
   }
 
   if (contextualQ.includes('duplicate')) {
+    const resolved = /\bresolved?\b|\bclosed?\b/.test(contextualQ)
+    const requestedFlagStatus = resolved ? 'Resolved' : 'Open'
+    const wantsCount = /how many|count|number|total/.test(q)
+    if (wantsCount) {
+      const { count, error } = await supabase
+        .from('duplicate_flags')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', requestedFlagStatus)
+      assertQuerySucceeded(error)
+      const total = count ?? 0
+      return {
+        intent: resolved ? 'resolved_duplicate_count' : 'open_duplicate_count',
+        data: { count: total, status: requestedFlagStatus },
+        answer: `**${resolved ? 'Resolved Duplicate Cases' : 'Open Duplicate Flags'}:** ${total}`,
+      }
+    }
     const { data, error } = await supabase
       .from('duplicate_flags')
       .select('id, reason, students ( student_number, last_name, first_name )')
-      .eq('status', 'Open')
+      .eq('status', requestedFlagStatus)
       .order('created_at', { ascending: false })
       .limit(50)
     assertQuerySucceeded(error)
     const rows = (data ?? []) as any[]
-    const wantsCount = /how many|count|number|total/.test(q)
-    const answer = wantsCount
-      ? `**Open Duplicate Flags:** ${rows.length}`
-      : rows.length === 0
+    const answer = rows.length === 0
         ? 'There are no open duplicate flags.'
         : `${rows.length} open duplicate flag${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
             ['Student ID', 'Student', 'Reason'],
@@ -406,6 +420,28 @@ async function resolveIntent(
             ])
           )}\n\n### Summary\n**Total Open Duplicate Flags:** ${rows.length}`
     return { intent: 'duplicates', data: rows, answer }
+  }
+
+  const enrollmentQuestion = /\benrolled\b/.test(contextualQ) && /\bstudents?\b|\bscholars?\b/.test(contextualQ)
+  if (enrollmentQuestion) {
+    const wantsNotEnrolled = /\bnot\s+enrolled\b|\bunenrolled\b/.test(contextualQ)
+    const { data, error } = await supabase
+      .from('student_scholarships')
+      .select('student_id, is_enrolled, students!inner(archived_at)')
+      .is('archived_at', null)
+      .is('term_closed_at', null)
+      .is('students.archived_at', null)
+      .not('is_enrolled', 'is', null)
+    assertQuerySucceeded(error)
+    const rows = (data ?? []) as { student_id: string; is_enrolled: boolean }[]
+    const enrolledIds = new Set(rows.filter((row) => row.is_enrolled === true).map((row) => row.student_id))
+    const notEnrolledIds = new Set(rows.filter((row) => row.is_enrolled === false && !enrolledIds.has(row.student_id)).map((row) => row.student_id))
+    const count = wantsNotEnrolled ? notEnrolledIds.size : enrolledIds.size
+    return {
+      intent: wantsNotEnrolled ? 'not_enrolled_student_count' : 'enrolled_student_count',
+      data: { count, enrollmentStatus: wantsNotEnrolled ? 'Not Enrolled' : 'Enrolled' },
+      answer: `**Total ${wantsNotEnrolled ? 'Students Who Are Not Enrolled' : 'Enrolled Students'}:** ${count}`,
+    }
   }
 
   if (contextualQ.includes('expiring') || contextualQ.includes('expire')) {

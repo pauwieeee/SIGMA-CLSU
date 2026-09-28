@@ -78,23 +78,37 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
       return
     }
 
-    const { error } = await (supabase as any)
+    const emailValue = form.email.trim() || null
+    if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setError('Enter a valid email address or leave the email field blank.')
+      setSaving(false)
+      return
+    }
+
+    const { data: savedStudent, error } = await (supabase as any)
       .from('students')
       .update({
         yr_level: form.yr_level,
         address: form.address || null,
         contact_number: form.contact_number || null,
-        email: form.email || null,
+        email: emailValue,
         gwa: gwaValue,
         participation_org: form.participation_org || null,
       })
       .eq('id', student!.id)
+      .select('id, email')
+      .single()
 
     setSaving(false)
 
     if (error) {
       console.error('Student profile update failed:', error)
       setError('Unable to update the student. Please check the information and try again.')
+      return
+    }
+
+    if (!savedStudent || savedStudent.email !== emailValue) {
+      setError('The student record could not be verified after saving. Please try again.')
       return
     }
 

@@ -7,7 +7,7 @@
 // same either way.
 
 import { supabase } from '@/lib/supabase'
-import { explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
+import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
 import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion } from '@/utils/studentAnalytics'
 
@@ -705,6 +705,7 @@ async function resolveIntent(
     // prior scholarship scope while status, term, college, and result mode
     // continue from the structured context.
     const currentCategory = explicitScholarshipCategory(normalizedCurrentQuestion)
+    const currentCollege = explicitCollegeName(normalizedCurrentQuestion)
     const currentScholarshipNames = [...entityAliases.scholarship.entries()]
       .filter(([name, aliases]) => scholarshipNameMatchesQuestion(normalizedCurrentQuestion, name, [...aliases]))
       .map(([name]) => name)
@@ -721,6 +722,16 @@ async function resolveIntent(
         const inheritedCategoryIndex = matchedByType.findIndex((match) => match.type === 'category')
         if (inheritedCategoryIndex >= 0) matchedByType.splice(inheritedCategoryIndex, 1)
       }
+    }
+    if (currentCollege) {
+      const collegeIndex = matchedByType.findIndex((match) => match.type === 'college')
+      if (collegeIndex >= 0) matchedByType[collegeIndex].names = [currentCollege]
+      else matchedByType.push({ type: 'college', names: [currentCollege] })
+
+      // Short college aliases such as CE, CA, and CS must not also narrow the
+      // result through a coincidentally matching program code.
+      const programIndex = matchedByType.findIndex((match) => match.type === 'program')
+      if (programIndex >= 0) matchedByType.splice(programIndex, 1)
     }
 
     if (matchedByType.length > 0) {
@@ -798,6 +809,8 @@ async function resolveIntent(
       const exactScholarshipLabel = matchedScholarships.length === 1 ? matchedScholarships[0] : null
       const matchedCategories = matchedByType.find((match) => match.type === 'category')?.names ?? []
       const exactCategoryLabel = matchedCategories.length === 1 ? matchedCategories[0] : null
+      const matchedColleges = matchedByType.find((match) => match.type === 'college')?.names ?? []
+      const exactCollegeLabel = matchedColleges.length === 1 ? matchedColleges[0] : null
       const statusPrefix = requestedStatus ? `${requestedStatus} ` : ''
       const confirmsPreviousCategory = Boolean(
         exactCategoryLabel
@@ -809,6 +822,8 @@ async function resolveIntent(
         data: { count: matchingStudentCount, filter: filterLabel, studentIds: scholarContext.studentIds },
         answer: exactScholarshipLabel
           ? `**${exactScholarshipLabel}** currently has **${matchingStudentCount}** student${matchingStudentCount === 1 ? '' : 's'} assigned${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`
+          : exactCollegeLabel
+            ? `**${exactCollegeLabel}**\n\nThere ${matchingStudentCount === 1 ? 'is' : 'are'} **${matchingStudentCount}** student${matchingStudentCount === 1 ? '' : 's'} with ${requestedStatus?.toLowerCase() ?? 'matching'} scholarships under the ${exactCollegeLabel}${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`
           : exactCategoryLabel
             ? `${confirmsPreviousCategory ? `Yes. The **${matchingStudentCount}** refers only to ${exactCategoryLabel} scholars${requestedStatus ? ` with ${requestedStatus} status` : ''}.` : `**${statusPrefix}${exactCategoryLabel} Scholars:** ${matchingStudentCount}\n\nThere ${matchingStudentCount === 1 ? 'is' : 'are'} **${matchingStudentCount}**${requestedStatus ? ` ${requestedStatus.toLowerCase()}` : ''} student${matchingStudentCount === 1 ? '' : 's'} under ${exactCategoryLabel} scholarships${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`}`
             : `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${matchingStudentCount}`,

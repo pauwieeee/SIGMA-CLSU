@@ -9,6 +9,27 @@ export function explicitScholarshipCategory(question: string): ScholarshipCatego
   return null
 }
 
+const COLLEGE_QUERY_ALIASES: Array<[RegExp, string]> = [
+  [/\bCollege of Business Administration and Accountancy\b/i, 'College of Business Administration and Accountancy'],
+  [/\bCollege of Arts and Social Sciences\b/i, 'College of Arts and Social Sciences'],
+  [/\bCollege of Home Science and Industry\b/i, 'College of Home Science and Industry'],
+  [/\bCollege of Agriculture\b/i, 'College of Agriculture'],
+  [/\bCollege of Engineering\b/i, 'College of Engineering'],
+  [/\bCollege of Education\b/i, 'College of Education'],
+  [/\bCollege of Science\b/i, 'College of Science'],
+  [/\bCBAA\b/i, 'College of Business Administration and Accountancy'],
+  [/\bCASS\b/i, 'College of Arts and Social Sciences'],
+  [/\bCHSI?\b/i, 'College of Home Science and Industry'],
+  [/\bCOE\b/i, 'College of Education'],
+  [/\bCE\b/i, 'College of Engineering'],
+  [/\bCA\b/i, 'College of Agriculture'],
+  [/\bCS\b/i, 'College of Science'],
+]
+
+export function explicitCollegeName(question: string): string | null {
+  return COLLEGE_QUERY_ALIASES.find(([pattern]) => pattern.test(question))?.[1] ?? null
+}
+
 export function normalizeAcademicYearText(value: string): string | null {
   const match = value.match(/\b(20\d{2})\s*[-–—]\s*(20\d{2})\b/)
   return match ? `${match[1]}-${match[2]}` : null

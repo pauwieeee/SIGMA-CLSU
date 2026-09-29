@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
+import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
 import { countDistinctStudentIds, isGenericStudentTotalQuestion } from '../src/utils/studentAnalyticsCore.ts'
 
@@ -32,6 +32,17 @@ test('scholarship category wording is normalized for contextual switches', () =>
   assert.equal(explicitScholarshipCategory('CLSU scholarships only'), 'Institutional')
   assert.equal(explicitScholarshipCategory('private scholars'), 'Private')
   assert.equal(explicitScholarshipCategory('What about TES?'), null)
+})
+
+test('college names and required abbreviations resolve to one official college', () => {
+  assert.equal(explicitCollegeName('active scholars in CASS'), 'College of Arts and Social Sciences')
+  assert.equal(explicitCollegeName('active scholars in CE'), 'College of Engineering')
+  assert.equal(explicitCollegeName('active scholars in COE'), 'College of Education')
+  assert.equal(explicitCollegeName('active scholars in CBAA'), 'College of Business Administration and Accountancy')
+  assert.equal(explicitCollegeName('active scholars in CA'), 'College of Agriculture')
+  assert.equal(explicitCollegeName('active scholars in CS'), 'College of Science')
+  assert.equal(explicitCollegeName('active scholars in CHS'), 'College of Home Science and Industry')
+  assert.equal(explicitCollegeName('under College of Arts and Social Sciences'), 'College of Arts and Social Sciences')
 })
 
 test('assistant normalizes minor intent spelling mistakes', () => {

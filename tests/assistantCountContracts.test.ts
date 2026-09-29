@@ -36,6 +36,15 @@ test('scholar follow-ups persist category context and produce explicit category 
   assert.match(assistant, /under \$\{exactCategoryLabel\} scholarships/)
 })
 
+test('college scholar counts normalize aliases without accidental program filters', () => {
+  assert.match(assistant, /explicitCollegeName\(normalizedCurrentQuestion\)/)
+  assert.match(assistant, /matchedByType\[collegeIndex\]\.names = \[currentCollege\]/)
+  assert.match(assistant, /matchedByType\.splice\(programIndex, 1\)/)
+  assert.match(assistant, /exactCollegeLabel/)
+  assert.match(assistant, /under the \$\{exactCollegeLabel\}/)
+  assert.match(assistant, /countDistinctStudentIds\(filtered/)
+})
+
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
   const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
   const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")

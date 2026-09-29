@@ -563,7 +563,10 @@ async function resolveIntent(
     return { intent: 'expiring', data: rows, answer }
   }
 
-  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ)
+  const scopedCountWithoutNoun = /\b(?:how\s+many|count|number|total)\b/.test(contextualQ)
+    && /\b(?:under|in|from|with)\b/.test(contextualQ)
+    && !/\bscholarships?\b/.test(contextualQ)
+  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ) || scopedCountWithoutNoun
 
   if (/\bscholarships?\b/.test(contextualQ) && !asksAboutPeople) {
     const { data, error } = await supabase
@@ -1056,5 +1059,15 @@ ${conversation || '(none)'}
 Question: ${question}
 Data (intent: ${result.intent}): ${JSON.stringify(result.data)}`
 
-  return { answer: await callGeminiWithFallback(prompt), context: nextContext }
+  try {
+    return { answer: await callGeminiWithFallback(prompt), context: nextContext }
+  } catch (error) {
+    if (error instanceof AssistantError && ['assistant_service_error', 'assistant_bad_response', 'network_error'].includes(error.code)) {
+      return {
+        answer: 'I could not identify a supported live-data query from that wording. Try asking for a student, scholarship, count, status, college, category, academic year, semester, enrollment status, or duplicate case.',
+        context: nextContext,
+      }
+    }
+    throw error
+  }
 }

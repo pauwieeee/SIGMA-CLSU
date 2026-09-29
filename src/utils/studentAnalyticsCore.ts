@@ -17,7 +17,7 @@ export function studentProfileCountScope(question: string): StudentProfileCountS
   const asksForCount = /\b(?:how\s+many|count|number|total)\b/.test(normalized)
   const asksForStudents = /\bstudents?\b/.test(normalized)
   const explicitlyAsksForScholars = /\bscholars?\b|\bscholarship\s+students?\b/.test(normalized)
-  const hasFilteredScope = /\benrolled\b|\bduplicate\b|\bacademic\s+year\b|\ba\.?y\.?\b|\bsemester\b|\bcollege\b|\bprogram\b|\bgovernment\b|\binstitutional\b|\bprivate\b|\b(?:cass|cbaa|chsi?|coe|ce|ca|cs)\b/.test(normalized)
+  const hasFilteredScope = /\benrolled\b|\bduplicate\b|\bacademic\s+year\b|\ba\.?y\.?\b|\bsemester\b|\bcollege\b|\bprogram\b|\bgovernment\b|\binstitutional\b|\bprivate\b|\bunder\b|\bwith\b|\b(?:cen|cass|cbaa|chsi?|cvm|coe|ce|ca|cs)\b/.test(normalized)
   if (!asksForCount || !asksForStudents || explicitlyAsksForScholars || hasFilteredScope) return null
   return /\bactive\b/.test(normalized) ? 'active' : 'all'
 }

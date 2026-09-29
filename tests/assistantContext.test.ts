@@ -38,12 +38,14 @@ test('scholarship category wording is normalized for contextual switches', () =>
 
 test('college names and required abbreviations resolve to one official college', () => {
   assert.equal(explicitCollegeName('active scholars in CASS'), 'College of Arts and Social Sciences')
+  assert.equal(explicitCollegeName('active scholars in cen'), 'College of Engineering')
   assert.equal(explicitCollegeName('active scholars in CE'), 'College of Engineering')
   assert.equal(explicitCollegeName('active scholars in COE'), 'College of Education')
   assert.equal(explicitCollegeName('active scholars in CBAA'), 'College of Business Administration and Accountancy')
   assert.equal(explicitCollegeName('active scholars in CA'), 'College of Agriculture')
   assert.equal(explicitCollegeName('active scholars in CS'), 'College of Science')
   assert.equal(explicitCollegeName('active scholars in CHS'), 'College of Home Science and Industry')
+  assert.equal(explicitCollegeName('active scholars in cVm'), 'College of Veterinary Science and Medicine')
   assert.equal(explicitCollegeName('under College of Arts and Social Sciences'), 'College of Arts and Social Sciences')
 })
 
@@ -80,11 +82,14 @@ test('scholarship names match without case, punctuation, generic suffixes, or re
 
 test('government scholarship aliases derived from official database names are recognized', () => {
   assert.equal(scholarshipNameMatchesQuestion('students under DA ATI', 'DA-ATI'), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under da-ati', 'DA-ATI'), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under Da Ati', 'DA-ATI'), true)
   assert.equal(scholarshipNameMatchesQuestion('students under TES', 'CHED Tertiary Education Subsidy (TES)', ['TES']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under CHED TES', 'CHED Tertiary Education Subsidy (TES)', ['TES']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under DOST SEI', 'DOST-SEI Undergraduate Scholarship', ['DOST-SEI']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under DOST-SEI undergrad', 'DOST-SEI (undergrad)', ['DOST-SEI']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under Estatiskolar', 'CHED-Estatiskolar', ['Estatiskolar']), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under unahco', 'UNAHCO'), true)
 })
 
 test('duplicate queries distinguish counts from requested student examples', () => {
@@ -114,6 +119,7 @@ test('active student profiles remain distinct from active scholarship assignment
   assert.equal(studentProfileCountScope('How many students are there?'), 'all')
   assert.equal(studentProfileCountScope('How many active scholars?'), null)
   assert.equal(studentProfileCountScope('How many active students in CASS?'), null)
+  assert.equal(studentProfileCountScope('Total students under DA ATI'), null)
   assert.equal(studentProfileCountScope('How many enrolled students?'), null)
 })
 

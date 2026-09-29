@@ -66,6 +66,13 @@ test('live database retrieval retries before reporting a precise service error',
   assert.doesNotMatch(assistantUi, /Check your connection and try again/)
 })
 
+test('scoped abbreviation counts remain deterministic when the language service is unavailable', () => {
+  assert.match(assistant, /scopedCountWithoutNoun/)
+  assert.match(assistant, /!\/\\bscholarships\?\\b\//)
+  assert.match(assistant, /could not identify a supported live-data query/)
+  assert.match(assistant, /assistant_service_error.*assistant_bad_response.*network_error/)
+})
+
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
   const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
   const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")

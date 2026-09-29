@@ -3,14 +3,17 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 test('dashboard and reports use canonical Supabase student-profile counts', () => {
-  const dashboard = readFileSync('src/hooks/useDashboardData.ts', 'utf8')
+  const dashboard = readFileSync('src/pages/DashboardPage.tsx', 'utf8')
   const reports = readFileSync('src/hooks/useReportAnalytics.ts', 'utf8')
-  for (const source of [dashboard, reports]) {
-    assert.match(source, /from\('students'\)/)
-    assert.match(source, /count: 'exact'/)
-    assert.match(source, /is\('archived_at', null\)/)
-  }
-  assert.match(reports, /new Set\(filtered\.map\(\(row\) => row\.student_id\)\)\.size/)
+  const assistant = readFileSync('src/utils/assistantClient.ts', 'utf8')
+  const canonical = readFileSync('src/utils/studentAnalytics.ts', 'utf8')
+  assert.match(canonical, /from\('system_counts'\)/)
+  assert.match(canonical, /active_students/)
+  assert.match(reports, /fetchCanonicalStudentCounts\(\)/)
+  assert.match(reports, /countDistinctStudentIds\(filtered/)
+  assert.match(assistant, /fetchCanonicalStudentCounts\(\)/)
+  assert.match(assistant, /total_student_count/)
+  assert.match(dashboard, /useReportAnalytics/)
 })
 
 test('dashboard and reports consume one shared analytics service and academic-year scope', () => {
@@ -23,10 +26,19 @@ test('dashboard and reports consume one shared analytics service and academic-ye
     assert.match(page, /useAnalyticsAcademicYear/)
   }
   assert.match(analytics, /categoryData, trendData, options, metrics/)
-  assert.match(analytics, /new Set\(filtered\.map\(\(row\) => row\.student_id\)\)\.size/)
+  assert.match(analytics, /countDistinctStudentIds\(filtered/)
   assert.match(analytics, /DATA_CHANGED_EVENT/)
   assert.match(scope, /sigma:analytics-academic-year/)
   assert.doesNotMatch(reportsPage, /useDashboardStats/)
+})
+
+test('student records apply term and status filters across assignment history', () => {
+  const students = readFileSync('src/hooks/useStudentRecords.ts', 'utf8')
+  assert.match(students, /assignmentHistory/)
+  assert.match(students, /matchingAssignments/)
+  assert.match(students, /assignment\.academicYear !== filters\.academicYear/)
+  assert.match(students, /assignment\.semester !== filters\.semester/)
+  assert.match(students, /assignment\.status !== filters\.status/)
 })
 
 test('data mutations broadcast a shared refresh event', () => {

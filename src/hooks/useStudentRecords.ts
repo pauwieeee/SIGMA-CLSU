@@ -26,6 +26,17 @@ export interface StudentRecordRow {
   archivedBy: string | null
   email: string | null
   contactNumber: string | null
+  assignmentHistory: StudentAssignmentSnapshot[]
+}
+
+interface StudentAssignmentSnapshot {
+  id: string
+  scholarship: string | null
+  category: string | null
+  academicYear: string | null
+  semester: string | null
+  status: string | null
+  isEnrolled: boolean | null
 }
 
 interface Filters {
@@ -53,7 +64,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
          archived_at, archived_by_name, archived_by_email, archive_reason,
          programs ( name, colleges ( id, name ) ),
          student_scholarships ( id, academic_year, semester, status, is_enrolled, archived_at,
-           scholarships ( name, status, scholarship_categories ( id, name ) ) )`
+           scholarships ( name, status, archived_at, scholarship_categories ( id, name ) ) )`
       )
     studentsQuery = showArchived ? studentsQuery.not('archived_at', 'is', null) : studentsQuery.is('archived_at', null)
 
@@ -72,12 +83,24 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
 
     const mapped: StudentRecordRow[] = (data ?? []).map((s: any) => {
       const semesterRank: Record<string, number> = { '1st Semester': 1, '2nd Semester': 2, Summer: 3 }
-      const latestScholarship = (s.student_scholarships ?? [])
-        .filter((assignment: any) => !assignment.archived_at)
+      const assignments: StudentAssignmentSnapshot[] = (s.student_scholarships ?? [])
+        .filter((assignment: any) => !assignment.archived_at && !assignment.scholarships?.archived_at)
         .sort((a: any, b: any) =>
           b.academic_year.localeCompare(a.academic_year)
           || (semesterRank[b.semester] ?? 0) - (semesterRank[a.semester] ?? 0)
-        )[0]
+        )
+        .map((assignment: any) => ({
+          id: assignment.id,
+          scholarship: assignment.scholarships?.name ?? null,
+          category: assignment.scholarships?.scholarship_categories?.name ?? null,
+          academicYear: assignment.academic_year ?? null,
+          semester: assignment.semester ?? null,
+          status: ['Expired', 'Expiring Soon'].includes(assignment.scholarships?.status)
+            ? assignment.scholarships.status
+            : assignment.status ?? null,
+          isEnrolled: assignment.is_enrolled ?? null,
+        }))
+      const latestScholarship = assignments[0]
       return {
         id: s.id,
         student_number: s.student_number,
@@ -85,14 +108,12 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
         college: s.programs?.colleges?.name ?? '—',
         program: s.programs?.name ?? '—',
         yr_level: s.yr_level,
-        scholarship: latestScholarship?.scholarships?.name ?? null,
-        category: latestScholarship?.scholarships?.scholarship_categories?.name ?? null,
-        academic_year: latestScholarship?.academic_year ?? null,
+        scholarship: latestScholarship?.scholarship ?? null,
+        category: latestScholarship?.category ?? null,
+        academic_year: latestScholarship?.academicYear ?? null,
         semester: latestScholarship?.semester ?? null,
-        status: ['Expired', 'Expiring Soon'].includes(latestScholarship?.scholarships?.status)
-          ? latestScholarship.scholarships.status
-          : latestScholarship?.status ?? null,
-        isEnrolled: latestScholarship?.is_enrolled ?? null,
+        status: latestScholarship?.status ?? null,
+        isEnrolled: latestScholarship?.isEnrolled ?? null,
         hasDuplicate: duplicateStudentIds.has(s.id),
         studentScholarshipId: latestScholarship?.id ?? null,
         archiveReason: s.archive_reason ?? null,
@@ -100,6 +121,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
         archivedBy: s.archived_by_name ?? s.archived_by_email ?? null,
         email: s.email ?? null,
         contactNumber: s.contact_number ?? null,
+        assignmentHistory: assignments,
       }
     })
 
@@ -121,22 +143,41 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
   const filtered = useMemo(() => {
     const search = filters.search.trim().toLowerCase()
 
-    return rows.filter((r) => {
+    return rows.flatMap((r) => {
       if (search) {
-        const haystack = studentSearchText(r)
-        if (!haystack.includes(search)) return false
+        const assignmentText = r.assignmentHistory
+          .map((assignment) => [assignment.scholarship, assignment.category, assignment.academicYear, assignment.semester, assignment.status].filter(Boolean).join(' '))
+          .join(' ')
+          .toLowerCase()
+        const haystack = `${studentSearchText(r)} ${assignmentText}`
+        if (!haystack.includes(search)) return []
       }
-      if (filters.collegeId && r.college !== filters.collegeId) return false
-      if (filters.programId && r.program !== filters.programId) return false
-      if (filters.categoryId && r.category !== filters.categoryId) return false
-      if (filters.academicYear && r.academic_year !== filters.academicYear) return false
-      if (filters.semester && r.semester !== filters.semester) return false
-      if (filters.status) {
-        if (filters.status === 'Needs Review') {
-          if (!r.hasDuplicate) return false
-        } else if (r.status !== filters.status) return false
-      }
-      return true
+      if (filters.collegeId && r.college !== filters.collegeId) return []
+      if (filters.programId && r.program !== filters.programId) return []
+      if (filters.status === 'Needs Review' && !r.hasDuplicate) return []
+
+      const hasAssignmentFilter = Boolean(filters.categoryId || filters.academicYear || filters.semester || (filters.status && filters.status !== 'Needs Review'))
+      const matchingAssignments = r.assignmentHistory.filter((assignment) => {
+        if (filters.categoryId && assignment.category !== filters.categoryId) return false
+        if (filters.academicYear && assignment.academicYear !== filters.academicYear) return false
+        if (filters.semester && assignment.semester !== filters.semester) return false
+        if (filters.status && filters.status !== 'Needs Review' && assignment.status !== filters.status) return false
+        return true
+      })
+      if (hasAssignmentFilter && matchingAssignments.length === 0) return []
+
+      const displayedAssignment = hasAssignmentFilter ? matchingAssignments[0] : r.assignmentHistory[0]
+      if (!displayedAssignment) return [r]
+      return [{
+        ...r,
+        scholarship: displayedAssignment.scholarship,
+        category: displayedAssignment.category,
+        academic_year: displayedAssignment.academicYear,
+        semester: displayedAssignment.semester,
+        status: displayedAssignment.status,
+        isEnrolled: displayedAssignment.isEnrolled,
+        studentScholarshipId: displayedAssignment.id,
+      }]
     })
   }, [rows, filters])
 

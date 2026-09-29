@@ -9,6 +9,7 @@
 import { supabase } from '@/lib/supabase'
 import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
+import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion } from '@/utils/studentAnalytics'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -482,6 +483,15 @@ async function resolveIntent(
     return { intent: 'duplicate_student_list', data: selected, answer }
   }
 
+  if (isGenericStudentTotalQuestion(contextualQuestion)) {
+    const counts = await fetchCanonicalStudentCounts()
+    return {
+      intent: 'total_student_count',
+      data: { count: counts.activeStudents },
+      answer: `There are **${counts.activeStudents} students** currently in the SIGMA database.`,
+    }
+  }
+
   const enrollmentQuestion = /\benrolled\b/.test(contextualQ) && /\bstudents?\b|\bscholars?\b/.test(contextualQ)
   if (enrollmentQuestion) {
     const wantsNotEnrolled = /\bnot\s+enrolled\b|\bunenrolled\b/.test(contextualQ)
@@ -717,6 +727,7 @@ async function resolveIntent(
     }
 
     const scholarRows = distinctScholarRows(filtered)
+    const matchingStudentCount = countDistinctStudentIds(filtered, (row) => row.students?.id)
     const filterLabel = [requestedStatus, matchedEntities.join(' / '), appliedYear, appliedSemester].filter(Boolean).join(', ') || 'all scholar records'
     const asksToListNow = /list|show|who|names|which|give me|\ball\b/.test(q)
     const asksToCountNow = /how many|count|number|total/.test(q)
@@ -758,24 +769,27 @@ async function resolveIntent(
       const exactScholarshipLabel = matchedScholarships.length === 1 ? matchedScholarships[0] : null
       return {
         intent: 'scholar_count',
-        data: { count: scholarRows.length, filter: filterLabel, studentIds: scholarContext.studentIds },
+        data: { count: matchingStudentCount, filter: filterLabel, studentIds: scholarContext.studentIds },
         answer: exactScholarshipLabel
-          ? `**${exactScholarshipLabel}** currently has **${scholarRows.length}** student${scholarRows.length === 1 ? '' : 's'} assigned${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`
-          : `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${scholarRows.length}`,
+          ? `**${exactScholarshipLabel}** currently has **${matchingStudentCount}** student${matchingStudentCount === 1 ? '' : 's'} assigned${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`
+          : `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${matchingStudentCount}`,
         context: scholarContext,
       }
     }
   }
 
   if (/dashboard|overview|summary|statistics|stats/.test(q)) {
-    const { data, error } = await supabase.from('dashboard_stats').select('*').single()
+    const [{ data, error }, counts] = await Promise.all([
+      supabase.from('dashboard_stats').select('*').single(),
+      fetchCanonicalStudentCounts(),
+    ])
     assertQuerySucceeded(error)
     const stats = data as any
     return {
       intent: 'general_stats',
       data,
       answer: [
-        `**Total Scholars:** ${stats?.total_scholars ?? 0}`,
+        `**Total Students:** ${counts.activeStudents}`,
         `**Active Scholarships:** ${stats?.active_scholarships ?? 0}`,
         `**Open Duplicate Flags:** ${stats?.duplicate_flags_open ?? 0}`,
         `**Expiring Soon:** ${stats?.expiring_soon ?? 0}`,

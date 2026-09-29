@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
+import { countDistinctStudentIds, isGenericStudentTotalQuestion } from '../src/utils/studentAnalyticsCore.ts'
 
 test('academic years normalize hyphen, en dash, and em dash consistently', () => {
   assert.equal(normalizeAcademicYearText('AY 2023-2024'), '2023-2024')
@@ -76,4 +77,13 @@ test('duplicate queries distinguish counts from requested student examples', () 
   assert.equal(requestedDuplicateResultLimit('Give me 3 duplicate students'), 3)
   assert.equal(requestedDuplicateResultLimit('Show one duplicate case'), 1)
   assert.equal(requestedDuplicateResultLimit('List duplicate students'), 50)
+})
+
+test('generic student totals are separated from filtered scholar and enrollment queries', () => {
+  assert.equal(isGenericStudentTotalQuestion('How many students are there?'), true)
+  assert.equal(isGenericStudentTotalQuestion('Total number of students'), true)
+  assert.equal(isGenericStudentTotalQuestion('How many enrolled students are there?'), false)
+  assert.equal(isGenericStudentTotalQuestion('How many students are in academic year 2025-2026?'), false)
+  assert.equal(isGenericStudentTotalQuestion('How many DOST scholars are there?'), false)
+  assert.equal(countDistinctStudentIds([{ id: 'a' }, { id: 'a' }, { id: 'b' }], (row) => row.id), 2)
 })

@@ -18,7 +18,7 @@ test('scholarship counts use the complete live catalog so zero assignments remai
   assert.match(assistant, /from\('scholarships'\)/)
   assert.match(assistant, /const scholarshipCatalog/)
   assert.match(assistant, /for \(const scholarship of scholarshipCatalog\)/)
-  assert.match(assistant, /currently has \*\*\$\{scholarRows\.length\}\*\* student/)
+  assert.match(assistant, /currently has \*\*\$\{matchingStudentCount\}\*\* student/)
 })
 
 test('scholarship counts use the same non-archived assignment joins as Reports', () => {

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { ScholarshipCategoryName, ScholarsPerCategory } from '@/types/database'
 import type { TrendPoint } from '@/hooks/useScholarsTrend'
 import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
+import { countDistinctStudentIds, fetchCanonicalStudentCounts } from '@/utils/studentAnalytics'
 
 export interface ReportFilters {
   academicYear: string
@@ -54,6 +55,11 @@ export function useReportAnalytics(filters: ReportFilters) {
     setLoading(true)
     const { error: expirationError } = await (supabase as any).rpc('flag_expiring_scholarships')
     if (expirationError) console.error('Scholarship expiration refresh failed:', expirationError)
+    let canonicalCountError: string | null = null
+    const canonicalCountRequest = fetchCanonicalStudentCounts().catch((countError: Error) => {
+      canonicalCountError = countError.message
+      return { activeStudents: 0, archivedStudents: 0, allStudents: 0 }
+    })
     const [assignmentsResult, countResult, duplicateResult] = await Promise.all([
       supabase
       .from('student_scholarships')
@@ -63,7 +69,7 @@ export function useReportAnalytics(filters: ReportFilters) {
         .is('archived_at', null)
         .is('scholarships.archived_at', null)
         .is('students.archived_at', null),
-      supabase.from('students').select('id', { count: 'exact', head: true }).is('archived_at', null),
+      canonicalCountRequest,
       supabase.from('duplicate_flags').select(`status,
         a:student_scholarship_id_a(
           id, student_id, academic_year, semester, status, is_enrolled,
@@ -71,9 +77,9 @@ export function useReportAnalytics(filters: ReportFilters) {
           students(archived_at, programs(name, colleges(name)))
         )`),
     ])
-    setError(assignmentsResult.error?.message ?? countResult.error?.message ?? duplicateResult.error?.message ?? null)
+    setError(assignmentsResult.error?.message ?? duplicateResult.error?.message ?? canonicalCountError)
     setRows(assignmentsResult.error ? [] : (assignmentsResult.data as unknown as ReportAssignment[]) ?? [])
-    setTotalStudents(countResult.count ?? 0)
+    setTotalStudents(countResult.activeStudents)
     setDuplicateFlags(duplicateResult.error ? [] : (duplicateResult.data as unknown as AnalyticsDuplicateFlag[]) ?? [])
     setLoading(false)
   }, [])
@@ -165,7 +171,7 @@ export function useReportAnalytics(filters: ReportFilters) {
       .sort((a, b) => a.term.localeCompare(b.term))
   }, [filtered])
 
-  const matchingStudents = useMemo(() => new Set(filtered.map((row) => row.student_id)).size, [filtered])
+  const matchingStudents = useMemo(() => countDistinctStudentIds(filtered, (row) => row.student_id), [filtered])
   const metrics = useMemo(() => {
     const effectiveStatus = (row: ReportAssignment) => ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status
     const enrolled = new Set(filtered.filter((row) => row.is_enrolled === true).map((row) => row.student_id))

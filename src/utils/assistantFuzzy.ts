@@ -53,3 +53,21 @@ export function scholarshipNameMatchesQuestion(question: string, name: string, a
   }
   return false
 }
+
+export type DuplicateQueryMode = 'count' | 'list'
+
+export function duplicateQueryMode(question: string): DuplicateQueryMode {
+  return /\b(?:how\s+many|count|number|total)\b/i.test(question) ? 'count' : 'list'
+}
+
+export function requestedDuplicateResultLimit(question: string, fallback = 50): number {
+  const numeric = question.match(/\b(?:give|show|list|find)?\s*(?:me\s+)?(\d{1,2})\b/i)?.[1]
+  if (numeric) return Math.min(Math.max(Number(numeric), 1), 50)
+
+  const words: Record<string, number> = {
+    one: 1, two: 2, three: 3, four: 4, five: 5,
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  }
+  const word = question.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/i)?.[1]?.toLowerCase()
+  return word ? words[word] : fallback
+}

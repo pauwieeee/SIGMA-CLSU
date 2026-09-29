@@ -9,7 +9,8 @@ test('assistant has dedicated live enrollment and resolved-duplicate count inten
   assert.match(assistant, /not_enrolled_student_count/)
   assert.match(assistant, /enrolled_student_count/)
   assert.match(assistant, /resolved_duplicate_count/)
-  assert.match(assistant, /select\('id', \{ count: 'exact', head: true \}\)/)
+  assert.match(assistant, /duplicateQuery\.in\('status', \['Resolved', 'Confirmed Valid'\]\)/)
+  assert.match(assistant, /caseCount: rows\.length, studentCount: studentRows\.length/)
 })
 
 test('scholarship counts use the complete live catalog so zero assignments remain a valid result', () => {
@@ -33,10 +34,20 @@ test('assistant prioritizes IDs and supports academic-year, college-alias, and d
   assert.ok(idLookup >= 0 && idLookup < duplicateLookup, 'Student ID intent should run before generic duplicate analytics')
   assert.match(assistant, /lastAcademicYearText\(contextualQuestion\)/)
   for (const alias of ['CEN', 'CEAT', 'CASS', 'CBAA', 'COE', 'CAS']) assert.match(assistant, new RegExp(`${alias}:`))
-  assert.match(assistant, /requestedResultLimit\(question\)/)
+  assert.match(assistant, /requestedDuplicateResultLimit\(question\)/)
   assert.match(assistant, /a:student_scholarship_id_a/)
   assert.match(assistant, /b:student_scholarship_id_b/)
-  assert.match(assistant, /\['Student ID', 'Student', 'Scholarships', 'Academic Term', 'Reason'\]/)
+  assert.match(assistant, /\['Student ID', 'Name', 'Conflicting Scholarships', 'Academic Term', 'Status'\]/)
+})
+
+test('duplicate example requests return unique live students rather than an aggregate summary', () => {
+  assert.match(assistant, /duplicateQueryMode\(q\)/)
+  assert.match(assistant, /requestedDuplicateResultLimit\(question\)/)
+  assert.match(assistant, /const uniqueStudents = new Map/)
+  assert.match(assistant, /studentRows\.slice\(0, resultLimit\)/)
+  assert.match(assistant, /Conflicting Scholarships/)
+  assert.match(assistant, /Academic Term/)
+  assert.match(assistant, /duplicate_student_list/)
 })
 
 test('student email clearing is persisted as null and verified from the returned row', () => {

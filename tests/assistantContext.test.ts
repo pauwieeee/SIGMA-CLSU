@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
-import { normalizeAssistantQuestion, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
+import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
 
 test('academic years normalize hyphen, en dash, and em dash consistently', () => {
   assert.equal(normalizeAcademicYearText('AY 2023-2024'), '2023-2024')
@@ -64,4 +64,16 @@ test('government scholarship aliases derived from official database names are re
   assert.equal(scholarshipNameMatchesQuestion('students under DOST SEI', 'DOST-SEI Undergraduate Scholarship', ['DOST-SEI']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under DOST-SEI undergrad', 'DOST-SEI (undergrad)', ['DOST-SEI']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under Estatiskolar', 'CHED-Estatiskolar', ['Estatiskolar']), true)
+})
+
+test('duplicate queries distinguish counts from requested student examples', () => {
+  assert.equal(duplicateQueryMode('How many duplicate students?'), 'count')
+  assert.equal(duplicateQueryMode('Give me 1 student who has duplicated scholar.'), 'list')
+  assert.equal(duplicateQueryMode('Show one student with duplicate scholarship.'), 'list')
+  assert.equal(duplicateQueryMode('Give an example of a duplicate scholar.'), 'list')
+  assert.equal(duplicateQueryMode('Who has a duplicate scholarship?'), 'list')
+  assert.equal(duplicateQueryMode('Show one duplicate case.'), 'list')
+  assert.equal(requestedDuplicateResultLimit('Give me 3 duplicate students'), 3)
+  assert.equal(requestedDuplicateResultLimit('Show one duplicate case'), 1)
+  assert.equal(requestedDuplicateResultLimit('List duplicate students'), 50)
 })

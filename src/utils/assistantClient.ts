@@ -8,7 +8,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
-import { normalizeAssistantQuestion, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
+import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -181,11 +181,6 @@ function collegeAliases(name: string, code?: string | null): string[] {
     })) aliases.add(alias)
   }
   return [...aliases]
-}
-
-function requestedResultLimit(question: string, fallback = 50): number {
-  const match = question.match(/\b(?:give|show|list|find)?\s*(?:me\s+)?(\d{1,2})\b/i)
-  return match ? Math.min(Math.max(Number(match[1]), 1), 50) : fallback
 }
 
 function requestedScholarshipQualifier(question: string): string | null {
@@ -429,45 +424,62 @@ async function resolveIntent(
   if (contextualQ.includes('duplicate')) {
     const resolved = /\bresolved?\b|\bclosed?\b/.test(contextualQ)
     const requestedFlagStatus = resolved ? 'Resolved' : 'Open'
-    const wantsCount = /how many|count|number|total/.test(q)
-    if (wantsCount) {
-      const { count, error } = await supabase
-        .from('duplicate_flags')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', requestedFlagStatus)
-      assertQuerySucceeded(error)
-      const total = count ?? 0
-      return {
-        intent: resolved ? 'resolved_duplicate_count' : 'open_duplicate_count',
-        data: { count: total, status: requestedFlagStatus },
-        answer: `**${resolved ? 'Resolved Duplicate Cases' : 'Open Duplicate Flags'}:** ${total}`,
-      }
-    }
-    const resultLimit = requestedResultLimit(question)
-    const { data, error } = await supabase
+    const mode = duplicateQueryMode(q)
+    const resultLimit = requestedDuplicateResultLimit(question)
+    let duplicateQuery = supabase
       .from('duplicate_flags')
       .select(`id, reason, status, created_at,
-        students ( student_number, last_name, first_name ),
+        students ( id, student_number, last_name, first_name ),
         a:student_scholarship_id_a ( academic_year, semester, scholarships ( name ) ),
         b:student_scholarship_id_b ( academic_year, semester, scholarships ( name ) )`)
-      .eq('status', requestedFlagStatus)
+    duplicateQuery = resolved
+      ? duplicateQuery.in('status', ['Resolved', 'Confirmed Valid'])
+      : duplicateQuery.in('status', ['Open', 'Under Review'])
+    const { data, error } = await duplicateQuery
       .order('created_at', { ascending: false })
-      .limit(resultLimit)
     assertQuerySucceeded(error)
     const rows = (data ?? []) as any[]
-    const answer = rows.length === 0
-        ? `There are no ${requestedFlagStatus.toLowerCase()} duplicate flags.`
-        : `${rows.length} ${requestedFlagStatus.toLowerCase()} duplicate flag${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
-            ['Student ID', 'Student', 'Scholarships', 'Academic Term', 'Reason'],
-            rows.map((row) => [
-              row.students?.student_number,
-              `${row.students?.first_name ?? ''} ${row.students?.last_name ?? ''}`.trim(),
-              [row.a?.scholarships?.name, row.b?.scholarships?.name].filter(Boolean).join(' + '),
-              [row.a?.academic_year ?? row.b?.academic_year, row.a?.semester ?? row.b?.semester].filter(Boolean).join(' \u2022 '),
-              row.reason,
-            ])
-          )}\n\n### Summary\n**Displayed ${requestedFlagStatus} Duplicate Flags:** ${rows.length}`
-    return { intent: 'duplicates', data: rows, answer }
+    const uniqueStudents = new Map<string, any>()
+    for (const row of rows) {
+      const key = row.students?.id ?? row.students?.student_number ?? row.id
+      if (!uniqueStudents.has(key)) uniqueStudents.set(key, row)
+    }
+    const studentRows = [...uniqueStudents.values()]
+
+    if (mode === 'count') {
+      const asksForStudents = /\bstudents?\b|\bscholars?\b/.test(contextualQ) && !/\bcases?\b|\bflags?\b/.test(contextualQ)
+      const total = asksForStudents ? studentRows.length : rows.length
+      return {
+        intent: resolved ? 'resolved_duplicate_count' : 'open_duplicate_count',
+        data: { count: total, caseCount: rows.length, studentCount: studentRows.length, status: requestedFlagStatus },
+        answer: `**${resolved ? 'Resolved' : 'Open'} Duplicate ${asksForStudents ? 'Students' : 'Cases'}:** ${total}`,
+      }
+    }
+
+    if (studentRows.length === 0) {
+      return {
+        intent: 'duplicate_student_list',
+        data: [],
+        answer: `There are currently 0 ${requestedFlagStatus.toLowerCase()} duplicate scholarship cases in SIGMA.`,
+      }
+    }
+
+    const selected = studentRows.slice(0, resultLimit)
+    const detailRows = selected.map((row) => [
+      row.students?.student_number,
+      `${row.students?.first_name ?? ''} ${row.students?.last_name ?? ''}`.trim(),
+      [row.a?.scholarships?.name, row.b?.scholarships?.name].filter(Boolean).join(' & '),
+      [row.a?.academic_year ?? row.b?.academic_year, row.a?.semester ?? row.b?.semester].filter(Boolean).join(' \u2022 '),
+      `${row.status} Duplicate Case`,
+    ])
+    const intro = selected.length === 1
+      ? 'One student with a duplicate scholarship:'
+      : `${selected.length} students with duplicate scholarships:`
+    const answer = `${intro}\n\n${formatTable(
+      ['Student ID', 'Name', 'Conflicting Scholarships', 'Academic Term', 'Status'],
+      detailRows,
+    )}\n\nThere are **${rows.length} total ${requestedFlagStatus.toLowerCase()} duplicate cases** currently${resolved ? '.' : ' requiring review.'}`
+    return { intent: 'duplicate_student_list', data: selected, answer }
   }
 
   const enrollmentQuestion = /\benrolled\b/.test(contextualQ) && /\bstudents?\b|\bscholars?\b/.test(contextualQ)

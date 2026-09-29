@@ -16,6 +16,15 @@ test('dashboard and reports use canonical Supabase student-profile counts', () =
   assert.match(dashboard, /useReportAnalytics/)
 })
 
+test('SIGMAI separates canonical active profiles from active scholar assignments', () => {
+  const assistant = readFileSync('src/utils/assistantClient.ts', 'utf8')
+  assert.match(assistant, /studentProfileCountScope\(contextualQuestion\)/)
+  assert.match(assistant, /counts\.activeStudents : counts\.allStudents/)
+  assert.match(assistant, /active_student_count/)
+  assert.match(assistant, /Total Active Students/)
+  assert.match(assistant, /distinct student profiles/)
+})
+
 test('dashboard and reports consume one shared analytics service and academic-year scope', () => {
   const dashboardPage = readFileSync('src/pages/DashboardPage.tsx', 'utf8')
   const reportsPage = readFileSync('src/pages/ReportsPage.tsx', 'utf8')

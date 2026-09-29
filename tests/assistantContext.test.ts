@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
-import { countDistinctStudentIds, isGenericStudentTotalQuestion } from '../src/utils/studentAnalyticsCore.ts'
+import { countDistinctStudentIds, isGenericStudentTotalQuestion, studentProfileCountScope } from '../src/utils/studentAnalyticsCore.ts'
 
 test('academic years normalize hyphen, en dash, and em dash consistently', () => {
   assert.equal(normalizeAcademicYearText('AY 2023-2024'), '2023-2024')
@@ -21,10 +21,11 @@ test('relative academic-year follow-ups derive from structured context', () => {
 })
 
 test('required conversational phrases are classified as follow-ups', () => {
-  for (const question of ['How about 2023-2024?', 'And for 2024-2025?', 'How many for 2023-2024?', 'Who are they?', 'List them.']) {
+  for (const question of ['How about 2023-2024?', 'And for 2024-2025?', 'How many for 2023-2024?', 'Who are they?', 'List them.', 'How many are active?']) {
     assert.equal(isContextualFollowUp(question), true, question)
   }
   assert.equal(isContextualFollowUp('How many students are in BSIT?'), false)
+  assert.equal(isContextualFollowUp('How many active students?'), false)
 })
 
 test('scholarship category wording is normalized for contextual switches', () => {
@@ -104,4 +105,13 @@ test('generic student totals are separated from filtered scholar and enrollment 
   assert.equal(isGenericStudentTotalQuestion('How many students are in academic year 2025-2026?'), false)
   assert.equal(isGenericStudentTotalQuestion('How many DOST scholars are there?'), false)
   assert.equal(countDistinctStudentIds([{ id: 'a' }, { id: 'a' }, { id: 'b' }], (row) => row.id), 2)
+})
+
+test('active student profiles remain distinct from active scholarship assignments', () => {
+  assert.equal(studentProfileCountScope('How many active students?'), 'active')
+  assert.equal(studentProfileCountScope('Total active students'), 'active')
+  assert.equal(studentProfileCountScope('How many students are there?'), 'all')
+  assert.equal(studentProfileCountScope('How many active scholars?'), null)
+  assert.equal(studentProfileCountScope('How many active students in CASS?'), null)
+  assert.equal(studentProfileCountScope('How many enrolled students?'), null)
 })

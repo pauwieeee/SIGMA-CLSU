@@ -9,7 +9,7 @@
 import { supabase } from '@/lib/supabase'
 import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
-import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion } from '@/utils/studentAnalytics'
+import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion, studentProfileCountScope } from '@/utils/studentAnalytics'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -486,12 +486,27 @@ async function resolveIntent(
     return { intent: 'duplicate_student_list', data: selected, answer }
   }
 
+  const profileCountScope = studentProfileCountScope(contextualQuestion)
+  if (profileCountScope) {
+    const counts = await fetchCanonicalStudentCounts()
+    const count = profileCountScope === 'active' ? counts.activeStudents : counts.allStudents
+    return {
+      intent: profileCountScope === 'active' ? 'active_student_count' : 'total_student_count',
+      data: { count, scope: profileCountScope },
+      answer: profileCountScope === 'active'
+        ? `**Total Active Students:** ${count}\n\nThere are **${count} active student records** currently in SIGMA.`
+        : `**Total Students:** ${count}\n\nThere are **${count} distinct student profiles** in the SIGMA database.`,
+    }
+  }
+
+  // Retain the legacy generic detector as a safe fallback for phrasing that
+  // has not yet been classified by the stricter student-profile scope.
   if (isGenericStudentTotalQuestion(contextualQuestion)) {
     const counts = await fetchCanonicalStudentCounts()
     return {
       intent: 'total_student_count',
-      data: { count: counts.activeStudents },
-      answer: `There are **${counts.activeStudents} students** currently in the SIGMA database.`,
+      data: { count: counts.allStudents, scope: 'all' },
+      answer: `**Total Students:** ${counts.allStudents}\n\nThere are **${counts.allStudents} distinct student profiles** in the SIGMA database.`,
     }
   }
 

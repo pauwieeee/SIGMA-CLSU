@@ -61,4 +61,5 @@ export function isContextualFollowUp(question: string): boolean {
   return /\b(it|that|those|them|they|their|there|these|this|same|previous|above)\b/i.test(trimmed)
     || /^(and|also|what about|how about|are|is|do|does|can|only)\b/i.test(trimmed)
     || /^(?:how many|who|list|show)\s+(?:are\s+)?(?:for|of|them|they)\b/i.test(trimmed)
+    || /^how many\s+are\s+(?:active|inactive)\b/i.test(trimmed)
 }

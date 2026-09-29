@@ -7,7 +7,7 @@
 // same either way.
 
 import { supabase } from '@/lib/supabase'
-import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
+import { explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
 import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion } from '@/utils/studentAnalytics'
 
@@ -43,6 +43,7 @@ export interface AssistantScholarContext {
   academicYear: string | null
   semester: string | null
   scholarshipStatus: string | null
+  categories: string[]
   scholarships: string[]
   colleges: string[]
   programs: string[]
@@ -325,6 +326,8 @@ async function resolveIntent(
   previousContext: AssistantQueryContext | null = null,
 ): Promise<QueryResult> {
   const q = normalizeAssistantQuestion(question).toLowerCase()
+  const normalizedCurrentQuestion = stripScholarshipReferenceMetadata(normalizeAssistantQuestion(question))
+  const currentQ = normalizedCurrentQuestion.toLowerCase()
   let contextualQuestion = normalizeAssistantQuestion(questionWithContext(question, history))
   const resolvedRelativeYear = previousContext?.kind === 'scholars'
     ? relativeAcademicYear(question, previousContext.academicYear)
@@ -613,21 +616,17 @@ async function resolveIntent(
 
     const assignments = (assignmentResult.data ?? []) as any[]
     const scholarshipCatalog = (scholarshipResult.data ?? []) as any[]
-    const semester = contextualQ.includes('1st semester') || contextualQ.includes('first semester')
+    const semester = currentQ.includes('1st semester') || currentQ.includes('first semester')
       ? '1st Semester'
-      : contextualQ.includes('2nd semester') || contextualQ.includes('second semester')
+      : currentQ.includes('2nd semester') || currentQ.includes('second semester')
         ? '2nd Semester'
-        : contextualQ.includes('summer')
+        : currentQ.includes('summer')
           ? 'Summer'
           : null
-    const appliedYear = lastAcademicYearText(contextualQuestion)
-    const semesterMatches = [...contextualQuestion.matchAll(/\b(1st|first|2nd|second)\s+semester\b|\bsummer\b/gi)]
-    const latestSemester = semesterMatches.at(-1)?.[0].toLowerCase()
-    const appliedSemester = latestSemester?.includes('1st') || latestSemester?.includes('first')
-      ? '1st Semester'
-      : latestSemester?.includes('2nd') || latestSemester?.includes('second')
-        ? '2nd Semester'
-        : latestSemester === 'summer' ? 'Summer' : semester
+    const appliedYear = lastAcademicYearText(normalizedCurrentQuestion)
+      ?? (isFollowUpQuestion(question) ? previousContext?.academicYear ?? null : null)
+    const appliedSemester = semester
+      ?? (isFollowUpQuestion(question) ? previousContext?.semester ?? null : null)
 
     const statusMatchers: [string, RegExp][] = [
       ['For Renewal', /\b(?:for\s+)?renewal\b/i],
@@ -637,10 +636,11 @@ async function resolveIntent(
       ['Active', /\bactive\b/i],
     ]
     const requestedStatuses = statusMatchers.flatMap(([status, pattern]) => {
-      const matches = [...contextualQuestion.matchAll(new RegExp(pattern.source, 'gi'))]
+      const matches = [...normalizedCurrentQuestion.matchAll(new RegExp(pattern.source, 'gi'))]
       return matches.map((match) => ({ status, index: match.index ?? -1 }))
     }).sort((a, b) => a.index - b.index)
-    const requestedStatus = requestedStatuses.at(-1)?.status ?? null
+    const requestedStatus = requestedStatuses.at(-1)?.status
+      ?? (isFollowUpQuestion(question) ? previousContext?.scholarshipStatus ?? null : null)
     let filtered = assignments.filter((row) =>
       (!requestedStatus || row.status === requestedStatus)
       && (!appliedYear || row.academic_year === appliedYear)
@@ -691,9 +691,37 @@ async function resolveIntent(
         : entities
             .filter(([name, aliases]) => includesEntity(contextualQuestion, name, [...aliases]))
             .map(([name]) => name)
-      const names = currentQuestionMatches.length > 0 ? currentQuestionMatches : inheritedNames
+      let names = currentQuestionMatches.length > 0 ? currentQuestionMatches : inheritedNames
+      if (isFollowUpQuestion(question) && currentQuestionMatches.length === 0 && previousContext) {
+        if (type === 'category') names = previousContext.categories
+        if (type === 'scholarship') names = previousContext.scholarships
+        if (type === 'college') names = previousContext.colleges
+        if (type === 'program') names = previousContext.programs
+      }
       return { type, names }
     }).filter((match) => match.names.length > 0)
+
+    // A category or scholarship named in the current follow-up replaces the
+    // prior scholarship scope while status, term, college, and result mode
+    // continue from the structured context.
+    const currentCategory = explicitScholarshipCategory(normalizedCurrentQuestion)
+    const currentScholarshipNames = [...entityAliases.scholarship.entries()]
+      .filter(([name, aliases]) => scholarshipNameMatchesQuestion(normalizedCurrentQuestion, name, [...aliases]))
+      .map(([name]) => name)
+    if (currentCategory || currentScholarshipNames.length > 0) {
+      const categoryIndex = matchedByType.findIndex((match) => match.type === 'category')
+      const scholarshipIndex = matchedByType.findIndex((match) => match.type === 'scholarship')
+      if (currentCategory) {
+        if (categoryIndex >= 0) matchedByType[categoryIndex].names = [currentCategory]
+        else matchedByType.push({ type: 'category', names: [currentCategory] })
+        if (scholarshipIndex >= 0) matchedByType.splice(scholarshipIndex, 1)
+      } else {
+        if (scholarshipIndex >= 0) matchedByType[scholarshipIndex].names = currentScholarshipNames
+        else matchedByType.push({ type: 'scholarship', names: currentScholarshipNames })
+        const inheritedCategoryIndex = matchedByType.findIndex((match) => match.type === 'category')
+        if (inheritedCategoryIndex >= 0) matchedByType.splice(inheritedCategoryIndex, 1)
+      }
+    }
 
     if (matchedByType.length > 0) {
       filtered = filtered.filter((row) => matchedByType.every(({ type, names }) => {
@@ -742,6 +770,7 @@ async function resolveIntent(
       academicYear: appliedYear ?? null,
       semester: appliedSemester ?? null,
       scholarshipStatus: requestedStatus,
+      categories: matchedByType.find((match) => match.type === 'category')?.names ?? [],
       scholarships: matchedByType.find((match) => match.type === 'scholarship')?.names ?? [],
       colleges: matchedByType.find((match) => match.type === 'college')?.names ?? [],
       programs: matchedByType.find((match) => match.type === 'program')?.names ?? [],
@@ -767,12 +796,22 @@ async function resolveIntent(
     if (mode === 'count' || q.includes('scholar')) {
       const matchedScholarships = matchedByType.find((match) => match.type === 'scholarship')?.names ?? []
       const exactScholarshipLabel = matchedScholarships.length === 1 ? matchedScholarships[0] : null
+      const matchedCategories = matchedByType.find((match) => match.type === 'category')?.names ?? []
+      const exactCategoryLabel = matchedCategories.length === 1 ? matchedCategories[0] : null
+      const statusPrefix = requestedStatus ? `${requestedStatus} ` : ''
+      const confirmsPreviousCategory = Boolean(
+        exactCategoryLabel
+        && previousContext?.categories.includes(exactCategoryLabel)
+        && /\b(?:is|are)\s+(?:that|this|those|they)\b.*\bunder\b/i.test(normalizedCurrentQuestion),
+      )
       return {
         intent: 'scholar_count',
         data: { count: matchingStudentCount, filter: filterLabel, studentIds: scholarContext.studentIds },
         answer: exactScholarshipLabel
           ? `**${exactScholarshipLabel}** currently has **${matchingStudentCount}** student${matchingStudentCount === 1 ? '' : 's'} assigned${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`
-          : `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${matchingStudentCount}`,
+          : exactCategoryLabel
+            ? `${confirmsPreviousCategory ? `Yes. The **${matchingStudentCount}** refers only to ${exactCategoryLabel} scholars${requestedStatus ? ` with ${requestedStatus} status` : ''}.` : `**${statusPrefix}${exactCategoryLabel} Scholars:** ${matchingStudentCount}\n\nThere ${matchingStudentCount === 1 ? 'is' : 'are'} **${matchingStudentCount}**${requestedStatus ? ` ${requestedStatus.toLowerCase()}` : ''} student${matchingStudentCount === 1 ? '' : 's'} under ${exactCategoryLabel} scholarships${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`}`
+            : `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${matchingStudentCount}`,
         context: scholarContext,
       }
     }

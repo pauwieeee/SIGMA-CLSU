@@ -1,5 +1,14 @@
 export type ScholarQueryMode = 'count' | 'list'
 
+export type ScholarshipCategory = 'Government' | 'Institutional' | 'Private'
+
+export function explicitScholarshipCategory(question: string): ScholarshipCategory | null {
+  if (/\b(?:institutional(?:\s+scholars?)?|clsu\s+scholarships?)\b/i.test(question)) return 'Institutional'
+  if (/\b(?:government(?:\s+scholars?)?|gov(?:ernment)?\.?\s+scholars?)\b/i.test(question)) return 'Government'
+  if (/\bprivate(?:\s+scholars?)?\b/i.test(question)) return 'Private'
+  return null
+}
+
 export function normalizeAcademicYearText(value: string): string | null {
   const match = value.match(/\b(20\d{2})\s*[-–—]\s*(20\d{2})\b/)
   return match ? `${match[1]}-${match[2]}` : null

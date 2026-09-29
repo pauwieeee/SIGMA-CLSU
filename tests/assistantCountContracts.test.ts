@@ -28,11 +28,19 @@ test('scholarship counts use the same non-archived assignment joins as Reports',
   assert.match(assistant, /distinctScholarRows\(filtered\)/)
 })
 
+test('scholar follow-ups persist category context and produce explicit category answers', () => {
+  assert.match(assistant, /categories: string\[\]/)
+  assert.match(assistant, /previousContext\.categories/)
+  assert.match(assistant, /explicitScholarshipCategory\(normalizedCurrentQuestion\)/)
+  assert.match(assistant, /exactCategoryLabel/)
+  assert.match(assistant, /under \$\{exactCategoryLabel\} scholarships/)
+})
+
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
   const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
   const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")
   assert.ok(idLookup >= 0 && idLookup < duplicateLookup, 'Student ID intent should run before generic duplicate analytics')
-  assert.match(assistant, /lastAcademicYearText\(contextualQuestion\)/)
+  assert.match(assistant, /lastAcademicYearText\(normalizedCurrentQuestion\)/)
   for (const alias of ['CEN', 'CEAT', 'CASS', 'CBAA', 'COE', 'CAS']) assert.match(assistant, new RegExp(`${alias}:`))
   assert.match(assistant, /requestedDuplicateResultLimit\(question\)/)
   assert.match(assistant, /a:student_scholarship_id_a/)

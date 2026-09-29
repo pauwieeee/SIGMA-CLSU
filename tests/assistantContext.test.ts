@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
+import { explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
 import { countDistinctStudentIds, isGenericStudentTotalQuestion } from '../src/utils/studentAnalyticsCore.ts'
 
@@ -25,6 +25,13 @@ test('required conversational phrases are classified as follow-ups', () => {
     assert.equal(isContextualFollowUp(question), true, question)
   }
   assert.equal(isContextualFollowUp('How many students are in BSIT?'), false)
+})
+
+test('scholarship category wording is normalized for contextual switches', () => {
+  assert.equal(explicitScholarshipCategory('How about government?'), 'Government')
+  assert.equal(explicitScholarshipCategory('CLSU scholarships only'), 'Institutional')
+  assert.equal(explicitScholarshipCategory('private scholars'), 'Private')
+  assert.equal(explicitScholarshipCategory('What about TES?'), null)
 })
 
 test('assistant normalizes minor intent spelling mistakes', () => {

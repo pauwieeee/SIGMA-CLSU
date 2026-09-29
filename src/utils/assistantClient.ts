@@ -147,6 +147,34 @@ function referenceAliases(name: string, code?: string | null): string[] {
   return [...aliases]
 }
 
+const OFFICIAL_COLLEGE_ALIASES: Record<string, string[]> = {
+  CEN: ['college of engineering'],
+  CEAT: ['college of engineering', 'college of engineering and technology', 'college of engineering and agro industrial technology'],
+  CASS: ['college of arts and social sciences'],
+  CBAA: ['college of business administration', 'college of business administration and accountancy'],
+  COE: ['college of education'],
+  CAS: ['college of arts and sciences'],
+}
+
+function collegeAliases(name: string, code?: string | null): string[] {
+  const aliases = new Set(referenceAliases(name, code))
+  const normalizedName = normalize(name)
+  for (const [alias, officialNames] of Object.entries(OFFICIAL_COLLEGE_ALIASES)) {
+    if (officialNames.some((officialName) => {
+      const normalizedOfficial = normalize(officialName)
+      return normalizedName === normalizedOfficial
+        || normalizedName.includes(normalizedOfficial)
+        || normalizedOfficial.includes(normalizedName)
+    })) aliases.add(alias)
+  }
+  return [...aliases]
+}
+
+function requestedResultLimit(question: string, fallback = 50): number {
+  const match = question.match(/\b(?:give|show|list|find)?\s*(?:me\s+)?(\d{1,2})\b/i)
+  return match ? Math.min(Math.max(Number(match[1]), 1), 50) : fallback
+}
+
 function requestedScholarshipQualifier(question: string): string | null {
   const beforeScholars = question.match(/^\s*(?:(?:show|list|find|give me|who are)\s+)?(?:(?:all|the|of)\s+)*(.*?)\s+scholars?\b/i)?.[1]
   if (!beforeScholars) return null
@@ -401,24 +429,30 @@ async function resolveIntent(
         answer: `**${resolved ? 'Resolved Duplicate Cases' : 'Open Duplicate Flags'}:** ${total}`,
       }
     }
+    const resultLimit = requestedResultLimit(question)
     const { data, error } = await supabase
       .from('duplicate_flags')
-      .select('id, reason, students ( student_number, last_name, first_name )')
+      .select(`id, reason, status, created_at,
+        students ( student_number, last_name, first_name ),
+        a:student_scholarship_id_a ( academic_year, semester, scholarships ( name ) ),
+        b:student_scholarship_id_b ( academic_year, semester, scholarships ( name ) )`)
       .eq('status', requestedFlagStatus)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(resultLimit)
     assertQuerySucceeded(error)
     const rows = (data ?? []) as any[]
     const answer = rows.length === 0
-        ? 'There are no open duplicate flags.'
-        : `${rows.length} open duplicate flag${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
-            ['Student ID', 'Student', 'Reason'],
+        ? `There are no ${requestedFlagStatus.toLowerCase()} duplicate flags.`
+        : `${rows.length} ${requestedFlagStatus.toLowerCase()} duplicate flag${rows.length === 1 ? '' : 's'} found.\n\n${formatTable(
+            ['Student ID', 'Student', 'Scholarships', 'Academic Term', 'Reason'],
             rows.map((row) => [
               row.students?.student_number,
               `${row.students?.first_name ?? ''} ${row.students?.last_name ?? ''}`.trim(),
+              [row.a?.scholarships?.name, row.b?.scholarships?.name].filter(Boolean).join(' + '),
+              [row.a?.academic_year ?? row.b?.academic_year, row.a?.semester ?? row.b?.semester].filter(Boolean).join(' \u2022 '),
               row.reason,
             ])
-          )}\n\n### Summary\n**Total Open Duplicate Flags:** ${rows.length}`
+          )}\n\n### Summary\n**Displayed ${requestedFlagStatus} Duplicate Flags:** ${rows.length}`
     return { intent: 'duplicates', data: rows, answer }
   }
 
@@ -580,7 +614,7 @@ async function resolveIntent(
     for (const row of assignments) {
       const program = row.students?.programs
       addEntity('program', program?.name, programAliases(program?.name ?? '', program?.code))
-      addEntity('college', program?.colleges?.name, referenceAliases(program?.colleges?.name ?? '', program?.colleges?.code))
+      addEntity('college', program?.colleges?.name, collegeAliases(program?.colleges?.name ?? '', program?.colleges?.code))
       const scholarshipName = row.scholarships?.name as string | undefined
       addEntity('scholarship', scholarshipName, referenceAliases(scholarshipName ?? '', row.scholarships?.code))
       const agencyName = row.scholarships?.scholarship_agencies?.name as string | undefined

@@ -12,6 +12,18 @@ test('assistant has dedicated live enrollment and resolved-duplicate count inten
   assert.match(assistant, /select\('id', \{ count: 'exact', head: true \}\)/)
 })
 
+test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
+  const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
+  const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")
+  assert.ok(idLookup >= 0 && idLookup < duplicateLookup, 'Student ID intent should run before generic duplicate analytics')
+  assert.match(assistant, /lastAcademicYearText\(contextualQuestion\)/)
+  for (const alias of ['CEN', 'CEAT', 'CASS', 'CBAA', 'COE', 'CAS']) assert.match(assistant, new RegExp(`${alias}:`))
+  assert.match(assistant, /requestedResultLimit\(question\)/)
+  assert.match(assistant, /a:student_scholarship_id_a/)
+  assert.match(assistant, /b:student_scholarship_id_b/)
+  assert.match(assistant, /\['Student ID', 'Student', 'Scholarships', 'Academic Term', 'Reason'\]/)
+})
+
 test('student email clearing is persisted as null and verified from the returned row', () => {
   assert.match(studentForm, /const emailValue = form\.email\.trim\(\) \|\| null/)
   assert.match(studentForm, /email: emailValue/)

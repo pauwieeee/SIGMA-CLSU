@@ -11,6 +11,7 @@ import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp,
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
 import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion, studentProfileCountScope } from '@/utils/studentAnalytics'
 import { matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
+import { retryAssistantOperation } from '@/utils/assistantRetry'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -901,12 +902,18 @@ async function resolveIntent(
 
 /* oxlint-disable no-unreachable -- legacy direct-call code is retained temporarily for rollback reference */
 async function callGeminiWithFallback(prompt: string): Promise<string> {
-  const edgeResult = await supabase.functions.invoke('sigma-assistant', { body: { question: prompt } })
-  if (edgeResult.error) throw new AssistantError('assistant_service_error', edgeResult.error.message)
-  if (!edgeResult.data?.answer || typeof edgeResult.data.answer !== 'string') {
-    throw new AssistantError('assistant_bad_response', 'SIGMAI returned an invalid response')
-  }
-  return edgeResult.data.answer
+  return retryAssistantOperation(async () => {
+    const edgeResult = await supabase.functions.invoke('sigma-assistant', { body: { question: prompt } })
+    if (edgeResult.error) throw new AssistantError('assistant_service_error', edgeResult.error.message)
+    if (!edgeResult.data?.answer || typeof edgeResult.data.answer !== 'string') {
+      throw new AssistantError('assistant_bad_response', 'SIGMAI returned an invalid response')
+    }
+    return edgeResult.data.answer
+  }, {
+    attempts: 3,
+    shouldRetry: (error) => error instanceof AssistantError
+      && ['assistant_service_error', 'assistant_bad_response', 'network_error'].includes(error.code),
+  })
 
   /* Legacy direct-call fallback intentionally left unreachable until the
      Edge Function rollout has been verified in production. */
@@ -1018,7 +1025,13 @@ export async function askAssistant(
   previousContext: AssistantQueryContext | null = null,
 ): Promise<AssistantResponse> {
   const recentHistory = history.slice(-8)
-  const result = await resolveIntent(question, recentHistory, previousContext)
+  const result = await retryAssistantOperation(
+    () => resolveIntent(question, recentHistory, previousContext),
+    {
+      attempts: 3,
+      shouldRetry: (error) => error instanceof AssistantError && error.code === 'database_error',
+    },
+  )
   const nextContext = result.context ?? (isFollowUpQuestion(question) ? previousContext : null)
 
   // Known reports are formatted directly from database results. Gemini is

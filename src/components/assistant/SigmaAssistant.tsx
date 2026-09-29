@@ -27,9 +27,13 @@ function errorMessageFor(code: string): string {
     case 'invalid_request':
       return "That question couldn't be sent — please try typing it again."
     case 'network_error':
-      return "I couldn't reach the assistant service. Check your connection and try again."
+      return 'SIGMAI is temporarily unable to access its online service. The website is still available. Please try again shortly.'
     case 'database_error':
-      return "I couldn't read the SIGMA records needed for that answer. Please try again."
+      return 'SIGMAI is temporarily unable to access the scholarship database. The website is still available, but chatbot queries cannot be processed at the moment. Please try again shortly.'
+    case 'assistant_service_error':
+      return 'SIGMAI’s language service is temporarily unavailable. Live database questions are still available—try asking for a student, scholarship, count, status, college, category, academic year, or semester.'
+    case 'assistant_bad_response':
+      return 'SIGMAI’s language service returned an incomplete response. Live database questions are still available. Please try again shortly.'
     default:
       return 'The assistant is unavailable right now. Please try again shortly.'
   }
@@ -138,7 +142,7 @@ export function SigmaAssistant() {
       setMessages((m) => [...m, { role: 'assistant', text: response.answer || "Sorry, I couldn't find an answer." }])
       reactToResponse()
     } catch (err) {
-      const code = err instanceof AssistantError ? err.code : 'network_error'
+      const code = err instanceof AssistantError ? err.code : 'assistant_service_error'
       setMessages((m) => [...m, { role: 'assistant', text: errorMessageFor(code) }])
       reactToResponse()
     } finally {

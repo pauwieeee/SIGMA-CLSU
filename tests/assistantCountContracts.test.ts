@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const assistant = readFileSync('src/utils/assistantClient.ts', 'utf8')
 const studentForm = readFileSync('src/components/students/StudentFormModal.tsx', 'utf8')
+const assistantUi = readFileSync('src/components/assistant/SigmaAssistant.tsx', 'utf8')
 
 test('assistant has dedicated live enrollment and resolved-duplicate count intents', () => {
   assert.match(assistant, /not_enrolled_student_count/)
@@ -54,6 +55,15 @@ test('status, semester, category, and Needs Review use Student Records rules', (
   assert.match(assistant, /hasRecognizedFilter/)
   assert.match(assistant, /appliedSemester/)
   assert.match(assistant, /distinct students matching/)
+})
+
+test('live database retrieval retries before reporting a precise service error', () => {
+  assert.match(assistant, /retryAssistantOperation/)
+  assert.match(assistant, /attempts: 3/)
+  assert.match(assistant, /error\.code === 'database_error'/)
+  assert.match(assistantUi, /temporarily unable to access the scholarship database/)
+  assert.match(assistantUi, /language service is temporarily unavailable/)
+  assert.doesNotMatch(assistantUi, /Check your connection and try again/)
 })
 
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {

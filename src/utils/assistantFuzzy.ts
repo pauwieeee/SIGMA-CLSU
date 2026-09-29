@@ -37,18 +37,19 @@ export function stripScholarshipReferenceMetadata(value: string): string {
 }
 
 function normalizeEntity(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  return value.toLowerCase().replace(/\bundergrad\b/g, 'undergraduate').replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-export function scholarshipNameMatchesQuestion(question: string, name: string, code?: string | null): boolean {
+export function scholarshipNameMatchesQuestion(question: string, name: string, aliases: string | string[] = []): boolean {
   const normalizedQuestion = ` ${normalizeEntity(stripScholarshipReferenceMetadata(question))} `
-  const normalizedName = normalizeEntity(stripScholarshipReferenceMetadata(name))
-  if (!normalizedName) return false
-  if (normalizedQuestion.includes(` ${normalizedName} `)) return true
+  const candidates = new Set([name, name.replace(/\([^)]*\)/g, ' '), ...(Array.isArray(aliases) ? aliases : [aliases])])
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeEntity(stripScholarshipReferenceMetadata(candidate))
+    if (!normalizedCandidate) continue
+    if (normalizedQuestion.includes(` ${normalizedCandidate} `)) return true
 
-  const coreName = normalizedName.replace(/\s+(?:scholarship\s+program|scholarship|program)$/i, '').trim()
-  if (coreName.split(' ').length >= 2 && normalizedQuestion.includes(` ${coreName} `)) return true
-
-  const normalizedCode = normalizeEntity(code ?? '')
-  return Boolean(normalizedCode && normalizedQuestion.includes(` ${normalizedCode} `))
+    const coreName = normalizedCandidate.replace(/\s+(?:scholarship\s+program|scholarship|program)$/i, '').trim()
+    if (coreName.split(' ').length >= 2 && normalizedQuestion.includes(` ${coreName} `)) return true
+  }
+  return false
 }

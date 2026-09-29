@@ -20,6 +20,13 @@ test('scholarship counts use the complete live catalog so zero assignments remai
   assert.match(assistant, /currently has \*\*\$\{scholarRows\.length\}\*\* student/)
 })
 
+test('scholarship counts use the same non-archived assignment joins as Reports', () => {
+  assert.match(assistant, /programs\(name, code, colleges\(name, code\)\)/)
+  assert.doesNotMatch(assistant, /programs!inner\(name, code, colleges!inner/)
+  assert.match(assistant, /\.is\('scholarships\.archived_at', null\)/)
+  assert.match(assistant, /distinctScholarRows\(filtered\)/)
+})
+
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
   const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
   const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")

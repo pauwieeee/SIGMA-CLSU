@@ -56,3 +56,12 @@ test('scholarship names match without case, punctuation, generic suffixes, or re
   )
   assert.equal(scholarshipNameMatchesQuestion('students under an unknown scholarship', 'CLSU Tanglaw Scholarship'), false)
 })
+
+test('government scholarship aliases derived from official database names are recognized', () => {
+  assert.equal(scholarshipNameMatchesQuestion('students under DA ATI', 'DA-ATI'), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under TES', 'CHED Tertiary Education Subsidy (TES)', ['TES']), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under CHED TES', 'CHED Tertiary Education Subsidy (TES)', ['TES']), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under DOST SEI', 'DOST-SEI Undergraduate Scholarship', ['DOST-SEI']), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under DOST-SEI undergrad', 'DOST-SEI (undergrad)', ['DOST-SEI']), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under Estatiskolar', 'CHED-Estatiskolar', ['Estatiskolar']), true)
+})

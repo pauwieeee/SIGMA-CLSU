@@ -118,9 +118,21 @@ function referenceAliases(name: string, code?: string | null): string[] {
   const aliases = new Set<string>()
   if (code?.trim()) aliases.add(code.trim())
 
+  const nameWithoutReferences = stripScholarshipReferenceMetadata(name)
+  const nameWithoutParentheses = nameWithoutReferences.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim()
+  if (nameWithoutParentheses && normalize(nameWithoutParentheses) !== normalize(name)) aliases.add(nameWithoutParentheses)
+
   for (const match of name.matchAll(/\(([^)]+)\)/g)) {
     if (match[1]?.trim()) aliases.add(match[1].trim())
   }
+
+  // Hyphenated official names commonly combine an agency prefix with the
+  // recognizable program name (for example, AGENCY-Program). The suffix is
+  // derived from the database value and is accepted only as an exact phrase.
+  const hyphenSuffix = nameWithoutParentheses.match(/^[^-]+-(.+)$/)?.[1]?.trim()
+  if (hyphenSuffix && normalize(hyphenSuffix).length >= 4) aliases.add(hyphenSuffix)
+  const leadingCompound = nameWithoutParentheses.match(/^([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)\b/)?.[1]?.trim()
+  if (leadingCompound) aliases.add(leadingCompound)
 
   const words = name
     .replace(/\([^)]*\)/g, ' ')
@@ -563,11 +575,12 @@ async function resolveIntent(
         .select(
           `id, academic_year, semester, status, is_enrolled,
            students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
-             programs!inner(name, code, colleges!inner(name, code))),
-           scholarships!inner(name, code, scholarship_categories!inner(name), scholarship_agencies(name))`
+             programs(name, code, colleges(name, code))),
+           scholarships!inner(name, code, archived_at, scholarship_categories!inner(name), scholarship_agencies(name))`
         )
         .is('archived_at', null)
-        .is('students.archived_at', null),
+        .is('students.archived_at', null)
+        .is('scholarships.archived_at', null),
       supabase
         .from('scholarships')
         .select('name, code, scholarship_categories(name), scholarship_agencies(name)')
@@ -643,12 +656,12 @@ async function resolveIntent(
       const entities = [...entityAliases[type].entries()]
       const currentQuestionMatches = entities
         .filter(([name, aliases]) => type === 'scholarship'
-          ? scholarshipNameMatchesQuestion(question, name, [...aliases][0])
+          ? scholarshipNameMatchesQuestion(question, name, [...aliases])
           : includesEntity(question, name, [...aliases]))
         .map(([name]) => name)
       const directNames = entities
         .filter(([name]) => type === 'scholarship'
-          ? scholarshipNameMatchesQuestion(contextualQuestion, name)
+          ? scholarshipNameMatchesQuestion(contextualQuestion, name, [...(entityAliases.scholarship.get(name) ?? [])])
           : includesEntity(contextualQuestion, name))
         .map(([name]) => name)
       const inheritedNames = type === 'scholarship' && directNames.length > 0

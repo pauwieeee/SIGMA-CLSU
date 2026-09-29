@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabase'
 import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 import { normalizeAssistantQuestion } from '@/utils/assistantFuzzy'
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
+// Gemini credentials live only in the authenticated Edge Function.
+const GEMINI_API_KEY: string | undefined = undefined
 
 export class AssistantError extends Error {
   code: string
@@ -735,7 +736,17 @@ async function resolveIntent(
   return { intent: 'conversation', data: null }
 }
 
+/* oxlint-disable no-unreachable -- legacy direct-call code is retained temporarily for rollback reference */
 async function callGeminiWithFallback(prompt: string): Promise<string> {
+  const edgeResult = await supabase.functions.invoke('sigma-assistant', { body: { question: prompt } })
+  if (edgeResult.error) throw new AssistantError('assistant_service_error', edgeResult.error.message)
+  if (!edgeResult.data?.answer || typeof edgeResult.data.answer !== 'string') {
+    throw new AssistantError('assistant_bad_response', 'SIGMAI returned an invalid response')
+  }
+  return edgeResult.data.answer
+
+  /* Legacy direct-call fallback intentionally left unreachable until the
+     Edge Function rollout has been verified in production. */
   if (!GEMINI_API_KEY) {
     throw new AssistantError('config_missing', 'VITE_GEMINI_API_KEY is not set')
   }
@@ -799,6 +810,7 @@ async function callGeminiWithFallback(prompt: string): Promise<string> {
   throw new AssistantError('gemini_rate_limited', 'All available Gemini models are currently rate-limited or unavailable')
 }
 
+/* oxlint-enable no-unreachable */
 const FORMATTING_INSTRUCTIONS = `You are SIGMA Assistant, a scholarship records assistant for CLSU's Office of Admissions.
 Answer using ONLY the data provided below — never invent numbers or records. If the data is empty, say so plainly.
 

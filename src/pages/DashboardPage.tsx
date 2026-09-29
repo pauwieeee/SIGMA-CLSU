@@ -1,7 +1,9 @@
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Link } from 'react-router-dom'
-import { useAuth } from '@/lib/AuthProvider'
-import { useDashboardStats, useRecentActivity, useScholarsPerCategory } from '@/hooks/useDashboardData'
+import { useAuth } from '@/lib/authContext'
+import { useRecentActivity } from '@/hooks/useDashboardData'
+import { useReportAnalytics } from '@/hooks/useReportAnalytics'
+import { useAnalyticsAcademicYear } from '@/hooks/useAnalyticsAcademicYear'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { WidgetCard, WidgetTitle } from '@/components/dashboard/WidgetCard'
@@ -14,9 +16,12 @@ import { ActivityActor } from '@/components/activity/ActivityActor'
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { stats, loading: statsLoading } = useDashboardStats()
-  const { data: categoryDataRaw, loading: chartLoading } = useScholarsPerCategory()
-  const categoryData = sortByCategoryOrder(categoryDataRaw)
+  const [academicYear, setAcademicYear] = useAnalyticsAcademicYear()
+  const analytics = useReportAnalytics({ academicYear, semester: '', college: '', program: '', category: '', scholarship: '', status: '', enrollment: '' })
+  const stats = analytics.metrics
+  const statsLoading = analytics.loading
+  const chartLoading = analytics.loading
+  const categoryData = sortByCategoryOrder(analytics.categoryData)
   const { data: activity, loading: activityLoading, error: activityError } = useRecentActivity()
 
   const profileName = user?.user_metadata?.preferred_username
@@ -48,6 +53,17 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3" style={{ borderColor: 'var(--border-default)' }} aria-label="Dashboard analytics scope">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>Analytics Scope</p>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>{academicYear ? `Dashboard and Reports are synchronized to A.Y. ${academicYear}.` : 'Dashboard and Reports are synchronized across all academic years.'}</p>
+        </div>
+        <select value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--input-border)', background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>
+          <option value="">All Academic Years</option>
+          {analytics.options.academicYears.map((year) => <option key={year} value={year}>A.Y. {year}</option>)}
+        </select>
+      </section>
+
       <section data-tour="dashboard-stats" className="space-y-3" aria-labelledby="student-overview-heading">
         <h2 id="student-overview-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
           Student Overview
@@ -56,24 +72,24 @@ export default function DashboardPage() {
           <StatCard
             label="Total Students"
             loading={statsLoading}
-            value={stats?.total_scholars ?? 0}
+            value={stats.totalStudents}
           />
           <StatCard
             label="Active Scholarships"
             loading={statsLoading}
-            value={stats?.active_scholarships ?? 0}
+            value={stats.activeScholarships}
           />
           <StatCard
             label="Expiring Soon"
             loading={statsLoading}
-            value={stats?.expiring_soon ?? 0}
+            value={stats.expiringSoon}
             detail="Within 30 days"
             detailTone="warn"
           />
           <StatCard
             label="Expired Scholarships"
             loading={statsLoading}
-            value={stats?.expired_scholarships ?? 0}
+            value={stats.expiredScholarships}
             detail="Past expiration date"
             detailTone="bad"
           />
@@ -86,8 +102,8 @@ export default function DashboardPage() {
             Enrollment
           </h2>
           <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatCard label="Enrolled" loading={statsLoading} value={stats?.enrolled_students ?? 0} />
-            <StatCard label="Not Enrolled" loading={statsLoading} value={stats?.not_enrolled_students ?? 0} />
+            <StatCard label="Enrolled" loading={statsLoading} value={stats.enrolledStudents} />
+            <StatCard label="Not Enrolled" loading={statsLoading} value={stats.notEnrolledStudents} />
           </div>
         </section>
 
@@ -95,7 +111,7 @@ export default function DashboardPage() {
           <h2 id="data-review-heading" className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--widget-heading-text)' }}>
             Data Review
           </h2>
-          <DuplicateFlagsCard className="flex-1" />
+          <DuplicateFlagsCard className="flex-1" loading={statsLoading} metrics={{ open: stats.openDuplicateFlags, resolved: stats.resolvedDuplicateFlags, total: stats.totalDuplicateFlags }} />
         </section>
       </div>
 

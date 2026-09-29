@@ -16,13 +16,19 @@ export interface ReportFilters {
 }
 
 interface ReportAssignment {
+  id: string
   student_id: string
   academic_year: string
   semester: string
   status: string
   is_enrolled: boolean | null
-  scholarships: { name: string; status: string; scholarship_categories: { name: string } | null } | null
-  students: { programs: { name: string; colleges: { name: string } | null } | null } | null
+  scholarships: { name: string; status: string; archived_at: string | null; scholarship_categories: { name: string } | null } | null
+  students: { archived_at: string | null; programs: { name: string; colleges: { name: string } | null } | null } | null
+}
+
+interface AnalyticsDuplicateFlag {
+  status: string
+  a: ReportAssignment | null
 }
 
 interface ScholarshipOption {
@@ -39,24 +45,36 @@ export function useReportAnalytics(filters: ReportFilters) {
   const [scholarshipOptions, setScholarshipOptions] = useState<ScholarshipOption[]>([])
   const [loading, setLoading] = useState(true)
   const [totalStudents, setTotalStudents] = useState(0)
+  const [duplicateFlags, setDuplicateFlags] = useState<AnalyticsDuplicateFlag[]>([])
   const [scholarshipOptionsLoading, setScholarshipOptionsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [scholarshipOptionsError, setScholarshipOptionsError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [assignmentsResult, countResult] = await Promise.all([
+    const { error: expirationError } = await (supabase as any).rpc('flag_expiring_scholarships')
+    if (expirationError) console.error('Scholarship expiration refresh failed:', expirationError)
+    const [assignmentsResult, countResult, duplicateResult] = await Promise.all([
       supabase
       .from('student_scholarships')
-      .select(`student_id, academic_year, semester, status, is_enrolled,
-        scholarships!inner(name, status, scholarship_categories!inner(name)),
-        students!inner(programs(name, colleges(name)))`)
-        .is('archived_at', null),
+      .select(`id, student_id, academic_year, semester, status, is_enrolled,
+        scholarships!inner(name, status, archived_at, scholarship_categories!inner(name)),
+        students!inner(archived_at, programs(name, colleges(name)))`)
+        .is('archived_at', null)
+        .is('scholarships.archived_at', null)
+        .is('students.archived_at', null),
       supabase.from('students').select('id', { count: 'exact', head: true }).is('archived_at', null),
+      supabase.from('duplicate_flags').select(`status,
+        a:student_scholarship_id_a(
+          id, student_id, academic_year, semester, status, is_enrolled,
+          scholarships(name, status, archived_at, scholarship_categories(name)),
+          students(archived_at, programs(name, colleges(name)))
+        )`),
     ])
-    setError(assignmentsResult.error?.message ?? countResult.error?.message ?? null)
+    setError(assignmentsResult.error?.message ?? countResult.error?.message ?? duplicateResult.error?.message ?? null)
     setRows(assignmentsResult.error ? [] : (assignmentsResult.data as unknown as ReportAssignment[]) ?? [])
     setTotalStudents(countResult.count ?? 0)
+    setDuplicateFlags(duplicateResult.error ? [] : (duplicateResult.data as unknown as AnalyticsDuplicateFlag[]) ?? [])
     setLoading(false)
   }, [])
 
@@ -148,5 +166,37 @@ export function useReportAnalytics(filters: ReportFilters) {
   }, [filtered])
 
   const matchingStudents = useMemo(() => new Set(filtered.map((row) => row.student_id)).size, [filtered])
-  return { categoryData, trendData, options, loading, error, scholarshipOptionsLoading, scholarshipOptionsError, totalStudents, matchingStudents, matchingAssignments: filtered.length, refetch: load }
+  const metrics = useMemo(() => {
+    const effectiveStatus = (row: ReportAssignment) => ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status
+    const enrolled = new Set(filtered.filter((row) => row.is_enrolled === true).map((row) => row.student_id))
+    const notEnrolled = new Set(filtered.filter((row) => row.is_enrolled === false && !enrolled.has(row.student_id)).map((row) => row.student_id))
+    const scopedFlags = duplicateFlags.filter((flag) => {
+      const row = flag.a
+      if (!row || row.students?.archived_at || row.scholarships?.archived_at) return false
+      if (filters.academicYear && row.academic_year !== filters.academicYear) return false
+      if (filters.semester && row.semester !== filters.semester) return false
+      if (filters.college && row.students?.programs?.colleges?.name !== filters.college) return false
+      if (filters.program && row.students?.programs?.name !== filters.program) return false
+      if (filters.category && row.scholarships?.scholarship_categories?.name !== filters.category) return false
+      if (filters.scholarship && row.scholarships?.name !== filters.scholarship) return false
+      if (filters.status && effectiveStatus(row) !== filters.status) return false
+      if (filters.enrollment === 'Enrolled' && row.is_enrolled !== true) return false
+      if (filters.enrollment === 'Not Enrolled' && row.is_enrolled !== false) return false
+      if (filters.enrollment === 'Not Yet Verified' && row.is_enrolled !== null) return false
+      return true
+    })
+    const hasAssignmentFilter = Object.values(filters).some(Boolean)
+    return {
+      totalStudents: hasAssignmentFilter ? matchingStudents : totalStudents,
+      activeScholarships: filtered.filter((row) => effectiveStatus(row) === 'Active').length,
+      expiringSoon: filtered.filter((row) => effectiveStatus(row) === 'Expiring Soon').length,
+      expiredScholarships: filtered.filter((row) => effectiveStatus(row) === 'Expired').length,
+      enrolledStudents: enrolled.size,
+      notEnrolledStudents: notEnrolled.size,
+      openDuplicateFlags: scopedFlags.filter((flag) => ['Open', 'Under Review'].includes(flag.status)).length,
+      resolvedDuplicateFlags: scopedFlags.filter((flag) => ['Resolved', 'Confirmed Valid'].includes(flag.status)).length,
+      totalDuplicateFlags: scopedFlags.length,
+    }
+  }, [duplicateFlags, filtered, filters, matchingStudents, totalStudents])
+  return { categoryData, trendData, options, metrics, loading, error, scholarshipOptionsLoading, scholarshipOptionsError, totalStudents: metrics.totalStudents, matchingStudents, matchingAssignments: filtered.length, refetch: load }
 }

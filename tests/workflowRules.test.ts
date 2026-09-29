@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { isSameScholarshipTerm, shouldFlagMultipleActiveScholarships, studentNamesMatch, studentSearchText } from '../src/utils/workflowRules.ts'
 
 test('student ID identity validation accepts normalized matching names and rejects mismatches', () => {
@@ -10,6 +11,22 @@ test('student ID identity validation accepts normalized matching names and rejec
 test('advanced student search contains every supported searchable field', () => {
   const text = studentSearchText({ student_number: '25-1001', full_name: 'Aguilar, Angela', college: 'Engineering', program: 'BSCE', scholarship: 'DOST-SEI', email: 'angela@example.test', contactNumber: '09171234567', academic_year: '2025-2026', semester: '1st Semester' })
   for (const query of ['agu', 'dost', '0917', '2025', '1st semester']) assert.equal(text.includes(query), true)
+})
+
+test('student record filters use live academic periods and support Summer', () => {
+  const page = readFileSync('src/pages/StudentRecordsPage.tsx', 'utf8')
+  assert.match(page, /academicYearOptions/)
+  assert.match(page, /new Set\(rows\.map\(\(row\) => row\.academic_year\)/)
+  assert.match(page, /'1st Semester', '2nd Semester', 'Summer'/)
+  assert.doesNotMatch(page, /options=\{\['2025-2026'\]\}/)
+})
+
+test('spreadsheet imports enforce safe limits and do not use vulnerable SheetJS', () => {
+  const importer = readFileSync('src/utils/importStudents.ts', 'utf8')
+  assert.match(importer, /MAX_IMPORT_BYTES/)
+  assert.match(importer, /MAX_IMPORT_ROWS/)
+  assert.match(importer, /readXlsxFile\(file\)/)
+  assert.doesNotMatch(importer, /from ['"]xlsx['"]/)
 })
 
 test('renewal duplicate validation matches scholarship, academic year, and semester', () => {

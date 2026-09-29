@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { CircleHelp, LogOut, Menu, Settings, X } from 'lucide-react'
-import { useAuth } from '@/lib/AuthProvider'
+import { useAuth } from '@/lib/authContext'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { SiteFooter } from '@/components/layout/SiteFooter'
 import clsuLogo from '@/assets/clsu-logo.png'

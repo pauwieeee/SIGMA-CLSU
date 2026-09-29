@@ -1,15 +1,15 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useDuplicateFlags } from '@/hooks/useDuplicateFlags'
 import { Card, CardTitle } from '@/components/ui/Card'
 
-export function DuplicateFlagsCard({ className }: { className?: string }) {
-  const { rows, loading } = useDuplicateFlags('All')
-  const open = rows.filter((row) => ['Open', 'Under Review'].includes(row.status)).length
-  const resolved = rows.filter((row) => ['Resolved', 'Confirmed Valid'].includes(row.status)).length
-  const hasIssues = !loading && open > 0
+interface DuplicateMetrics { open: number; resolved: number; total: number }
+
+export function DuplicateFlagsCard({ className, metrics: suppliedMetrics, loading = false }: { className?: string; metrics: DuplicateMetrics; loading?: boolean }) {
+  const { open, resolved, total } = suppliedMetrics
+  const effectiveLoading = loading
+  const hasIssues = !effectiveLoading && open > 0
   const metrics = [
-    ['Open Cases', open], ['Resolved', resolved], ['Total Flagged', rows.length],
+    ['Open Cases', open], ['Resolved', resolved], ['Total Flagged', total],
   ] as const
 
   return (
@@ -27,11 +27,11 @@ export function DuplicateFlagsCard({ className }: { className?: string }) {
         <div className="mt-3 grid grid-cols-3 gap-x-5 gap-y-3">
           {metrics.map(([label, value]) => <div key={label}>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#66806F' }}>{label}</p>
-            <p className={label === 'Open Cases' ? 'text-3xl font-extrabold' : 'text-2xl font-bold'} style={{ color: label === 'Open Cases' ? '#174D2D' : '#285943' }}>{loading ? '—' : value}</p>
+            <p className={label === 'Open Cases' ? 'text-3xl font-extrabold' : 'text-2xl font-bold'} style={{ color: label === 'Open Cases' ? '#174D2D' : '#285943' }}>{effectiveLoading ? '—' : value}</p>
           </div>)}
         </div>
         <p className="mt-3 max-w-2xl text-xs leading-relaxed" style={{ color: '#66806F' }}>
-          {loading ? 'Checking records…' : 'A duplicate flag is created when one student has 2 or more Active scholarships in the same Academic Year and Semester.'}
+          {effectiveLoading ? 'Checking records…' : 'A duplicate flag is created when one student has 2 or more Active scholarships in the same Academic Year and Semester.'}
         </p>
       </div>
       <Link

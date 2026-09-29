@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
-import { useAuth } from '@/lib/AuthProvider'
+import { useAuth } from '@/lib/authContext'
 import watermark from '@/assets/clsu-seal-watermark.png'
 import clsuLogo from '@/assets/clsu-logo.png'
 import cobraMascot from '@/assets/cobra-assistant.png'

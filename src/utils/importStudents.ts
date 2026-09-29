@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import * as XLSX from 'xlsx'
+import { readSheet as readXlsxFile } from 'read-excel-file/browser'
 import { supabase as typedSupabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
 import { studentNamesMatch } from '@/utils/workflowRules'
@@ -21,12 +21,38 @@ const STATUSES: Record<string,string> = { active:'Active','for renewal':'For Ren
 const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/[–—]/g,'-').replace(/\s+/g,' ')
 const keyOf = (student: unknown, scholarship: unknown, year: unknown, semester: unknown) => [student,scholarship,year,semester].map(norm).join('|')
 
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024
+const MAX_IMPORT_ROWS = 5000
+
+function excelCellText(value: unknown): string {
+  if (value == null) return ''
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value)
+}
+
 async function parse(file: File) {
-  if (!/\.(csv|xlsx|xls)$/i.test(file.name)) throw new Error('Select a CSV, XLSX, or XLS file.')
-  if (/\.csv$/i.test(file.name)) return new Promise<{rows:ImportRow[];headers:string[]}>((resolve,reject) => Papa.parse<ImportRow>(file,{ header:true,skipEmptyLines:true,complete:r=>resolve({rows:r.data,headers:r.meta.fields??[]}),error:reject }))
-  const workbook = XLSX.read(await file.arrayBuffer()); const sheet = workbook.Sheets[workbook.SheetNames[0]]
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet,{header:1,defval:''})
-  return { headers:(matrix[0]??[]).map(String), rows:XLSX.utils.sheet_to_json<ImportRow>(sheet,{defval:''}) }
+  if (!/\.(csv|xlsx)$/i.test(file.name)) throw new Error('Select a CSV or XLSX file.')
+  if (file.size > MAX_IMPORT_BYTES) throw new Error('The import file is larger than 5 MB. Split it into smaller files before importing.')
+  if (/\.csv$/i.test(file.name)) return new Promise<{rows:ImportRow[];headers:string[]}>((resolve,reject) => Papa.parse<ImportRow>(file,{ header:true,skipEmptyLines:true,complete:r=>{
+    if (r.data.length > MAX_IMPORT_ROWS) return reject(new Error(`The import contains more than ${MAX_IMPORT_ROWS.toLocaleString()} rows. Split it into smaller files.`))
+    resolve({rows:r.data,headers:r.meta.fields??[]})
+  },error:reject }))
+
+  const matrix = await readXlsxFile(file)
+  if (matrix.length === 0) throw new Error('The XLSX workbook does not contain a worksheet with data.')
+  if (matrix.length - 1 > MAX_IMPORT_ROWS) throw new Error(`The import contains more than ${MAX_IMPORT_ROWS.toLocaleString()} rows. Split it into smaller files.`)
+  const headers = matrix[0].map(excelCellText).map((value) => value.trim())
+  const rows: ImportRow[] = matrix.slice(1).flatMap((row) => {
+    const record: Record<string, string> = {}
+    let hasValue = false
+    headers.forEach((header, index) => {
+      const value = excelCellText(row[index]).trim()
+      if (value) hasValue = true
+      record[header] = value
+    })
+    return hasValue ? [record as unknown as ImportRow] : []
+  })
+  return { headers, rows }
 }
 
 export async function previewStudentsFile(file: File): Promise<ImportPreview> {

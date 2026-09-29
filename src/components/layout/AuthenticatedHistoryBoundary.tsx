@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/lib/AuthProvider'
+import { useAuth } from '@/lib/authContext'
 import { getUserDisplayName } from '@/utils/userDisplayName'
 import clsuLogo from '@/assets/clsu-logo.png'
 

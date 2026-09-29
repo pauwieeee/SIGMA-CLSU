@@ -16,8 +16,8 @@ import {
   YAxis,
 } from 'recharts'
 import { Download, Eye, RefreshCw } from 'lucide-react'
-import { useDashboardStats } from '@/hooks/useDashboardData'
 import { useReportAnalytics } from '@/hooks/useReportAnalytics'
+import { useAnalyticsAcademicYear } from '@/hooks/useAnalyticsAcademicYear'
 import { Card } from '@/components/ui/Card'
 import { WidgetCard, WidgetTitle } from '@/components/dashboard/WidgetCard'
 import { CategoryPieLegend } from '@/components/dashboard/CategoryPieLegend'
@@ -30,16 +30,15 @@ import { useDuplicateFlagTrend } from '@/hooks/useTrends'
 import { usePrograms } from '@/hooks/usePrograms'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
 import { logActivity } from '@/utils/logActivity'
-import { useAuth } from '@/lib/AuthProvider'
+import { useAuth } from '@/lib/authContext'
 
 export default function ReportsPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { stats, refetch: refetchStats } = useDashboardStats()
   const { data: duplicateTrend } = useDuplicateFlagTrend()
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts()
 
-  const [academicYear, setAcademicYear] = useState('2025-2026')
+  const [academicYear, setAcademicYear] = useAnalyticsAcademicYear()
   const [semester, setSemester] = useState('')
   const [college, setCollege] = useState('')
   const [program, setProgram] = useState('')
@@ -83,7 +82,7 @@ export default function ReportsPage() {
       const openCount = openFlags ?? 0
       await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records: ${newFlags} new duplicate flag(s) found; ${openCount} open flag(s) still require review.`)
       pushToast(`Scan completed — New duplicate flags found: ${newFlags}. Existing open duplicate flags: ${openCount}${openCount > 0 ? ' (still require review).' : '.'}`, 'success')
-      await refetchStats()
+      await report.refetch()
     } catch (err) {
       pushToast(`Scan failed: ${(err as Error).message}`, 'error')
     } finally {
@@ -99,7 +98,7 @@ export default function ReportsPage() {
         filters: { academicYear, semester, college, program, category, scholarship, status, enrollment },
         categoryData,
         trendData,
-        duplicateFlagCount: stats?.duplicate_flags_open ?? 0,
+        duplicateFlagCount: report.metrics.openDuplicateFlags,
         totalStudents: report.totalStudents,
         generatedBy: user?.user_metadata?.preferred_username || user?.user_metadata?.full_name || 'Administrator',
       })
@@ -130,6 +129,7 @@ export default function ReportsPage() {
               <option value="">All Semesters</option>
               <option value="1st Semester">1st Semester</option>
               <option value="2nd Semester">2nd Semester</option>
+              <option value="Summer">Summer</option>
             </select>
             <select
               value={college}
@@ -212,7 +212,7 @@ export default function ReportsPage() {
         <Card>
           <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>Total Students</p>
           <p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.totalStudents}</p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Active student profiles in Supabase</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{academicYear ? `Distinct students in A.Y. ${academicYear}` : 'Active student profiles across all academic years'}</p>
         </Card>
         {(['Government', 'Institutional', 'Private'] as const).map((type) => (
           <Card key={type}>
@@ -227,6 +227,13 @@ export default function ReportsPage() {
             </p>
           </Card>
         ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Shared operational analytics">
+        <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Active Scholarships</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.activeScholarships}</p></Card>
+        <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Enrolled</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.enrolledStudents}</p></Card>
+        <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Not Enrolled</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.notEnrolledStudents}</p></Card>
+        <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Open Duplicate Flags</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.openDuplicateFlags}</p></Card>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -326,7 +333,7 @@ export default function ReportsPage() {
             Open Duplicate Flags
           </p>
           <p className="text-4xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>
-            {stats?.duplicate_flags_open ?? '—'}
+            {loading ? '—' : report.metrics.openDuplicateFlags}
           </p>
           <p className="mt-1 text-xs" style={{ color: duplicateTrend?.has_previous ? 'var(--status-error-text)' : 'var(--text-muted)' }}>
             {!duplicateTrend
@@ -368,7 +375,7 @@ export default function ReportsPage() {
             setDuplicateModalOpen(false)
             setNotificationFlagId(null)
           }}
-          onChanged={refetchStats}
+          onChanged={report.refetch}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Archive, Plus, RotateCcw, Search, Upload } from 'lucide-react'
 import { useStudentRecords } from '@/hooks/useStudentRecords'
@@ -87,6 +87,11 @@ export default function StudentRecordsPage() {
     semester,
     status,
   }, showArchived)
+  const academicYearOptions = useMemo(() => [...new Set(rows.map((row) => row.academic_year).filter((value): value is string => Boolean(value)))].sort().reverse(), [rows])
+  const semesterOptions = useMemo(() => {
+    const available = new Set(rows.map((row) => row.semester).filter(Boolean))
+    return ['1st Semester', '2nd Semester', 'Summer'].filter((value) => available.has(value) || value === 'Summer')
+  }, [rows])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
@@ -174,7 +179,7 @@ export default function StudentRecordsPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.xlsx"
           className="hidden"
           onChange={handleFileSelected}
         />
@@ -266,8 +271,8 @@ export default function StudentRecordsPage() {
           <FilterSelect value={categoryId} onChange={setCategoryId} placeholder="Scholarship Category" options={['Government', 'Institutional', 'Private']} />
           <FilterSelect value={collegeId} onChange={(v) => (setCollegeId(v), setProgramId(''))} placeholder="College" options={colleges} />
           <FilterSelect value={programId} onChange={setProgramId} placeholder="Program" options={programs} />
-          <FilterSelect value={academicYear} onChange={setAcademicYear} placeholder="A.Y." options={['2025-2026']} />
-          <FilterSelect value={semester} onChange={setSemester} placeholder="Semester" options={['1st Semester', '2nd Semester']} />
+          <FilterSelect value={academicYear} onChange={setAcademicYear} placeholder="A.Y." options={academicYearOptions} />
+          <FilterSelect value={semester} onChange={setSemester} placeholder="Semester" options={semesterOptions} />
           <FilterSelect value={status} onChange={setStatus} placeholder="Status" options={statusOptions} />
         </div>
       </Card>

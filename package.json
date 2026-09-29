@@ -1,7 +1,7 @@
 {
   "name": "clsu-website",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,8 +23,8 @@
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.85.0",
     "react-router-dom": "^7.18.2",
+    "read-excel-file": "^9.3.10",
     "recharts": "^3.10.1",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

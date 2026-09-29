@@ -23,6 +23,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
 
 interface QueryResult {
   intent: string
@@ -330,7 +331,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ code: 'invalid_request', error: 'Method not allowed' }), { status: 405 })
   }
 
-  if (!GEMINI_API_KEY || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  if (!GEMINI_API_KEY || !SUPABASE_URL || !SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     console.error('sigma-assistant: missing required secret(s)', {
       hasGeminiKey: !!GEMINI_API_KEY,
       hasSupabaseUrl: !!SUPABASE_URL,
@@ -340,6 +341,18 @@ Deno.serve(async (req) => {
       JSON.stringify({ code: 'config_missing', error: 'Assistant is not configured on this deployment' }),
       { status: 500 }
     )
+  }
+
+  const authorization = req.headers.get('Authorization')
+  if (!authorization?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ code: 'unauthorized', error: 'Authentication is required' }), { status: 401 })
+  }
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authorization } },
+  })
+  const { data: authData, error: authError } = await authClient.auth.getUser()
+  if (authError || !authData.user) {
+    return new Response(JSON.stringify({ code: 'unauthorized', error: 'The session is invalid or expired' }), { status: 401 })
   }
 
   let body: any

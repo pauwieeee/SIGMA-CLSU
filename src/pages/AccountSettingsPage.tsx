@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck, UserRound, X } from 'lucide-react'
-import { useAuth } from '@/lib/AuthProvider'
+import { useAuth } from '@/lib/authContext'
 import { supabase } from '@/lib/supabase'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { getUserDisplayName } from '@/utils/userDisplayName'

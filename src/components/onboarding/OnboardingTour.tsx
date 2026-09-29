@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/lib/AuthProvider'
+import { useAuth } from '@/lib/authContext'
 import { supabase } from '@/lib/supabase'
 import clsuLogo from '@/assets/clsu-logo.png'
 import cobraMascot from '@/assets/cobra-assistant.png'

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, normalizeAcademicYearText, relativeAcademicYear } from '../src/utils/assistantContext.ts'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '../src/utils/assistantFuzzy.ts'
 import { countDistinctStudentIds, isGenericStudentTotalQuestion, studentProfileCountScope } from '../src/utils/studentAnalyticsCore.ts'
+import { effectiveStudentRecordStatus, matchesStudentRecordAssignment } from '../src/utils/studentRecordFilters.ts'
 
 test('academic years normalize hyphen, en dash, and em dash consistently', () => {
   assert.equal(normalizeAcademicYearText('AY 2023-2024'), '2023-2024')
@@ -114,4 +115,18 @@ test('active student profiles remain distinct from active scholarship assignment
   assert.equal(studentProfileCountScope('How many active scholars?'), null)
   assert.equal(studentProfileCountScope('How many active students in CASS?'), null)
   assert.equal(studentProfileCountScope('How many enrolled students?'), null)
+})
+
+test('shared Student Records filters normalize effective status, category, and semester', () => {
+  assert.equal(effectiveStudentRecordStatus('For Renewal', 'Expired'), 'Expired')
+  assert.equal(effectiveStudentRecordStatus('For Renewal', 'Active'), 'For Renewal')
+  assert.equal(matchesStudentRecordAssignment({
+    category: 'Government', academicYear: '2025-2026', semester: '1st Semester',
+    assignmentStatus: 'For Renewal', scholarshipStatus: 'Active',
+  }, {
+    category: 'Government', academicYear: '2025-2026', semester: '1st Semester', status: 'For Renewal',
+  }), true)
+  assert.equal(matchesStudentRecordAssignment({
+    category: 'Private', semester: '2nd Semester', assignmentStatus: 'Pending Verification',
+  }, { category: 'Government', semester: '1st Semester' }), false)
 })

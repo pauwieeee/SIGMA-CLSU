@@ -36,6 +36,8 @@ test('dashboard and reports consume one shared analytics service and academic-ye
   }
   assert.match(analytics, /categoryData, trendData, options, metrics/)
   assert.match(analytics, /countDistinctStudentIds\(filtered/)
+  assert.match(analytics, /matchesStudentRecordAssignment/)
+  assert.match(analytics, /effectiveStudentRecordStatus/)
   assert.match(analytics, /DATA_CHANGED_EVENT/)
   assert.match(scope, /sigma:analytics-academic-year/)
   assert.doesNotMatch(reportsPage, /useDashboardStats/)
@@ -44,10 +46,13 @@ test('dashboard and reports consume one shared analytics service and academic-ye
 test('student records apply term and status filters across assignment history', () => {
   const students = readFileSync('src/hooks/useStudentRecords.ts', 'utf8')
   assert.match(students, /assignmentHistory/)
+  assert.match(students, /matchesStudentRecordAssignment/)
+  assert.match(students, /effectiveStudentRecordStatus/)
   assert.match(students, /matchingAssignments/)
-  assert.match(students, /assignment\.academicYear !== filters\.academicYear/)
-  assert.match(students, /assignment\.semester !== filters\.semester/)
-  assert.match(students, /assignment\.status !== filters\.status/)
+  const sharedFilters = readFileSync('src/utils/studentRecordFilters.ts', 'utf8')
+  assert.match(sharedFilters, /assignment\.academicYear !== filters\.academicYear/)
+  assert.match(sharedFilters, /assignment\.semester !== filters\.semester/)
+  assert.match(sharedFilters, /effectiveStudentRecordStatus/)
 })
 
 test('data mutations broadcast a shared refresh event', () => {

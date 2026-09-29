@@ -45,6 +45,17 @@ test('college scholar counts normalize aliases without accidental program filter
   assert.match(assistant, /countDistinctStudentIds\(filtered/)
 })
 
+test('status, semester, category, and Needs Review use Student Records rules', () => {
+  assert.match(assistant, /matchesStudentRecordAssignment/)
+  assert.match(assistant, /scholarships!inner\(name, code, status, archived_at/)
+  assert.match(assistant, /currentNeedsReview/)
+  assert.match(assistant, /openDuplicateStudentIds/)
+  assert.match(assistant, /\.eq\('status', 'Open'\)/)
+  assert.match(assistant, /hasRecognizedFilter/)
+  assert.match(assistant, /appliedSemester/)
+  assert.match(assistant, /distinct students matching/)
+})
+
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
   const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
   const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")

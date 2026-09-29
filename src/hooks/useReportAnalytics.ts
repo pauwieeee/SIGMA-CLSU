@@ -4,6 +4,7 @@ import type { ScholarshipCategoryName, ScholarsPerCategory } from '@/types/datab
 import type { TrendPoint } from '@/hooks/useScholarsTrend'
 import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
 import { countDistinctStudentIds, fetchCanonicalStudentCounts } from '@/utils/studentAnalytics'
+import { effectiveStudentRecordStatus, matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 
 export interface ReportFilters {
   academicYear: string
@@ -127,18 +128,25 @@ export function useReportAnalytics(filters: ReportFilters) {
     programs: unique(rows.map((row) => row.students?.programs?.name)),
     categories: unique(rows.map((row) => row.scholarships?.scholarship_categories?.name)),
     scholarships: unique(scholarshipOptions.map((option) => option.name)),
-    statuses: unique(rows.map((row) => ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status)),
+    statuses: unique(rows.map((row) => effectiveStudentRecordStatus(row.status, row.scholarships?.status))),
   }), [rows, scholarshipOptions])
 
   const filtered = useMemo(() => rows.filter((row) => {
-    if (filters.academicYear && row.academic_year !== filters.academicYear) return false
-    if (filters.semester && row.semester !== filters.semester) return false
+    if (!matchesStudentRecordAssignment({
+      category: row.scholarships?.scholarship_categories?.name,
+      academicYear: row.academic_year,
+      semester: row.semester,
+      assignmentStatus: row.status,
+      scholarshipStatus: row.scholarships?.status,
+    }, {
+      category: filters.category,
+      academicYear: filters.academicYear,
+      semester: filters.semester,
+      status: filters.status,
+    })) return false
     if (filters.college && row.students?.programs?.colleges?.name !== filters.college) return false
     if (filters.program && row.students?.programs?.name !== filters.program) return false
-    if (filters.category && row.scholarships?.scholarship_categories?.name !== filters.category) return false
     if (filters.scholarship && row.scholarships?.name !== filters.scholarship) return false
-    const effectiveStatus = ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status
-    if (filters.status && effectiveStatus !== filters.status) return false
     if (filters.enrollment === 'Enrolled' && row.is_enrolled !== true) return false
     if (filters.enrollment === 'Not Enrolled' && row.is_enrolled !== false) return false
     if (filters.enrollment === 'Not Yet Verified' && row.is_enrolled !== null) return false
@@ -173,7 +181,7 @@ export function useReportAnalytics(filters: ReportFilters) {
 
   const matchingStudents = useMemo(() => countDistinctStudentIds(filtered, (row) => row.student_id), [filtered])
   const metrics = useMemo(() => {
-    const effectiveStatus = (row: ReportAssignment) => ['Expired', 'Expiring Soon'].includes(row.scholarships?.status ?? '') ? row.scholarships?.status : row.status
+    const effectiveStatus = (row: ReportAssignment) => effectiveStudentRecordStatus(row.status, row.scholarships?.status)
     const enrolled = new Set(filtered.filter((row) => row.is_enrolled === true).map((row) => row.student_id))
     const notEnrolled = new Set(filtered.filter((row) => row.is_enrolled === false && !enrolled.has(row.student_id)).map((row) => row.student_id))
     const scopedFlags = duplicateFlags.filter((flag) => {

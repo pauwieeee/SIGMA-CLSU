@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { studentSearchText } from '@/utils/workflowRules'
 import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
+import { effectiveStudentRecordStatus, matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 
 export interface StudentRecordRow {
   id: string
@@ -95,9 +96,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
           category: assignment.scholarships?.scholarship_categories?.name ?? null,
           academicYear: assignment.academic_year ?? null,
           semester: assignment.semester ?? null,
-          status: ['Expired', 'Expiring Soon'].includes(assignment.scholarships?.status)
-            ? assignment.scholarships.status
-            : assignment.status ?? null,
+          status: effectiveStudentRecordStatus(assignment.status, assignment.scholarships?.status),
           isEnrolled: assignment.is_enrolled ?? null,
         }))
       const latestScholarship = assignments[0]
@@ -158,11 +157,17 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
 
       const hasAssignmentFilter = Boolean(filters.categoryId || filters.academicYear || filters.semester || (filters.status && filters.status !== 'Needs Review'))
       const matchingAssignments = r.assignmentHistory.filter((assignment) => {
-        if (filters.categoryId && assignment.category !== filters.categoryId) return false
-        if (filters.academicYear && assignment.academicYear !== filters.academicYear) return false
-        if (filters.semester && assignment.semester !== filters.semester) return false
-        if (filters.status && filters.status !== 'Needs Review' && assignment.status !== filters.status) return false
-        return true
+        return matchesStudentRecordAssignment({
+          category: assignment.category,
+          academicYear: assignment.academicYear,
+          semester: assignment.semester,
+          assignmentStatus: assignment.status,
+        }, {
+          category: filters.categoryId,
+          academicYear: filters.academicYear,
+          semester: filters.semester,
+          status: filters.status === 'Needs Review' ? null : filters.status,
+        })
       })
       if (hasAssignmentFilter && matchingAssignments.length === 0) return []
 

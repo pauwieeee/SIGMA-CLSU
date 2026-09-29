@@ -25,3 +25,30 @@ export function normalizeAssistantQuestion(question: string): string {
     return word[0] === word[0]?.toUpperCase() ? match[0].toUpperCase() + match.slice(1) : match
   })
 }
+
+/** Removes board-resolution references attached to scholarship names. */
+export function stripScholarshipReferenceMetadata(value: string): string {
+  const resolution = String.raw`(?:br\.?\s*res(?:olution)?|board\s+resolution|resolution)\.?\s*(?:no\.?)?\s*\d{1,4}\s*-\s*\d{2,4}`
+  return value
+    .replace(new RegExp(`\\(\\s*${resolution}\\s*\\)`, 'gi'), ' ')
+    .replace(new RegExp(`\\b${resolution}\\b`, 'gi'), ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function normalizeEntity(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+export function scholarshipNameMatchesQuestion(question: string, name: string, code?: string | null): boolean {
+  const normalizedQuestion = ` ${normalizeEntity(stripScholarshipReferenceMetadata(question))} `
+  const normalizedName = normalizeEntity(stripScholarshipReferenceMetadata(name))
+  if (!normalizedName) return false
+  if (normalizedQuestion.includes(` ${normalizedName} `)) return true
+
+  const coreName = normalizedName.replace(/\s+(?:scholarship\s+program|scholarship|program)$/i, '').trim()
+  if (coreName.split(' ').length >= 2 && normalizedQuestion.includes(` ${coreName} `)) return true
+
+  const normalizedCode = normalizeEntity(code ?? '')
+  return Boolean(normalizedCode && normalizedQuestion.includes(` ${normalizedCode} `))
+}

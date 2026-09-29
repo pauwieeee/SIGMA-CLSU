@@ -12,6 +12,14 @@ test('assistant has dedicated live enrollment and resolved-duplicate count inten
   assert.match(assistant, /select\('id', \{ count: 'exact', head: true \}\)/)
 })
 
+test('scholarship counts use the complete live catalog so zero assignments remain a valid result', () => {
+  assert.match(assistant, /stripScholarshipReferenceMetadata\(contextualQuestion\)/)
+  assert.match(assistant, /from\('scholarships'\)/)
+  assert.match(assistant, /const scholarshipCatalog/)
+  assert.match(assistant, /for \(const scholarship of scholarshipCatalog\)/)
+  assert.match(assistant, /currently has \*\*\$\{scholarRows\.length\}\*\* student/)
+})
+
 test('assistant prioritizes IDs and supports academic-year, college-alias, and detailed duplicate queries', () => {
   const idLookup = assistant.indexOf('const studentNumber = extractStudentNumber(contextualQuestion)')
   const duplicateLookup = assistant.indexOf("contextualQ.includes('duplicate')")

@@ -8,7 +8,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
-import { normalizeAssistantQuestion } from '@/utils/assistantFuzzy'
+import { normalizeAssistantQuestion, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -322,6 +322,7 @@ async function resolveIntent(
     ? relativeAcademicYear(question, previousContext.academicYear)
     : null
   if (resolvedRelativeYear) contextualQuestion += ` academic year ${resolvedRelativeYear}`
+  contextualQuestion = stripScholarshipReferenceMetadata(contextualQuestion)
   const contextualQ = contextualQuestion.toLowerCase()
 
   // Exact Student ID lookups always win over generic scholar analytics. A
@@ -556,19 +557,27 @@ async function resolveIntent(
       }
     }
 
-    const { data, error } = await supabase
-      .from('student_scholarships')
-      .select(
-        `id, academic_year, semester, status, is_enrolled,
-         students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
-           programs!inner(name, code, colleges!inner(name, code))),
-         scholarships!inner(name, code, scholarship_categories!inner(name), scholarship_agencies(name))`
-      )
-      .is('archived_at', null)
-      .is('students.archived_at', null)
-    assertQuerySucceeded(error)
+    const [assignmentResult, scholarshipResult] = await Promise.all([
+      supabase
+        .from('student_scholarships')
+        .select(
+          `id, academic_year, semester, status, is_enrolled,
+           students!inner(id, student_number, last_name, first_name, yr_level, archived_at,
+             programs!inner(name, code, colleges!inner(name, code))),
+           scholarships!inner(name, code, scholarship_categories!inner(name), scholarship_agencies(name))`
+        )
+        .is('archived_at', null)
+        .is('students.archived_at', null),
+      supabase
+        .from('scholarships')
+        .select('name, code, scholarship_categories(name), scholarship_agencies(name)')
+        .is('archived_at', null),
+    ])
+    assertQuerySucceeded(assignmentResult.error)
+    assertQuerySucceeded(scholarshipResult.error)
 
-    const assignments = (data ?? []) as any[]
+    const assignments = (assignmentResult.data ?? []) as any[]
+    const scholarshipCatalog = (scholarshipResult.data ?? []) as any[]
     const semester = contextualQ.includes('1st semester') || contextualQ.includes('first semester')
       ? '1st Semester'
       : contextualQ.includes('2nd semester') || contextualQ.includes('second semester')
@@ -622,13 +631,25 @@ async function resolveIntent(
       addEntity('agency', agencyName, referenceAliases(agencyName ?? ''))
       addEntity('category', row.scholarships?.scholarship_categories?.name)
     }
+    // Include every current scholarship definition, even when it has no
+    // assignments. An empty assignment set means zero scholars, not an
+    // unknown scholarship.
+    for (const scholarship of scholarshipCatalog) {
+      addEntity('scholarship', scholarship.name, referenceAliases(scholarship.name ?? '', scholarship.code))
+      addEntity('agency', scholarship.scholarship_agencies?.name, referenceAliases(scholarship.scholarship_agencies?.name ?? ''))
+      addEntity('category', scholarship.scholarship_categories?.name)
+    }
     const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => {
       const entities = [...entityAliases[type].entries()]
       const currentQuestionMatches = entities
-        .filter(([name, aliases]) => includesEntity(question, name, [...aliases]))
+        .filter(([name, aliases]) => type === 'scholarship'
+          ? scholarshipNameMatchesQuestion(question, name, [...aliases][0])
+          : includesEntity(question, name, [...aliases]))
         .map(([name]) => name)
       const directNames = entities
-        .filter(([name]) => includesEntity(contextualQuestion, name))
+        .filter(([name]) => type === 'scholarship'
+          ? scholarshipNameMatchesQuestion(contextualQuestion, name)
+          : includesEntity(contextualQuestion, name))
         .map(([name]) => name)
       const inheritedNames = type === 'scholarship' && directNames.length > 0
         ? directNames
@@ -708,10 +729,14 @@ async function resolveIntent(
       return { intent: 'scholar_list', data: scholarRows, answer: formatScholarList(filtered, filterLabel), context: scholarContext }
     }
     if (mode === 'count' || q.includes('scholar')) {
+      const matchedScholarships = matchedByType.find((match) => match.type === 'scholarship')?.names ?? []
+      const exactScholarshipLabel = matchedScholarships.length === 1 ? matchedScholarships[0] : null
       return {
         intent: 'scholar_count',
         data: { count: scholarRows.length, filter: filterLabel, studentIds: scholarContext.studentIds },
-        answer: `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${scholarRows.length}`,
+        answer: exactScholarshipLabel
+          ? `**${exactScholarshipLabel}** currently has **${scholarRows.length}** student${scholarRows.length === 1 ? '' : 's'} assigned${appliedYear ? ` in A.Y. ${appliedYear}` : ''}.`
+          : `${appliedYear ? `### A.Y. ${appliedYear} Summary\n\n` : ''}**Total${requestedStatus ? ` ${requestedStatus}` : ''} Scholars:** ${scholarRows.length}`,
         context: scholarContext,
       }
     }

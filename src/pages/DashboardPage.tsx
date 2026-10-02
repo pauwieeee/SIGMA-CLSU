@@ -33,6 +33,11 @@ export default function DashboardPage() {
     : 'Admin'
   return (
     <div className="space-y-6">
+      {analytics.error && (
+        <div role="alert" className="rounded-lg border px-4 py-3 text-sm" style={{ borderColor: 'var(--status-warning-text)', background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' }}>
+          Some dashboard data required a live-record fallback. The displayed values were recalculated from the available Supabase records. Details: {analytics.error}
+        </div>
+      )}
       <section className="sigma-dashboard-hero" aria-labelledby="dashboard-welcome-heading">
         <div className="sigma-dashboard-hero-decoration" aria-hidden="true">
           <span className="sigma-dashboard-hero-circle sigma-dashboard-hero-circle-large" />

@@ -59,7 +59,8 @@ export function useReportAnalytics(filters: ReportFilters) {
     let canonicalCountError: string | null = null
     const canonicalCountRequest = fetchCanonicalStudentCounts().catch((countError: Error) => {
       canonicalCountError = countError.message
-      return { activeStudents: 0, archivedStudents: 0, allStudents: 0 }
+      console.error('Canonical student-profile count failed:', countError)
+      return null
     })
     const [assignmentsResult, countResult, duplicateResult] = await Promise.all([
       supabase
@@ -78,9 +79,17 @@ export function useReportAnalytics(filters: ReportFilters) {
           students(archived_at, programs(name, colleges(name)))
         )`),
     ])
+    const assignmentRows = assignmentsResult.error ? [] : (assignmentsResult.data as unknown as ReportAssignment[]) ?? []
+    const assignmentStudentCount = countDistinctStudentIds(assignmentRows, (row) => row.student_id)
+    const canonicalStudentCount = countResult?.activeStudents
+    const inconsistentEmptyCount = canonicalStudentCount === 0 && assignmentStudentCount > 0
+    if (inconsistentEmptyCount) {
+      canonicalCountError = `Student profile count returned 0 while ${assignmentStudentCount} students were present in live scholarship records.`
+      console.error(canonicalCountError)
+    }
     setError(assignmentsResult.error?.message ?? duplicateResult.error?.message ?? canonicalCountError)
-    setRows(assignmentsResult.error ? [] : (assignmentsResult.data as unknown as ReportAssignment[]) ?? [])
-    setTotalStudents(countResult.activeStudents)
+    setRows(assignmentRows)
+    setTotalStudents(canonicalStudentCount == null || inconsistentEmptyCount ? assignmentStudentCount : canonicalStudentCount)
     setDuplicateFlags(duplicateResult.error ? [] : (duplicateResult.data as unknown as AnalyticsDuplicateFlag[]) ?? [])
     setLoading(false)
   }, [])

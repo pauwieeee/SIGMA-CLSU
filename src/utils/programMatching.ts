@@ -2,6 +2,7 @@ export interface ProgramReference {
   id: string
   name: string
   code?: string | null
+  colleges?: { name?: string | null; code?: string | null } | null
 }
 
 export type ProgramMatch<T extends ProgramReference> =
@@ -80,8 +81,28 @@ export function createProgramMatcher<T extends ProgramReference>(programs: T[]) 
     for (const key of programLookupKeys(program.name)) add(aliasLookup, key, program)
   }
 
-  return (value: unknown): ProgramMatch<T> => {
+  const resolveCandidates = (matches: Map<string, T>, college: unknown): ProgramMatch<T> | null => {
+    const matchedPrograms = [...matches.values()]
+    if (matchedPrograms.length === 0) return null
+    if (matchedPrograms.length === 1) return { status: 'matched', program: matchedPrograms[0] }
+    const normalizedCollege = normalizeProgramReference(college)
+    if (normalizedCollege) {
+      const collegeMatches = matchedPrograms.filter((program) => {
+        const officialName = normalizeProgramReference(program.colleges?.name)
+        const officialCode = normalizeProgramReference(program.colleges?.code)
+        return normalizedCollege === officialName
+          || normalizedCollege === officialCode
+          || (officialName && (officialName.includes(normalizedCollege) || normalizedCollege.includes(officialName)))
+      })
+      if (collegeMatches.length === 1) return { status: 'matched', program: collegeMatches[0] }
+      if (collegeMatches.length > 1) return { status: 'ambiguous', programs: collegeMatches }
+    }
+    return { status: 'ambiguous', programs: matchedPrograms }
+  }
+
+  return (value: unknown, college?: unknown): ProgramMatch<T> => {
     const normalized = normalizeProgramReference(value)
+    let ambiguousFallback: ProgramMatch<T> | null = null
     const lookupGroups: Array<Array<Map<string, T> | undefined>> = [
       [nameLookup.get(normalized), nameLookup.get(normalized.replace(/\s/g, ''))],
       [semanticLookup.get(semanticProgramKey(value))],
@@ -93,11 +114,31 @@ export function createProgramMatcher<T extends ProgramReference>(programs: T[]) 
       for (const candidates of group) {
         for (const [id, program] of candidates ?? []) matches.set(id, program)
       }
-      const matchedPrograms = [...matches.values()]
-      if (matchedPrograms.length === 1) return { status: 'matched', program: matchedPrograms[0] }
-      if (matchedPrograms.length > 1) return { status: 'ambiguous', programs: matchedPrograms }
+      const resolved = resolveCandidates(matches, college)
+      if (resolved?.status === 'matched') return resolved
+      if (resolved?.status === 'ambiguous') ambiguousFallback = resolved
     }
-    return { status: 'unmatched', programs: [] }
+
+    // Conservative fuzzy fallback: generic degree words never establish a
+    // match. Every descriptive uploaded word must closely match an official
+    // descriptive word, so shared "BS/Bachelor/Science" text cannot create a
+    // false ambiguity by itself.
+    const genericDegreeWords = new Set(['bachelor', 'science', 'arts'])
+    const requestedWords = semanticProgramWords(value).filter((word) => !genericDegreeWords.has(word))
+    if (requestedWords.length > 0) {
+      const fuzzyMatches = new Map<string, T>()
+      for (const program of programs) {
+        const officialWords = semanticProgramWords(program.name).filter((word) => !genericDegreeWords.has(word))
+        const allRequestedWordsMatch = requestedWords.every((requestedWord) => officialWords.some((officialWord) => {
+          const tolerance = Math.max(requestedWord.length, officialWord.length) >= 8 ? 2 : 1
+          return editDistance(requestedWord, officialWord) <= tolerance
+        }))
+        if (allRequestedWordsMatch) fuzzyMatches.set(program.id, program)
+      }
+      const resolved = resolveCandidates(fuzzyMatches, college)
+      if (resolved) return resolved
+    }
+    return ambiguousFallback ?? { status: 'unmatched', programs: [] }
   }
 }
 

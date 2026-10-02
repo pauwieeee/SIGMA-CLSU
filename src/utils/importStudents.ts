@@ -6,7 +6,7 @@ import { studentNamesMatch } from '@/utils/workflowRules'
 import { createProgramMatcher } from '@/utils/programMatching'
 const supabase = typedSupabase as any
 
-export interface ImportRow { 'ID Number': string; 'Last Name': string; 'First Name': string; 'M.I.': string; Degree: string; 'Yr Lvl': string; Address: string; 'Contact #': string; Email: string; 'Acad Year': string; Semester: string; 'Type of Scholarship': string; Scholarship: string; Remarks: string }
+export interface ImportRow { 'ID Number': string; 'Last Name': string; 'First Name': string; 'M.I.': string; College?: string; Degree: string; 'Yr Lvl': string; Address: string; 'Contact #': string; Email: string; 'Acad Year': string; Semester: string; 'Type of Scholarship': string; Scholarship: string; Remarks: string }
 export type ImportClassification = 'new' | 'existing' | 'conflict' | 'invalid'
 export interface ImportPreviewItem { row: number; classification: ImportClassification; message: string; studentNumber: string; studentName: string; academicYear: string; semester: string; scholarship: string; importedData: ImportRow; payload?: Record<string, string | null>; existingStudent?: boolean }
 export interface ImportPreview { filename: string; totalRows: number; beforeStudentCount: number; newRecords: ImportPreviewItem[]; existingRecords: ImportPreviewItem[]; conflicts: ImportPreviewItem[]; invalidRecords: ImportPreviewItem[] }
@@ -60,7 +60,7 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
   const { rows, headers } = await parse(file); const missing = REQUIRED.filter(h=>!headers.includes(h))
   if (missing.length) throw new Error(`Missing required header${missing.length>1?'s':''}: ${missing.join(', ')}`)
   const [programResult, scholarshipResult, studentResult, assignmentResult, countResult] = await Promise.all([
-    supabase.from('programs').select('id,name,code'), supabase.from('scholarships').select('id,name,scholarship_categories(name)').is('archived_at',null),
+    supabase.from('programs').select('id,name,code,colleges(name,code)'), supabase.from('scholarships').select('id,name,scholarship_categories(name)').is('archived_at',null),
     supabase.from('students').select('id,student_number,first_name,last_name'), supabase.from('student_scholarships').select('student_id,scholarship_id,academic_year,semester,status,archived_at,term_closed_at'),
     supabase.from('students').select('*',{count:'exact',head:true}).is('archived_at',null),
   ])
@@ -75,11 +75,11 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
   rows.forEach((row,index)=>{
     const n=index+2, studentNumber=String(row['ID Number']??'').trim(), scholarshipName=String(row.Scholarship??'').trim(), year=String(row['Acad Year']??'').replace(/\s/g,''), semester=String(row.Semester??'').trim()
     const base={row:n,studentNumber,studentName:`${row['First Name']??''} ${row['Last Name']??''}`.trim(),academicYear:year,semester,scholarship:scholarshipName,importedData:row}
-    const invalid=(message:string)=>out.invalidRecords.push({...base,classification:'invalid',message}); const programMatch=matchProgram(row.Degree), scholarship=scholarshipMap.get(norm(scholarshipName))
+    const invalid=(message:string)=>out.invalidRecords.push({...base,classification:'invalid',message}); const programMatch=matchProgram(row.Degree,row.College), scholarship=scholarshipMap.get(norm(scholarshipName))
     if(!studentNumber)return invalid('Student ID is missing.'); if(!/^\d{2}-\d{4}$/.test(studentNumber))return invalid(`Invalid Student ID "${studentNumber}"; expected 00-0000.`)
     if(!String(row['First Name']??'').trim()||!String(row['Last Name']??'').trim())return invalid('First Name and Last Name are required.');
     if(programMatch.status==='unmatched')return invalid(`Unknown program "${String(row.Degree??'').trim()}". No matching program exists in SIGMA.`)
-    if(programMatch.status==='ambiguous')return invalid(`Ambiguous program "${String(row.Degree??'').trim()}". It matches multiple existing programs: ${programMatch.programs.map((program:any)=>program.name).join(', ')}.`)
+    if(programMatch.status==='ambiguous')return invalid(`Ambiguous program: "${String(row.Degree??'').trim()}". It matches multiple existing programs: ${programMatch.programs.map((program:any)=>program.name).join(', ')}. Please select or provide the exact program.`)
     const program=programMatch.program
     if(!YEARS.has(String(row['Yr Lvl']??'').trim()))return invalid(`Invalid year level "${row['Yr Lvl']??''}".`); if(!/^20\d{2}-20\d{2}$/.test(year))return invalid('Academic Year format must be YYYY-YYYY.')
     if(!SEMESTERS.has(semester))return invalid(`Invalid semester "${semester}".`); if(!scholarship)return invalid(`Unknown scholarship "${scholarshipName}".`); if(String(row.Email??'').trim()&&!EMAIL.test(String(row.Email).trim()))return invalid(`Invalid email "${row.Email}".`)
@@ -122,5 +122,5 @@ export async function commitStudentsImport(preview: ImportPreview): Promise<Impo
   return {filename:preview.filename,totalRows:preview.totalRows,addedCount:added,newStudentsCreated:Math.max(0,added-updatedExistingCount),updatedExistingCount,assignmentsAdded:added,existingCount:skipped,duplicateFlagsCreated,conflictCount:preview.conflicts.length,invalidCount:validationErrorCount,validationErrorCount,databaseErrorCount,beforeStudentCount:preview.beforeStudentCount,afterStudentCount:after,status:importStatus,rows,errors:failedDetails.map(item=>({row:item.row,message:item.message}))}
 }
 
-function errorTypeFor(message:string){const value=message.toLowerCase();if(value.includes('missing')||value.includes('required'))return'Missing Required Field';if(value.includes('duplicate')||value.includes('already exists'))return'Duplicate Record';if(value.includes('email')||value.includes('format'))return'Invalid Format';if(value.includes('unknown')||value.includes('invalid'))return'Invalid Value';return'Validation Error'}
+function errorTypeFor(message:string){const value=message.toLowerCase();if(value.includes('already belongs to'))return'Student ID Conflict';if(value.includes('ambiguous program'))return'Ambiguous Program';if(value.includes('unknown program'))return'Unknown Program';if(value.includes('missing')||value.includes('required'))return'Missing Required Field';if(value.includes('duplicate')||value.includes('already exists'))return'Duplicate Record';if(value.includes('email')||value.includes('format'))return'Invalid Format';if(value.includes('unknown')||value.includes('invalid'))return'Invalid Value';return'Validation Error'}
 function suggestionFor(message:string){const value=message.toLowerCase();if(value.includes('column reference')&&value.includes('ambiguous'))return'This is an internal database query issue. No changes to the Excel file are required.';if(value.includes('already belongs to'))return'Verify the Student ID or open the existing student record. Do not change the existing student identity.';if(value.includes('student id'))return'Use a unique Student ID in the format 00-0000.';if(value.includes('program'))return'Use an existing program name or code from SIGMA.';if(value.includes('year level'))return'Use 1st Year, 2nd Year, 3rd Year, 4th Year, 5th Year, or Graduate.';if(value.includes('academic year'))return'Use a consecutive academic year in YYYY-YYYY format.';if(value.includes('semester'))return'Use 1st Semester, 2nd Semester, or Summer.';if(value.includes('scholarship'))return'Use the exact name of an active scholarship program.';if(value.includes('email'))return'Enter a valid email address or leave the optional field blank.';return'Review the imported values and correct the field described in the error message.'}

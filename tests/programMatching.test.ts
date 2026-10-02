@@ -81,6 +81,8 @@ test('reported short degree names map to their official Supabase-style program r
     ['human-resources', 'Bachelor of Science in Business Administration – Human Resource Management', 'BSBA-HRM', 'BS Business Administration - Human Resource Management'],
     ['entrepreneurship', 'Bachelor of Science in Entrepreneurship', 'BSE', 'BS Entrepreneurship'],
     ['management-accounting', 'Bachelor of Science in Management Accounting', 'BSMA', 'BS Management Accounting'],
+    ['biology-biotechnology', 'Bachelor of Science in Biology – Biotechnology', 'BSBIO-BIOTECH', 'BS Biology - Biotechnology'],
+    ['biology-botany', 'Bachelor of Science in Biology – Botany', 'BSBIO-BOT', 'BS Biology - Botany'],
   ].map(([id, name, code, uploadName]) => ({ id, name, code, uploadName }))
   const match = createProgramMatcher(officialPrograms)
   for (const program of officialPrograms) {
@@ -88,6 +90,28 @@ test('reported short degree names map to their official Supabase-style program r
     assert.equal(result.status, 'matched', program.uploadName)
     if (result.status === 'matched') assert.equal(result.program.id, program.id)
   }
+})
+
+test('college context resolves a genuinely shared alias only after stronger matches are exhausted', () => {
+  const match = createProgramMatcher([
+    { id: 'one', name: 'Bachelor of Science in Applied Studies', code: 'BSAS', colleges: { name: 'College One', code: 'C1' } },
+    { id: 'two', name: 'Bachelor of Science in Advanced Studies', code: 'BSAS', colleges: { name: 'College Two', code: 'C2' } },
+  ])
+  const result = match('BSAS', 'College Two')
+  assert.equal(result.status, 'matched')
+  if (result.status === 'matched') assert.equal(result.program.id, 'two')
+})
+
+test('controlled fuzzy fallback uses descriptive words and preserves real ambiguity', () => {
+  const biologyPrograms = [
+    { id: 'biotechnology', name: 'Bachelor of Science in Biology – Biotechnology', code: 'BSBIO-BIOTECH' },
+    { id: 'botany', name: 'Bachelor of Science in Biology – Botany', code: 'BSBIO-BOT' },
+  ]
+  const match = createProgramMatcher(biologyPrograms)
+  const typo = match('BS Biolgy - Biotechnlogy')
+  assert.equal(typo.status, 'matched')
+  if (typo.status === 'matched') assert.equal(typo.program.id, 'biotechnology')
+  assert.equal(match('BS Biology').status, 'ambiguous')
 })
 
 test('descriptive program words take priority over colliding acronyms', () => {

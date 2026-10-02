@@ -29,6 +29,15 @@ test('spreadsheet imports enforce safe limits and do not use vulnerable SheetJS'
   assert.doesNotMatch(importer, /from ['"]xlsx['"]/)
 })
 
+test('import program validation uses Supabase records and distinct error categories', () => {
+  const importer = readFileSync('src/utils/importStudents.ts', 'utf8')
+  assert.match(importer, /from\('programs'\)\.select\('id,name,code,colleges\(name,code\)'\)/)
+  assert.match(importer, /matchProgram\(row\.Degree,row\.College\)/)
+  assert.match(importer, /Student ID Conflict/)
+  assert.match(importer, /Ambiguous Program/)
+  assert.match(importer, /Unknown Program/)
+})
+
 test('renewal duplicate validation matches scholarship, academic year, and semester', () => {
   const source = { scholarshipId: 'dost', academicYear: '2025-2026', semester: '1st Semester' }
   assert.equal(isSameScholarshipTerm(source, { ...source }), true)

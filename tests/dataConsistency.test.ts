@@ -66,6 +66,7 @@ test('dashboard and reports consume one shared analytics service and academic-ye
 
 test('student records apply term and status filters across assignment history', () => {
   const students = readFileSync('src/hooks/useStudentRecords.ts', 'utf8')
+  const analytics = readFileSync('src/hooks/useReportAnalytics.ts', 'utf8')
   assert.match(students, /assignmentHistory/)
   assert.match(students, /matchesStudentRecordAssignment/)
   assert.match(students, /effectiveStudentRecordStatus/)
@@ -74,6 +75,9 @@ test('student records apply term and status filters across assignment history', 
   assert.match(sharedFilters, /assignment\.academicYear !== filters\.academicYear/)
   assert.match(sharedFilters, /assignment\.semester !== filters\.semester/)
   assert.match(sharedFilters, /effectiveStudentRecordStatus/)
+  for (const field of ['college', 'program', 'scholarship', 'enrollment']) assert.match(sharedFilters, new RegExp(`filters\\.${field}`))
+  assert.match(students, /scholarship: filters\.scholarship/)
+  assert.match(analytics, /scholarship: filters\.scholarship/)
 })
 
 test('data mutations broadcast a shared refresh event', () => {

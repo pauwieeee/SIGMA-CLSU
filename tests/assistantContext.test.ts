@@ -137,4 +137,14 @@ test('shared Student Records filters normalize effective status, category, and s
   assert.equal(matchesStudentRecordAssignment({
     category: 'Private', semester: '2nd Semester', assignmentStatus: 'Pending Verification',
   }, { category: 'Government', semester: '1st Semester' }), false)
+  const activeDaAtiInCen = {
+    category: 'Government', scholarship: 'DA-ATI', college: 'College of Engineering',
+    program: 'BS Agricultural and Biosystems Engineering', academicYear: '2025-2026',
+    semester: '1st Semester', assignmentStatus: 'Active', scholarshipStatus: 'Active', isEnrolled: true,
+  }
+  assert.equal(matchesStudentRecordAssignment(activeDaAtiInCen, {
+    category: 'Government', scholarship: 'DA-ATI', college: 'College of Engineering', status: 'Active', enrollment: 'Enrolled',
+  }), true)
+  assert.equal(matchesStudentRecordAssignment(activeDaAtiInCen, { college: 'College of Arts and Social Sciences' }), false)
+  assert.equal(matchesStudentRecordAssignment(activeDaAtiInCen, { status: 'Pending Verification' }), false)
 })

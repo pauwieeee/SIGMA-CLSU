@@ -80,9 +80,10 @@ export default function DashboardPage() {
             value={stats.totalStudents}
           />
           <StatCard
-            label="Active Scholarships"
+            label="Active Scholarship Records"
             loading={statsLoading}
             value={stats.activeScholarships}
+            detail="Assignment records"
           />
           <StatCard
             label="Expiring Soon"

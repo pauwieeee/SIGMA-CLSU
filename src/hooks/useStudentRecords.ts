@@ -45,6 +45,7 @@ interface Filters {
   collegeId: string
   programId: string
   categoryId: string
+  scholarship: string
   academicYear: string
   semester: string
   status: string
@@ -151,19 +152,23 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
         const haystack = `${studentSearchText(r)} ${assignmentText}`
         if (!haystack.includes(search)) return []
       }
-      if (filters.collegeId && r.college !== filters.collegeId) return []
-      if (filters.programId && r.program !== filters.programId) return []
       if (filters.status === 'Needs Review' && !r.hasDuplicate) return []
 
-      const hasAssignmentFilter = Boolean(filters.categoryId || filters.academicYear || filters.semester || (filters.status && filters.status !== 'Needs Review'))
+      const hasAssignmentFilter = Boolean(filters.collegeId || filters.programId || filters.categoryId || filters.scholarship || filters.academicYear || filters.semester || (filters.status && filters.status !== 'Needs Review'))
       const matchingAssignments = r.assignmentHistory.filter((assignment) => {
         return matchesStudentRecordAssignment({
           category: assignment.category,
+          scholarship: assignment.scholarship,
+          college: r.college,
+          program: r.program,
           academicYear: assignment.academicYear,
           semester: assignment.semester,
           assignmentStatus: assignment.status,
         }, {
           category: filters.categoryId,
+          scholarship: filters.scholarship,
+          college: filters.collegeId,
+          program: filters.programId,
           academicYear: filters.academicYear,
           semester: filters.semester,
           status: filters.status === 'Needs Review' ? null : filters.status,

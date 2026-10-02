@@ -60,6 +60,7 @@ export default function StudentRecordsPage() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [scholarship, setScholarship] = useState('')
   const [collegeId, setCollegeId] = useState('')
   const [programId, setProgramId] = useState('')
   const [academicYear, setAcademicYear] = useState('')
@@ -83,6 +84,7 @@ export default function StudentRecordsPage() {
     collegeId,
     programId,
     categoryId,
+    scholarship,
     academicYear,
     semester,
     status,
@@ -92,6 +94,10 @@ export default function StudentRecordsPage() {
     const available = new Set(rows.map((row) => row.semester).filter(Boolean))
     return ['1st Semester', '2nd Semester', 'Summer'].filter((value) => available.has(value) || value === 'Summer')
   }, [rows])
+  const scholarshipOptions = useMemo(
+    () => [...new Set(rows.flatMap((row) => row.assignmentHistory.map((assignment) => assignment.scholarship)).filter((value): value is string => Boolean(value)))].sort(),
+    [rows],
+  )
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
@@ -269,6 +275,7 @@ export default function StudentRecordsPage() {
 
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           <FilterSelect value={categoryId} onChange={setCategoryId} placeholder="Scholarship Category" options={['Government', 'Institutional', 'Private']} />
+          <FilterSelect value={scholarship} onChange={setScholarship} placeholder="Scholarship" options={scholarshipOptions} />
           <FilterSelect value={collegeId} onChange={(v) => (setCollegeId(v), setProgramId(''))} placeholder="College" options={colleges} />
           <FilterSelect value={programId} onChange={setProgramId} placeholder="Program" options={programs} />
           <FilterSelect value={academicYear} onChange={setAcademicYear} placeholder="A.Y." options={academicYearOptions} />

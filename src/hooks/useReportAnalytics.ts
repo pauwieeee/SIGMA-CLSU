@@ -143,22 +143,24 @@ export function useReportAnalytics(filters: ReportFilters) {
   const filtered = useMemo(() => rows.filter((row) => {
     if (!matchesStudentRecordAssignment({
       category: row.scholarships?.scholarship_categories?.name,
+      scholarship: row.scholarships?.name,
+      college: row.students?.programs?.colleges?.name,
+      program: row.students?.programs?.name,
       academicYear: row.academic_year,
       semester: row.semester,
       assignmentStatus: row.status,
       scholarshipStatus: row.scholarships?.status,
+      isEnrolled: row.is_enrolled,
     }, {
       category: filters.category,
+      scholarship: filters.scholarship,
+      college: filters.college,
+      program: filters.program,
       academicYear: filters.academicYear,
       semester: filters.semester,
       status: filters.status,
+      enrollment: filters.enrollment,
     })) return false
-    if (filters.college && row.students?.programs?.colleges?.name !== filters.college) return false
-    if (filters.program && row.students?.programs?.name !== filters.program) return false
-    if (filters.scholarship && row.scholarships?.name !== filters.scholarship) return false
-    if (filters.enrollment === 'Enrolled' && row.is_enrolled !== true) return false
-    if (filters.enrollment === 'Not Enrolled' && row.is_enrolled !== false) return false
-    if (filters.enrollment === 'Not Yet Verified' && row.is_enrolled !== null) return false
     return true
   }), [filters, rows])
 

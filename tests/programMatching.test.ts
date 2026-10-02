@@ -65,3 +65,43 @@ test('natural-language matching returns every plausible official program for dis
   ])
   assert.deepEqual(matches.map((program) => program.id).sort(), ['industrial', 'it'])
 })
+
+test('reported short degree names map to their official Supabase-style program records', () => {
+  const officialPrograms = [
+    ['agriculture', 'Bachelor of Science in Agriculture', 'BSA', 'BS Agriculture'],
+    ['development', 'Bachelor of Science in Development Communication', 'BSDC', 'BS Development Communication'],
+    ['psychology', 'Bachelor of Science in Psychology', 'BSP', 'BS Psychology'],
+    ['literature', 'Bachelor of Arts in Literature', 'BAL', 'BA Literature'],
+    ['social-sciences', 'Bachelor of Arts in Social Sciences', 'BASS', 'BA Social Sciences'],
+    ['filipino', 'Bachelor of Arts in Filipino', 'BAF', 'BA Filipino'],
+    ['international', 'Bachelor of Arts in International Studies – Global Sustainable Development', 'BAIS', 'BA International Studies - Global Sustainable Development'],
+    ['accountancy', 'Bachelor of Science in Accountancy', 'BSAcc', 'BS Accountancy'],
+    ['marketing', 'Bachelor of Science in Business Administration – Marketing Management', 'BSBA-MM', 'BS Business Administration - Marketing Management'],
+    ['economics', 'Bachelor of Science in Business Administration – Business Economics', 'BSBA-BE', 'BS Business Administration - Business Economics'],
+    ['human-resources', 'Bachelor of Science in Business Administration – Human Resource Management', 'BSBA-HRM', 'BS Business Administration - Human Resource Management'],
+    ['entrepreneurship', 'Bachelor of Science in Entrepreneurship', 'BSE', 'BS Entrepreneurship'],
+    ['management-accounting', 'Bachelor of Science in Management Accounting', 'BSMA', 'BS Management Accounting'],
+  ].map(([id, name, code, uploadName]) => ({ id, name, code, uploadName }))
+  const match = createProgramMatcher(officialPrograms)
+  for (const program of officialPrograms) {
+    const result = match(program.uploadName)
+    assert.equal(result.status, 'matched', program.uploadName)
+    if (result.status === 'matched') assert.equal(result.program.id, program.id)
+  }
+})
+
+test('descriptive program words take priority over colliding acronyms', () => {
+  const collisionPrograms = [
+    { id: 'agriculture', name: 'Bachelor of Science in Agriculture', code: 'BSA' },
+    { id: 'accountancy', name: 'Bachelor of Science in Accountancy', code: 'BSAcc' },
+    { id: 'entrepreneurship', name: 'Bachelor of Science in Entrepreneurship', code: 'BSE' },
+    { id: 'secondary-education', name: 'Bachelor of Secondary Education', code: 'BSED' },
+  ]
+  const match = createProgramMatcher(collisionPrograms)
+  const accountancy = match('BS Accountancy')
+  const entrepreneurship = match('BS Entrepreneurship')
+  assert.equal(accountancy.status, 'matched')
+  assert.equal(entrepreneurship.status, 'matched')
+  if (accountancy.status === 'matched') assert.equal(accountancy.program.id, 'accountancy')
+  if (entrepreneurship.status === 'matched') assert.equal(entrepreneurship.program.id, 'entrepreneurship')
+})

@@ -10,6 +10,7 @@ export type ProgramMatch<T extends ProgramReference> =
   | { status: 'unmatched'; programs: [] }
 
 const ACRONYM_STOP_WORDS = new Set(['a', 'an', 'and', 'of', 'in', 'the', 'for', 'to'])
+const PROGRAM_STRUCTURE_WORDS = new Set([...ACRONYM_STOP_WORDS, 'major', 'program', 'degree'])
 
 export function normalizeProgramReference(value: unknown): string {
   return String(value ?? '')
@@ -45,24 +46,57 @@ export function programLookupKeys(value: unknown): string[] {
   return [...new Set([normalized, compact, acronym].filter(Boolean))]
 }
 
+export function semanticProgramWords(value: unknown): string[] {
+  const words = normalizeProgramReference(value).split(' ').filter(Boolean)
+  const expanded = words.flatMap((word, index) => {
+    if (index !== 0) return [word]
+    if (word === 'bs') return ['bachelor', 'science']
+    if (word === 'ba') return ['bachelor', 'arts']
+    return [word]
+  })
+  return expanded.filter((word) => !PROGRAM_STRUCTURE_WORDS.has(word))
+}
+
+function semanticProgramKey(value: unknown): string {
+  return semanticProgramWords(value).join(' ')
+}
+
 export function createProgramMatcher<T extends ProgramReference>(programs: T[]) {
-  const lookup = new Map<string, Map<string, T>>()
+  const nameLookup = new Map<string, Map<string, T>>()
+  const codeLookup = new Map<string, Map<string, T>>()
+  const semanticLookup = new Map<string, Map<string, T>>()
+  const aliasLookup = new Map<string, Map<string, T>>()
+  const add = (lookup: Map<string, Map<string, T>>, key: string, program: T) => {
+    if (!key) return
+    if (!lookup.has(key)) lookup.set(key, new Map())
+    lookup.get(key)!.set(program.id, program)
+  }
   for (const program of programs) {
-    const keys = [...programLookupKeys(program.name), ...programLookupKeys(program.code)]
-    for (const key of keys) {
-      if (!lookup.has(key)) lookup.set(key, new Map())
-      lookup.get(key)!.set(program.id, program)
-    }
+    const normalizedName = normalizeProgramReference(program.name)
+    add(nameLookup, normalizedName, program)
+    add(nameLookup, normalizedName.replace(/\s/g, ''), program)
+    for (const key of programLookupKeys(program.code)) add(codeLookup, key, program)
+    add(semanticLookup, semanticProgramKey(program.name), program)
+    for (const key of programLookupKeys(program.name)) add(aliasLookup, key, program)
   }
 
   return (value: unknown): ProgramMatch<T> => {
-    const matches = new Map<string, T>()
-    for (const key of programLookupKeys(value)) {
-      for (const [id, program] of lookup.get(key) ?? []) matches.set(id, program)
+    const normalized = normalizeProgramReference(value)
+    const lookupGroups: Array<Array<Map<string, T> | undefined>> = [
+      [nameLookup.get(normalized), nameLookup.get(normalized.replace(/\s/g, ''))],
+      [semanticLookup.get(semanticProgramKey(value))],
+      programLookupKeys(value).map((key) => codeLookup.get(key)),
+      programLookupKeys(value).map((key) => aliasLookup.get(key)),
+    ]
+    for (const group of lookupGroups) {
+      const matches = new Map<string, T>()
+      for (const candidates of group) {
+        for (const [id, program] of candidates ?? []) matches.set(id, program)
+      }
+      const matchedPrograms = [...matches.values()]
+      if (matchedPrograms.length === 1) return { status: 'matched', program: matchedPrograms[0] }
+      if (matchedPrograms.length > 1) return { status: 'ambiguous', programs: matchedPrograms }
     }
-    const programs = [...matches.values()]
-    if (programs.length === 1) return { status: 'matched', program: programs[0] }
-    if (programs.length > 1) return { status: 'ambiguous', programs }
     return { status: 'unmatched', programs: [] }
   }
 }
@@ -93,6 +127,7 @@ function searchableProgramPhrases(program: ProgramReference): string[] {
 export function findProgramsInText<T extends ProgramReference>(text: string, programs: T[]): T[] {
   const normalizedText = normalizeProgramReference(text)
   const textWords = normalizedText.split(' ').filter(Boolean)
+  const semanticTextWords = new Set(semanticProgramWords(text))
   const compactTextTokens = new Set(textWords.map((word) => word.replace(/[^a-z0-9]/g, '')))
   for (let index = 0; index < textWords.length;) {
     if (textWords[index].length !== 1) { index += 1; continue }
@@ -102,6 +137,14 @@ export function findProgramsInText<T extends ProgramReference>(text: string, pro
     index = end
   }
   const matches = new Map<string, T>()
+
+  const semanticMatches = programs
+    .map((program) => ({ program, words: semanticProgramWords(program.name) }))
+    .filter(({ words }) => words.length >= 2 && words.every((word) => semanticTextWords.has(word)))
+  if (semanticMatches.length > 0) {
+    const mostSpecificLength = Math.max(...semanticMatches.map(({ words }) => words.length))
+    return semanticMatches.filter(({ words }) => words.length === mostSpecificLength).map(({ program }) => program)
+  }
 
   for (const program of programs) {
     for (const phrase of searchableProgramPhrases(program)) {

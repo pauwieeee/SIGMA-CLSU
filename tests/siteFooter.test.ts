@@ -20,8 +20,10 @@ test('footer includes compact branding, contact information, and copyright', () 
     '© 2026 Central Luzon State University',
   ]) assert.match(footer, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 
-  assert.match(footer, /mailto:admissions@clsu\.edu\.ph/)
-  assert.match(footer, /tel:\+63444560688/)
+  assert.equal((footer.match(/href="https:\/\/oad\.clsu\.edu\.ph\/"/g) ?? []).length, 2)
+  assert.doesNotMatch(footer, /mailto:/)
+  assert.doesNotMatch(footer, /tel:/)
+  assert.doesNotMatch(footer, /target=/)
   assert.doesNotMatch(footer, /Quick Links/)
   assert.doesNotMatch(footer, /react-router-dom/)
   assert.match(footer, /data-sigma-footer/)

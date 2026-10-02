@@ -17,11 +17,11 @@ export function SiteFooter() {
         </section>
 
         <section className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:gap-5" aria-label="Office of Admissions contact information">
-          <a className="flex items-center gap-2 transition-colors hover:underline" href="mailto:admissions@clsu.edu.ph" style={{ color: 'var(--text-secondary)' }}>
+          <a className="flex items-center gap-2 transition-colors hover:underline" href="https://oad.clsu.edu.ph/" style={{ color: 'var(--text-secondary)' }}>
             <Mail size={16} className="shrink-0" aria-hidden="true" style={{ color: 'var(--btn-primary-bg)' }} />
             admissions@clsu.edu.ph
           </a>
-          <a className="flex items-center gap-2 transition-colors hover:underline" href="tel:+63444560688" style={{ color: 'var(--text-secondary)' }}>
+          <a className="flex items-center gap-2 transition-colors hover:underline" href="https://oad.clsu.edu.ph/" style={{ color: 'var(--text-secondary)' }}>
             <Phone size={16} className="shrink-0" aria-hidden="true" style={{ color: 'var(--btn-primary-bg)' }} />
             (044) 456-0688
           </a>

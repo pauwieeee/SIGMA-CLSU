@@ -9,6 +9,8 @@ test('dashboard and reports use canonical Supabase student-profile counts', () =
   const canonical = readFileSync('src/utils/studentAnalytics.ts', 'utf8')
   assert.match(canonical, /from\('system_counts'\)/)
   assert.match(canonical, /active_students/)
+  assert.match(canonical, /from\('students'\).*count: 'exact'/s)
+  assert.match(canonical, /activeResult\.count \?\? 0/)
   assert.match(reports, /fetchCanonicalStudentCounts\(\)/)
   assert.match(reports, /countDistinctStudentIds\(filtered/)
   assert.match(assistant, /fetchCanonicalStudentCounts\(\)/)

@@ -84,6 +84,8 @@ test('government scholarship aliases derived from official database names are re
   assert.equal(scholarshipNameMatchesQuestion('students under DA ATI', 'DA-ATI'), true)
   assert.equal(scholarshipNameMatchesQuestion('students under da-ati', 'DA-ATI'), true)
   assert.equal(scholarshipNameMatchesQuestion('students under Da Ati', 'DA-ATI'), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under DAATI', 'DA-ATI'), true)
+  assert.equal(scholarshipNameMatchesQuestion('students under daati in cen', 'DA-ATI'), true)
   assert.equal(scholarshipNameMatchesQuestion('students under TES', 'CHED Tertiary Education Subsidy (TES)', ['TES']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under CHED TES', 'CHED Tertiary Education Subsidy (TES)', ['TES']), true)
   assert.equal(scholarshipNameMatchesQuestion('students under DOST SEI', 'DOST-SEI Undergraduate Scholarship', ['DOST-SEI']), true)

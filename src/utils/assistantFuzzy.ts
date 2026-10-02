@@ -40,16 +40,30 @@ function normalizeEntity(value: string): string {
   return value.toLowerCase().replace(/\bundergrad\b/g, 'undergraduate').replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
+function compactEntity(value: string): string {
+  return normalizeEntity(value).replace(/\s+/g, '')
+}
+
 export function scholarshipNameMatchesQuestion(question: string, name: string, aliases: string | string[] = []): boolean {
-  const normalizedQuestion = ` ${normalizeEntity(stripScholarshipReferenceMetadata(question))} `
+  const normalizedQuestionValue = normalizeEntity(stripScholarshipReferenceMetadata(question))
+  const normalizedQuestion = ` ${normalizedQuestionValue} `
+  const questionTokens = new Set(normalizedQuestionValue.split(' ').filter(Boolean))
   const candidates = new Set([name, name.replace(/\([^)]*\)/g, ' '), ...(Array.isArray(aliases) ? aliases : [aliases])])
   for (const candidate of candidates) {
     const normalizedCandidate = normalizeEntity(stripScholarshipReferenceMetadata(candidate))
     if (!normalizedCandidate) continue
     if (normalizedQuestion.includes(` ${normalizedCandidate} `)) return true
 
+    // Treat punctuation, hyphens, and spaces as presentation differences for
+    // database-derived entity names. This makes DA-ATI, DA ATI, and DAATI the
+    // same entity without maintaining a hardcoded scholarship alias list.
+    const compactCandidate = compactEntity(stripScholarshipReferenceMetadata(candidate))
+    if (compactCandidate.length >= 4 && questionTokens.has(compactCandidate)) return true
+
     const coreName = normalizedCandidate.replace(/\s+(?:scholarship\s+program|scholarship|program)$/i, '').trim()
     if (coreName.split(' ').length >= 2 && normalizedQuestion.includes(` ${coreName} `)) return true
+    const compactCoreName = compactEntity(coreName)
+    if (compactCoreName.length >= 4 && questionTokens.has(compactCoreName)) return true
   }
   return false
 }

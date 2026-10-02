@@ -75,3 +75,14 @@ test('student record modal keeps an accessible close control outside its scroll 
   assert.match(detailModal, /event\.target === event\.currentTarget/)
   assert.match(detailModal, /max-h-\[calc\(100dvh-1\.5rem\)\]/)
 })
+
+test('scholarship form stays above the site header with persistent controls', () => {
+  const scholarshipModal = readFileSync('src/components/scholarships/ScholarshipFormModal.tsx', 'utf8')
+  assert.match(scholarshipModal, /fixed inset-0 z-\[80\]/)
+  assert.match(scholarshipModal, /max-h-\[calc\(100dvh-1\.5rem\)\]/)
+  assert.match(scholarshipModal, /sticky top-0 z-10[^"]*shrink-0/)
+  assert.match(scholarshipModal, /aria-label="Close scholarship form"/)
+  assert.match(scholarshipModal, /min-h-0 flex-1[^"]*overflow-y-auto overscroll-contain/)
+  assert.match(scholarshipModal, /sticky bottom-0 z-10[^"]*shrink-0/)
+  assert.match(scholarshipModal, /event\.key === 'Escape'/)
+})

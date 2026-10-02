@@ -79,6 +79,15 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
   }, [open])
 
   useEffect(() => {
+    if (!open || saving) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, saving, onClose])
+
+  useEffect(() => {
     if (!open) return
     supabase
       .from('scholarship_categories')
@@ -201,22 +210,38 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="scholarship-modal-title">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-black/40 p-3 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scholarship-modal-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !saving) onClose()
+      }}
+    >
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-xl sm:max-h-[calc(100dvh-2rem)]" style={{ background: 'var(--bg-card)' }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b px-4 py-3 sm:px-5" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
           <div className="min-w-0">
             <h2 id="scholarship-modal-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
               {form.id ? 'Edit Scholarship' : 'Add Scholarship'}
             </h2>
             <p className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>{form.id ? form.name : category}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 rounded-md p-1 hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
-            <X size={18} />
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="Close scholarship form"
+            title="Close"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors hover:bg-[var(--menu-hover-bg)] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
+            style={{ color: 'var(--icon-muted)', outlineColor: 'var(--btn-primary-bg)' }}
+          >
+            <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Level</label>
@@ -415,7 +440,7 @@ export function ScholarshipFormModal({ open, category, initial, onClose, onSaved
           )}
           </div>
 
-          <div className="flex shrink-0 justify-end gap-2 border-t px-4 py-3 sm:px-5" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
+          <div className="sticky bottom-0 z-10 flex shrink-0 justify-end gap-2 border-t px-4 py-3 sm:px-5" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
             <button
               type="button"
               onClick={onClose}

@@ -178,6 +178,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -267,10 +275,22 @@ body {
 .sigma-nav-link-active:hover { color: var(--nav-header-dark); background: #fff; }
 
 .sigma-mobile-nav {
+  max-height: calc(100dvh - 60px);
+  overflow-y: auto;
   padding: 8px 12px 12px;
   background: linear-gradient(135deg, var(--nav-gradient-start), var(--nav-gradient-end));
   box-shadow: 0 8px 20px rgba(11, 46, 19, 0.18);
   animation: sigma-mobile-nav-enter 180ms ease-out;
+}
+
+@media (max-width: 639px) {
+  .sigma-chat-window {
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    max-width: none !important;
+    height: min(560px, calc(100dvh - 24px)) !important;
+  }
 }
 
 .sigma-mobile-nav-link {

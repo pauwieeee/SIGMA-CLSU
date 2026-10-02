@@ -52,17 +52,17 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/40 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
-      <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
+    <div className="fixed inset-0 z-50 flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/40 p-3 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
+      <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{restoring ? 'Restore Student Record?' : 'Archive Student'}</h2>
+          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{restoring ? 'Restore Student Record?' : 'Archive Student?'}</h2>
           <button onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button>
         </div>
         <div className="space-y-4 px-5 py-4">
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {restoring
               ? <>Do you want to restore <strong>{student.name}</strong>? The student will appear in the active Student Records list again, and all existing historical information will remain preserved.</>
-              : <>Archive <strong>{student.name}</strong>? This record will be removed from the active student list but will not be permanently deleted. You can find it again under Archived Students.</>}
+              : <>Archive <strong>{student.name}</strong>? This record will be removed from active lists but will not be permanently deleted. You can access it again by selecting <strong>Show Archived</strong>.</>}
           </p>
           {!restoring && <div>
             <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Archive Reason <span style={{ color: 'var(--status-error-text)' }}>*</span></label>

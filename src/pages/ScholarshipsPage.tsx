@@ -302,8 +302,8 @@ export default function ScholarshipsPage() {
 
       <ConfirmationDialog
         open={Boolean(archiveTarget)}
-        title="Archive Scholarship"
-        message={`Archive “${archiveTarget?.name ?? ''}”? This record will be removed from the active scholarship list but will not be permanently deleted. You can find it again under Archived Scholarships.`}
+        title="Archive Scholarship?"
+        message={`Archive “${archiveTarget?.name ?? ''}”? This record will be removed from active lists but will not be permanently deleted. You can access it again by selecting “Show Archived.”`}
         cancelLabel="Cancel"
         confirmLabel="Archive"
         onCancel={() => setArchiveTarget(null)}

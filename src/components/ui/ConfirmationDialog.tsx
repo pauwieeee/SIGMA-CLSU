@@ -25,13 +25,13 @@ export function ConfirmationDialog({ open, title, message, cancelLabel, confirmL
   if (!open) return null
 
   return <div
-    className="fixed inset-0 z-[100] flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/45 p-4"
+    className="fixed inset-0 z-[100] flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/45 p-3 sm:p-4"
     role="dialog"
     aria-modal="true"
     aria-labelledby="confirmation-dialog-title"
     onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}
   >
-    <div className="w-full max-w-md rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
+    <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
       <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--divider-light)' }}>
         <h2 id="confirmation-dialog-title" className="text-base font-bold" style={{ color: 'var(--nav-header-dark)' }}>{title}</h2>
         <button type="button" onClick={onCancel} aria-label="Close confirmation"><X size={18}/></button>

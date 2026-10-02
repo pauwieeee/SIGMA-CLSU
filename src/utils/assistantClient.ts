@@ -71,6 +71,13 @@ export interface AssistantResponse {
   pagination?: AssistantPagination
 }
 
+function isStructuredDatabaseQuestion(question: string): boolean {
+  const normalized = normalizeAssistantQuestion(question).toLowerCase()
+  const requestsRecords = /\b(?:how\s+many|count|number|total|list|show|who|which|find)\b/.test(normalized)
+  const namesDatabaseScope = /\b(?:students?|scholars?|scholarships?|college|program|category|status|semester|academic\s+year|enrolled|duplicate|active|inactive|renewal|pending|incomplete|government|institutional|private)\b/.test(normalized)
+  return requestsRecords && namesDatabaseScope
+}
+
 function assertQuerySucceeded(error: { message: string } | null) {
   if (error) throw new AssistantError('database_error', error.message)
 }
@@ -1104,6 +1111,17 @@ export async function askAssistant(
   // only used for the general dashboard summary, preventing it from changing
   // exact counts, names, filters, or dates returned by SIGMA.
   if (result.answer) return { answer: result.answer, context: nextContext, pagination: result.pagination }
+
+  // Structured database questions must never depend on the language service.
+  // Their counts and lists are resolved above from Supabase; if a future
+  // parser cannot identify the requested entity, report that deterministically
+  // instead of presenting an unrelated language-service failure.
+  if (isStructuredDatabaseQuestion(question)) {
+    return {
+      answer: "I couldn't confidently match that database filter to SIGMA's live records. Try the official scholarship, college, program, category, status, academic year, or semester name.",
+      context: nextContext,
+    }
+  }
 
   const conversation = recentHistory
     .map((message) => `${message.role === 'user' ? 'Admin' : 'SIGMA Assistant'}: ${message.text}`)

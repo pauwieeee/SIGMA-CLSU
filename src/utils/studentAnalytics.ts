@@ -9,28 +9,27 @@ export interface CanonicalStudentCounts {
 
 /** Canonical unfiltered student-profile totals used across the application. */
 export async function fetchCanonicalStudentCounts(): Promise<CanonicalStudentCounts> {
-  const [viewResult, activeResult, archivedResult, allResult] = await Promise.all([
-    (supabase as any).from('system_counts').select('active_students, archived_students, all_students').single(),
-    supabase.from('students').select('id', { count: 'exact', head: true }).is('archived_at', null),
-    supabase.from('students').select('id', { count: 'exact', head: true }).not('archived_at', 'is', null),
-    supabase.from('students').select('id', { count: 'exact', head: true }),
-  ])
-
-  // Student profiles are authoritative. The canonical view remains a safe
-  // fallback for deployments where direct count permissions differ, but a
-  // missing/stale view can no longer turn a populated dashboard into zero.
-  if (!activeResult.error && !archivedResult.error && !allResult.error) {
-    return {
-      activeStudents: activeResult.count ?? 0,
-      archivedStudents: archivedResult.count ?? 0,
-      allStudents: allResult.count ?? 0,
-    }
+  // Read the same student-profile rows used by Student Records. A previous
+  // head-only count request could return a null count in production even when
+  // normal student queries were available, silently rendering zero.
+  const pageSize = 1000
+  const rows: Array<{ id: string; archived_at: string | null }> = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('students')
+      .select('id, archived_at')
+      .order('id')
+      .range(from, from + pageSize - 1)
+    if (error) throw error
+    const page = data ?? []
+    rows.push(...page)
+    if (page.length < pageSize) break
   }
-
-  if (viewResult.error) throw activeResult.error ?? archivedResult.error ?? allResult.error ?? viewResult.error
+  const activeStudents = rows.filter((student) => student.archived_at == null).length
+  const archivedStudents = rows.length - activeStudents
   return {
-    activeStudents: Number(viewResult.data?.active_students ?? 0),
-    archivedStudents: Number(viewResult.data?.archived_students ?? 0),
-    allStudents: Number(viewResult.data?.all_students ?? 0),
+    activeStudents,
+    archivedStudents,
+    allStudents: rows.length,
   }
 }

@@ -3,6 +3,7 @@ import { readSheet as readXlsxFile } from 'read-excel-file/browser'
 import { supabase as typedSupabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
 import { studentNamesMatch } from '@/utils/workflowRules'
+import { createProgramMatcher } from '@/utils/programMatching'
 const supabase = typedSupabase as any
 
 export interface ImportRow { 'ID Number': string; 'Last Name': string; 'First Name': string; 'M.I.': string; Degree: string; 'Yr Lvl': string; Address: string; 'Contact #': string; Email: string; 'Acad Year': string; Semester: string; 'Type of Scholarship': string; Scholarship: string; Remarks: string }
@@ -65,8 +66,7 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
   ])
   for (const result of [programResult,scholarshipResult,studentResult,assignmentResult]) if (result.error) throw new Error(result.error.message)
   const programs = programResult.data??[], scholarships = scholarshipResult.data??[], students = studentResult.data??[], assignments = assignmentResult.data??[]
-  const programMap=new Map<string,any>(), scholarshipMap=new Map<string,any>(), studentMap=new Map<string,any>(), studentNumberById=new Map<string,string>(), scholarshipById=new Map<string,string>()
-  for(const p of programs){programMap.set(norm(p.name),p);if(p.code)programMap.set(norm(p.code),p)}
+  const matchProgram=createProgramMatcher(programs), scholarshipMap=new Map<string,any>(), studentMap=new Map<string,any>(), studentNumberById=new Map<string,string>(), scholarshipById=new Map<string,string>()
   for(const s of scholarships){scholarshipMap.set(norm(s.name),s);scholarshipById.set(s.id,s.name)}
   for(const s of students){studentMap.set(norm(s.student_number),s);studentNumberById.set(s.id,s.student_number)}
   const existing=new Set(assignments.map((a:any)=>keyOf(studentNumberById.get(a.student_id),scholarshipById.get(a.scholarship_id),a.academic_year,a.semester)))
@@ -75,9 +75,12 @@ export async function previewStudentsFile(file: File): Promise<ImportPreview> {
   rows.forEach((row,index)=>{
     const n=index+2, studentNumber=String(row['ID Number']??'').trim(), scholarshipName=String(row.Scholarship??'').trim(), year=String(row['Acad Year']??'').replace(/\s/g,''), semester=String(row.Semester??'').trim()
     const base={row:n,studentNumber,studentName:`${row['First Name']??''} ${row['Last Name']??''}`.trim(),academicYear:year,semester,scholarship:scholarshipName,importedData:row}
-    const invalid=(message:string)=>out.invalidRecords.push({...base,classification:'invalid',message}); const program=programMap.get(norm(row.Degree)), scholarship=scholarshipMap.get(norm(scholarshipName))
+    const invalid=(message:string)=>out.invalidRecords.push({...base,classification:'invalid',message}); const programMatch=matchProgram(row.Degree), scholarship=scholarshipMap.get(norm(scholarshipName))
     if(!studentNumber)return invalid('Student ID is missing.'); if(!/^\d{2}-\d{4}$/.test(studentNumber))return invalid(`Invalid Student ID "${studentNumber}"; expected 00-0000.`)
-    if(!String(row['First Name']??'').trim()||!String(row['Last Name']??'').trim())return invalid('First Name and Last Name are required.'); if(!program)return invalid(`Unknown program "${row.Degree??''}".`)
+    if(!String(row['First Name']??'').trim()||!String(row['Last Name']??'').trim())return invalid('First Name and Last Name are required.');
+    if(programMatch.status==='unmatched')return invalid(`Unknown program "${String(row.Degree??'').trim()}". No matching program exists in SIGMA.`)
+    if(programMatch.status==='ambiguous')return invalid(`Ambiguous program "${String(row.Degree??'').trim()}". It matches multiple existing programs: ${programMatch.programs.map((program:any)=>program.name).join(', ')}.`)
+    const program=programMatch.program
     if(!YEARS.has(String(row['Yr Lvl']??'').trim()))return invalid(`Invalid year level "${row['Yr Lvl']??''}".`); if(!/^20\d{2}-20\d{2}$/.test(year))return invalid('Academic Year format must be YYYY-YYYY.')
     if(!SEMESTERS.has(semester))return invalid(`Invalid semester "${semester}".`); if(!scholarship)return invalid(`Unknown scholarship "${scholarshipName}".`); if(String(row.Email??'').trim()&&!EMAIL.test(String(row.Email).trim()))return invalid(`Invalid email "${row.Email}".`)
     const key=keyOf(studentNumber,scholarshipName,year,semester); if(seen.has(key))return out.existingRecords.push({...base,classification:'existing',message:'Duplicate within uploaded file.'}); seen.add(key)

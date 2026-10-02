@@ -64,3 +64,14 @@ test('archive actions use SIGMA dialogs and the shared header remains sticky', (
   assert.match(layout, /sigma-site-header-spacer/)
   assert.match(styles, /\.sigma-chat-window\s*\{[^}]*right:\s*12px !important;[^}]*left:\s*12px !important;/s)
 })
+
+test('student record modal keeps an accessible close control outside its scroll area', () => {
+  const detailModal = readFileSync('src/components/students/StudentDetailModal.tsx', 'utf8')
+  assert.match(detailModal, /aria-label="Close student record"/)
+  assert.match(detailModal, /title="Close"/)
+  assert.match(detailModal, /sticky top-0 z-10[^"]*shrink-0/)
+  assert.match(detailModal, /min-h-0 flex-1 overflow-y-auto overscroll-contain/)
+  assert.match(detailModal, /event\.key === 'Escape'/)
+  assert.match(detailModal, /event\.target === event\.currentTarget/)
+  assert.match(detailModal, /max-h-\[calc\(100dvh-1\.5rem\)\]/)
+})

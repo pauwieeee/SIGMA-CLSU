@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, AlertTriangle, Archive, RotateCcw, RefreshCw, UserPlus, Pencil, BookOpen, BadgeCheck, History, UserCog } from 'lucide-react'
 import { useStudentDetail, type ScholarshipHistoryRow } from '@/hooks/useStudentDetail'
 import { Avatar } from '@/components/ui/Avatar'
@@ -23,6 +23,15 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
   const [editing, setEditing] = useState(false)
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null)
   const [renewing, setRenewing] = useState<ScholarshipHistoryRow | null>(null)
+
+  useEffect(() => {
+    if (!studentId || editing || renewing) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [studentId, editing, renewing, onClose])
 
   if (!studentId) return null
 
@@ -63,18 +72,37 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !editing && !renewing) onClose()
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="student-record-title"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-xl sm:max-h-[85vh]"
+        style={{ background: 'var(--bg-card)' }}
+      >
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
+          <h2 id="student-record-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             Student Record
           </h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
-            <X size={18} />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close student record"
+            title="Close"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors hover:bg-[var(--menu-hover-bg)] focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{ color: 'var(--icon-muted)', outlineColor: 'var(--btn-primary-bg)' }}
+          >
+            <X size={20} />
           </button>
         </div>
 
-        {loading || !student ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {loading || !student ? (
           <p className="px-5 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             Loading student…
           </p>
@@ -242,7 +270,8 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
               )}
             </div>
           </div>
-        )}
+          )}
+        </div>
       </div>
 
       {editing && (

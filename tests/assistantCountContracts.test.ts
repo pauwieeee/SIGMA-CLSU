@@ -57,6 +57,13 @@ test('status, semester, category, and Needs Review use Student Records rules', (
   assert.match(assistant, /distinct students matching/)
 })
 
+test('assistant resolves programs from the complete Supabase catalog with shared matching', () => {
+  assert.match(assistant, /from\('programs'\)/)
+  assert.match(assistant, /findProgramsInText/)
+  assert.match(assistant, /ambiguous_program_filter/)
+  assert.match(assistant, /programCatalog/)
+})
+
 test('live database retrieval retries before reporting a precise service error', () => {
   assert.match(assistant, /retryAssistantOperation/)
   assert.match(assistant, /attempts: 3/)

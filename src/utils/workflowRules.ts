@@ -1,3 +1,5 @@
+import { programLookupKeys } from './programMatching.ts'
+
 export interface SearchableStudentRecord {
   student_number: string
   full_name: string
@@ -21,7 +23,7 @@ export function studentNamesMatch(existingFirst: string, existingLast: string, i
 
 export function studentSearchText(record: SearchableStudentRecord) {
   return [record.student_number, record.full_name, record.college, record.program,
-    record.scholarship, record.email, record.contactNumber, record.academic_year, record.semester]
+    ...programLookupKeys(record.program), record.scholarship, record.email, record.contactNumber, record.academic_year, record.semester]
     .filter(Boolean).join(' ').toLocaleLowerCase()
 }
 

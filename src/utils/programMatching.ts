@@ -66,3 +66,68 @@ export function createProgramMatcher<T extends ProgramReference>(programs: T[]) 
     return { status: 'unmatched', programs: [] }
   }
 }
+
+function editDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let i = 1; i <= left.length; i += 1) {
+    const current = [i]
+    for (let j = 1; j <= right.length; j += 1) {
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1),
+      )
+    }
+    previous.splice(0, previous.length, ...current)
+  }
+  return previous[right.length]
+}
+
+function searchableProgramPhrases(program: ProgramReference): string[] {
+  const specialization = program.name.match(/\bin\s+(.+)$/i)?.[1]
+  return [program.name, program.code, specialization]
+    .filter((value): value is string => Boolean(value?.trim()))
+}
+
+/** Resolve official programs mentioned inside a longer natural-language query. */
+export function findProgramsInText<T extends ProgramReference>(text: string, programs: T[]): T[] {
+  const normalizedText = normalizeProgramReference(text)
+  const textWords = normalizedText.split(' ').filter(Boolean)
+  const compactTextTokens = new Set(textWords.map((word) => word.replace(/[^a-z0-9]/g, '')))
+  for (let index = 0; index < textWords.length;) {
+    if (textWords[index].length !== 1) { index += 1; continue }
+    let end = index
+    while (end < textWords.length && textWords[end].length === 1) end += 1
+    if (end - index >= 2) compactTextTokens.add(textWords.slice(index, end).join(''))
+    index = end
+  }
+  const matches = new Map<string, T>()
+
+  for (const program of programs) {
+    for (const phrase of searchableProgramPhrases(program)) {
+      const normalizedPhrase = normalizeProgramReference(phrase)
+      const phraseKeys = programLookupKeys(phrase)
+      const exactPhrase = normalizedPhrase.length >= 3 && ` ${normalizedText} `.includes(` ${normalizedPhrase} `)
+      const exactAlias = phraseKeys.some((key) => key.length >= 3 && compactTextTokens.has(key))
+      if (exactPhrase || exactAlias) {
+        matches.set(program.id, program)
+        break
+      }
+
+      const phraseWords = normalizedPhrase.split(' ')
+        .filter((word) => word.length >= 4 && !ACRONYM_STOP_WORDS.has(word))
+      if (phraseWords.length === 0) continue
+      const fuzzyPhrase = phraseWords.every((phraseWord) => textWords.some((textWord) => {
+        if (textWord.length < 4) return false
+        const tolerance = phraseWord.length >= 8 ? 2 : 1
+        return editDistance(phraseWord, textWord) <= tolerance
+      }))
+      if (fuzzyPhrase) {
+        matches.set(program.id, program)
+        break
+      }
+    }
+  }
+
+  return [...matches.values()]
+}

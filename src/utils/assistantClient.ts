@@ -12,6 +12,7 @@ import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResul
 import { fetchCanonicalStudentCounts, isGenericStudentTotalQuestion, studentProfileCountScope, summarizeAssignmentPopulation } from '@/utils/studentAnalytics'
 import { matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 import { retryAssistantOperation } from '@/utils/assistantRetry'
+import { findProgramsInText, programLookupKeys } from '@/utils/programMatching'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -123,7 +124,7 @@ function includesEntity(question: string, entity: string, aliases: string[] = []
 }
 
 function programAliases(name: string, code?: string | null): string[] {
-  const aliases = code ? [code] : []
+  const aliases = [...programLookupKeys(name), ...programLookupKeys(code)]
 
   const specialization = name.match(/\bin\s+(.+)$/i)?.[1]
   if (specialization) {
@@ -680,7 +681,7 @@ async function resolveIntent(
       }
     }
 
-    const [assignmentResult, scholarshipResult, duplicateResult] = await Promise.all([
+    const [assignmentResult, scholarshipResult, programResult, duplicateResult] = await Promise.all([
       supabase
         .from('student_scholarships')
         .select(
@@ -697,16 +698,22 @@ async function resolveIntent(
         .select('name, code, scholarship_categories(name), scholarship_agencies(name)')
         .is('archived_at', null),
       supabase
+        .from('programs')
+        .select('id, name, code')
+        .order('name'),
+      supabase
         .from('duplicate_flags')
         .select('student_id')
         .eq('status', 'Open'),
     ])
     assertQuerySucceeded(assignmentResult.error)
     assertQuerySucceeded(scholarshipResult.error)
+    assertQuerySucceeded(programResult.error)
     assertQuerySucceeded(duplicateResult.error)
 
     const assignments = (assignmentResult.data ?? []) as any[]
     const scholarshipCatalog = (scholarshipResult.data ?? []) as any[]
+    const programCatalog = (programResult.data ?? []) as Array<{ id: string; name: string; code?: string | null }>
     const semester = currentQ.includes('1st semester') || currentQ.includes('first semester')
       ? '1st Semester'
       : currentQ.includes('2nd semester') || currentQ.includes('second semester')
@@ -777,6 +784,17 @@ async function resolveIntent(
       addEntity('agency', scholarship.scholarship_agencies?.name, referenceAliases(scholarship.scholarship_agencies?.name ?? ''))
       addEntity('category', scholarship.scholarship_categories?.name)
     }
+    for (const program of programCatalog) {
+      addEntity('program', program.name, programAliases(program.name, program.code))
+    }
+    const currentProgramMatches = findProgramsInText(normalizedCurrentQuestion, programCatalog)
+    if (currentProgramMatches.length > 1) {
+      return {
+        intent: 'ambiguous_program_filter',
+        data: currentProgramMatches,
+        answer: `I found multiple official programs that may match your question:\n\n${currentProgramMatches.map((program) => `- **${program.name}**${program.code ? ` (${program.code})` : ''}`).join('\n')}\n\nPlease choose one program so I can return the correct students.`,
+      }
+    }
     const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => {
       const entities = [...entityAliases[type].entries()]
       const currentQuestionMatches = entities
@@ -835,6 +853,12 @@ async function resolveIntent(
       // result through a coincidentally matching program code.
       const programIndex = matchedByType.findIndex((match) => match.type === 'program')
       if (programIndex >= 0) matchedByType.splice(programIndex, 1)
+    }
+    if (currentProgramMatches.length === 1) {
+      const programIndex = matchedByType.findIndex((match) => match.type === 'program')
+      const officialProgramName = currentProgramMatches[0].name
+      if (programIndex >= 0) matchedByType[programIndex].names = [officialProgramName]
+      else matchedByType.push({ type: 'program', names: [officialProgramName] })
     }
 
     if (matchedByType.length > 0) {

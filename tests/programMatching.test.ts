@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createProgramMatcher, normalizeProgramReference } from '../src/utils/programMatching.ts'
+import { createProgramMatcher, findProgramsInText, normalizeProgramReference } from '../src/utils/programMatching.ts'
 
 const programs = [
   { id: 'it', name: 'Bachelor of Science in Information Technology', code: 'BSIT' },
@@ -43,4 +43,25 @@ test('program matching rejects nonexistent and ambiguous aliases instead of crea
   const ambiguous = match('BSIT')
   assert.equal(ambiguous.status, 'ambiguous')
   if (ambiguous.status === 'ambiguous') assert.equal(ambiguous.programs.length, 2)
+})
+
+test('natural-language program matching supports abbreviations, punctuation, and minor spelling variations', () => {
+  for (const question of [
+    'students in Bachelor of Science in Information Technology',
+    'how many BSIT scholars?',
+    'list scholars under B.S.I.T.',
+    'students in information technlogy',
+  ]) {
+    const matches = findProgramsInText(question, programs)
+    assert.deepEqual(matches.map((program) => program.id), ['it'])
+  }
+  assert.deepEqual(findProgramsInText('students in imaginary studies', programs), [])
+})
+
+test('natural-language matching returns every plausible official program for disambiguation', () => {
+  const matches = findProgramsInText('show BSIT scholars', [
+    ...programs,
+    { id: 'industrial', name: 'Bachelor of Science in Industrial Technology', code: 'BSIT' },
+  ])
+  assert.deepEqual(matches.map((program) => program.id).sort(), ['industrial', 'it'])
 })

@@ -213,10 +213,33 @@ body,
 
 /* Institutional application header and primary navigation */
 .sigma-site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 45;
+  right: 0;
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  background: var(--bg-card);
   box-shadow: 0 2px 12px rgba(11, 46, 19, 0.07);
+}
+
+.sigma-site-header-spacer {
+  width: 100%;
+  height: 68px;
+  flex: 0 0 68px;
+}
+
+.sigma-site-header-spacer-menu-open {
+  height: 280px;
+  flex-basis: 280px;
+}
+
+@media (min-width: 768px) {
+  .sigma-site-header-spacer,
+  .sigma-site-header-spacer-menu-open {
+    height: 124px;
+    flex-basis: 124px;
+  }
 }
 
 .sigma-primary-nav {

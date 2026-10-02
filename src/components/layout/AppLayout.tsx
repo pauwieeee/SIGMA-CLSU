@@ -183,6 +183,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </nav>
         )}
       </header>
+      <div className={`sigma-site-header-spacer${mobileNavOpen ? ' sigma-site-header-spacer-menu-open' : ''}`} aria-hidden="true" />
 
       <div className="mx-auto w-full max-w-[1600px] flex-1">
         <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>

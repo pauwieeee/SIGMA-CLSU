@@ -9,7 +9,7 @@
 import { supabase } from '@/lib/supabase'
 import { explicitCollegeName, explicitScholarshipCategory, isContextualFollowUp, lastAcademicYearText, relativeAcademicYear, type ScholarQueryMode } from '@/utils/assistantContext'
 import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResultLimit, scholarshipNameMatchesQuestion, stripScholarshipReferenceMetadata } from '@/utils/assistantFuzzy'
-import { countDistinctStudentIds, fetchCanonicalStudentCounts, isGenericStudentTotalQuestion, studentProfileCountScope } from '@/utils/studentAnalytics'
+import { fetchCanonicalStudentCounts, isGenericStudentTotalQuestion, studentProfileCountScope, summarizeAssignmentPopulation } from '@/utils/studentAnalytics'
 import { matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 import { retryAssistantOperation } from '@/utils/assistantRetry'
 
@@ -877,7 +877,12 @@ async function resolveIntent(
     }
 
     const scholarRows = distinctScholarRows(filtered)
-    const matchingStudentCount = countDistinctStudentIds(filtered, (row) => row.students?.id)
+    const filteredPopulation = summarizeAssignmentPopulation(
+      filtered,
+      (row) => row.students?.id,
+      (row) => row.status === 'Active',
+    )
+    const matchingStudentCount = filteredPopulation.distinctStudents
     const statusLabel = needsReview ? 'Needs Review' : requestedStatus
     const filterLabel = [statusLabel, matchedEntities.join(' / '), appliedYear, appliedSemester].filter(Boolean).join(', ') || 'all scholar records'
     const asksToListNow = /list|show|who|names|which|give me|\ball\b/.test(q)

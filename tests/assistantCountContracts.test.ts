@@ -43,7 +43,7 @@ test('college scholar counts normalize aliases without accidental program filter
   assert.match(assistant, /matchedByType\.splice\(programIndex, 1\)/)
   assert.match(assistant, /exactCollegeLabel/)
   assert.match(assistant, /under the \$\{exactCollegeLabel\}/)
-  assert.match(assistant, /countDistinctStudentIds\(filtered/)
+  assert.match(assistant, /summarizeAssignmentPopulation/)
 })
 
 test('status, semester, category, and Needs Review use Student Records rules', () => {

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-export { countDistinctStudentIds, isGenericStudentTotalQuestion, studentProfileCountScope } from '@/utils/studentAnalyticsCore'
+export { countDistinctStudentIds, isGenericStudentTotalQuestion, studentProfileCountScope, summarizeAssignmentPopulation } from '@/utils/studentAnalyticsCore'
 
 export interface CanonicalStudentCounts {
   activeStudents: number

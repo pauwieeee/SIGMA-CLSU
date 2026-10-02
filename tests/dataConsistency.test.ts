@@ -1,6 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { summarizeAssignmentPopulation } from '../src/utils/studentAnalyticsCore.ts'
+
+test('filtered analytics separates distinct students from scholarship assignment records', () => {
+  const rows = [
+    { studentId: 'student-a', status: 'Active' },
+    { studentId: 'student-a', status: 'Active' },
+    { studentId: 'student-b', status: 'Active' },
+    { studentId: 'student-c', status: 'Inactive' },
+  ]
+  const summary = summarizeAssignmentPopulation(rows, (row) => row.studentId, (row) => row.status === 'Active')
+  assert.deepEqual(summary, {
+    distinctStudents: 3,
+    assignmentRecords: 4,
+    activeAssignmentRecords: 3,
+  })
+})
 
 test('dashboard and reports use canonical Supabase student-profile counts', () => {
   const dashboard = readFileSync('src/pages/DashboardPage.tsx', 'utf8')
@@ -17,7 +33,7 @@ test('dashboard and reports use canonical Supabase student-profile counts', () =
   assert.match(reports, /assignmentStudentCount/)
   assert.match(reports, /inconsistentEmptyCount/)
   assert.match(reports, /console\.error\('Canonical student-profile count failed:'/)
-  assert.match(reports, /countDistinctStudentIds\(filtered/)
+  assert.match(reports, /summarizeAssignmentPopulation/)
   assert.match(assistant, /fetchCanonicalStudentCounts\(\)/)
   assert.match(assistant, /total_student_count/)
   assert.match(dashboard, /useReportAnalytics/)
@@ -44,6 +60,7 @@ test('SIGMAI separates canonical active profiles from active scholar assignments
   assert.match(assistant, /active_student_count/)
   assert.match(assistant, /Total Active Students/)
   assert.match(assistant, /distinct student profiles/)
+  assert.match(assistant, /summarizeAssignmentPopulation/)
 })
 
 test('dashboard and reports consume one shared analytics service and academic-year scope', () => {
@@ -56,7 +73,7 @@ test('dashboard and reports consume one shared analytics service and academic-ye
     assert.match(page, /useAnalyticsAcademicYear/)
   }
   assert.match(analytics, /categoryData, trendData, options, metrics/)
-  assert.match(analytics, /countDistinctStudentIds\(filtered/)
+  assert.match(analytics, /summarizeAssignmentPopulation/)
   assert.match(analytics, /matchesStudentRecordAssignment/)
   assert.match(analytics, /effectiveStudentRecordStatus/)
   assert.match(analytics, /DATA_CHANGED_EVENT/)

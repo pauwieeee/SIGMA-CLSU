@@ -78,6 +78,7 @@ export default function DashboardPage() {
             label="Total Students"
             loading={statsLoading}
             value={stats.totalStudents}
+            detail={academicYear ? 'Distinct students matching the selected A.Y.' : 'Active, non-archived student profiles'}
           />
           <StatCard
             label="Active Scholarship Records"

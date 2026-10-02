@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { ScholarshipCategoryName, ScholarsPerCategory } from '@/types/database'
 import type { TrendPoint } from '@/hooks/useScholarsTrend'
 import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
-import { countDistinctStudentIds, fetchCanonicalStudentCounts } from '@/utils/studentAnalytics'
+import { countDistinctStudentIds, fetchCanonicalStudentCounts, summarizeAssignmentPopulation } from '@/utils/studentAnalytics'
 import { effectiveStudentRecordStatus, matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 
 export interface ReportFilters {
@@ -190,7 +190,12 @@ export function useReportAnalytics(filters: ReportFilters) {
       .sort((a, b) => a.term.localeCompare(b.term))
   }, [filtered])
 
-  const matchingStudents = useMemo(() => countDistinctStudentIds(filtered, (row) => row.student_id), [filtered])
+  const filteredPopulation = useMemo(() => summarizeAssignmentPopulation(
+    filtered,
+    (row) => row.student_id,
+    (row) => effectiveStudentRecordStatus(row.status, row.scholarships?.status) === 'Active',
+  ), [filtered])
+  const hasAssignmentFilter = Object.values(filters).some(Boolean)
   const metrics = useMemo(() => {
     const effectiveStatus = (row: ReportAssignment) => effectiveStudentRecordStatus(row.status, row.scholarships?.status)
     const enrolled = new Set(filtered.filter((row) => row.is_enrolled === true).map((row) => row.student_id))
@@ -210,10 +215,9 @@ export function useReportAnalytics(filters: ReportFilters) {
       if (filters.enrollment === 'Not Yet Verified' && row.is_enrolled !== null) return false
       return true
     })
-    const hasAssignmentFilter = Object.values(filters).some(Boolean)
     return {
-      totalStudents: hasAssignmentFilter ? matchingStudents : totalStudents,
-      activeScholarships: filtered.filter((row) => effectiveStatus(row) === 'Active').length,
+      totalStudents: hasAssignmentFilter ? filteredPopulation.distinctStudents : totalStudents,
+      activeScholarships: filteredPopulation.activeAssignmentRecords,
       expiringSoon: filtered.filter((row) => effectiveStatus(row) === 'Expiring Soon').length,
       expiredScholarships: filtered.filter((row) => effectiveStatus(row) === 'Expired').length,
       enrolledStudents: enrolled.size,
@@ -222,6 +226,25 @@ export function useReportAnalytics(filters: ReportFilters) {
       resolvedDuplicateFlags: scopedFlags.filter((flag) => ['Resolved', 'Confirmed Valid'].includes(flag.status)).length,
       totalDuplicateFlags: scopedFlags.length,
     }
-  }, [duplicateFlags, filtered, filters, matchingStudents, totalStudents])
-  return { categoryData, trendData, options, metrics, loading, error, scholarshipOptionsLoading, scholarshipOptionsError, totalStudents: metrics.totalStudents, matchingStudents, matchingAssignments: filtered.length, refetch: load }
+  }, [duplicateFlags, filtered, filteredPopulation, filters, hasAssignmentFilter, totalStudents])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || loading) return
+    console.debug('[SIGMA analytics]', {
+      filters,
+      totalStudents: metrics.totalStudents,
+      distinctFilteredStudents: filteredPopulation.distinctStudents,
+      filteredAssignmentRecords: filteredPopulation.assignmentRecords,
+      activeFilteredAssignmentRecords: filteredPopulation.activeAssignmentRecords,
+    })
+  }, [filteredPopulation, filters, loading, metrics.totalStudents])
+
+  return {
+    categoryData, trendData, options, metrics, loading, error, scholarshipOptionsLoading, scholarshipOptionsError,
+    totalStudents: metrics.totalStudents,
+    matchingStudents: filteredPopulation.distinctStudents,
+    matchingAssignments: filteredPopulation.assignmentRecords,
+    hasAssignmentFilter,
+    refetch: load,
+  }
 }

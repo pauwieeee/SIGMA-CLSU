@@ -212,7 +212,7 @@ export default function ReportsPage() {
         <Card>
           <p className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>Total Students</p>
           <p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.totalStudents}</p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{academicYear ? `Distinct students in A.Y. ${academicYear}` : 'Active student profiles across all academic years'}</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{report.hasAssignmentFilter ? 'Distinct students matching the selected filters' : 'Active, non-archived student profiles'}</p>
         </Card>
         {(['Government', 'Institutional', 'Private'] as const).map((type) => (
           <Card key={type}>
@@ -230,7 +230,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Shared operational analytics">
-        <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Active Scholarship Records</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.activeScholarships}</p><p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Filtered assignment records, not distinct students</p></Card>
+        <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Active Scholarship Records</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.activeScholarships}</p><p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>Active assignment records matching the selected filters</p></Card>
         <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Enrolled</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.enrolledStudents}</p></Card>
         <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Not Enrolled</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.notEnrolledStudents}</p></Card>
         <Card><p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Open Duplicate Flags</p><p className="mt-2 text-3xl font-bold" style={{ color: 'var(--nav-header-dark)' }}>{loading ? '—' : report.metrics.openDuplicateFlags}</p></Card>

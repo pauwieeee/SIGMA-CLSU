@@ -2,6 +2,29 @@ export function countDistinctStudentIds<T>(rows: T[], getStudentId: (row: T) => 
   return new Set(rows.map(getStudentId).filter((id): id is string => Boolean(id))).size
 }
 
+export interface AssignmentPopulationSummary {
+  distinctStudents: number
+  assignmentRecords: number
+  activeAssignmentRecords: number
+}
+
+/**
+ * Canonical aggregation for an already-filtered assignment population.
+ * Student totals are distinct profiles; assignment totals intentionally keep
+ * every scholarship record so one student can contribute multiple records.
+ */
+export function summarizeAssignmentPopulation<T>(
+  rows: T[],
+  getStudentId: (row: T) => string | null | undefined,
+  isActiveAssignment: (row: T) => boolean,
+): AssignmentPopulationSummary {
+  return {
+    distinctStudents: countDistinctStudentIds(rows, getStudentId),
+    assignmentRecords: rows.length,
+    activeAssignmentRecords: rows.filter(isActiveAssignment).length,
+  }
+}
+
 export function isGenericStudentTotalQuestion(question: string): boolean {
   const normalized = question.toLowerCase()
   const asksForCount = /\b(?:how\s+many|count|number|total)\b/.test(normalized)

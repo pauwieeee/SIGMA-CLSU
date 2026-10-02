@@ -204,7 +204,7 @@ export default function ReportsPage() {
 
       {report.error && (
         <Card className="text-sm" style={{ color: 'var(--status-error-text)' }}>
-          Historical report data could not be loaded: {report.error}
+          Some live report data is temporarily unavailable. Available statistics were calculated from the Supabase records that loaded successfully. Details: {report.error}
         </Card>
       )}
 

@@ -12,6 +12,7 @@ test('dashboard and reports use canonical Supabase student-profile counts', () =
   assert.match(canonical, /\.range\(from, from \+ pageSize - 1\)/)
   assert.match(canonical, /student\.archived_at == null/)
   assert.match(canonical, /allStudents: rows\.length/)
+  assert.doesNotMatch(canonical, /from\('system_counts'\)/)
   assert.match(reports, /fetchCanonicalStudentCounts\(\)/)
   assert.match(reports, /assignmentStudentCount/)
   assert.match(reports, /inconsistentEmptyCount/)
@@ -28,6 +29,12 @@ test('dashboard never silently presents a failed canonical count as a valid zero
   assert.match(dashboard, /analytics\.error/)
   assert.match(dashboard, /live-record fallback/)
   assert.doesNotMatch(reports, /return \{ activeStudents: 0, archivedStudents: 0, allStudents: 0 \}/)
+})
+
+test('reports do not describe current Supabase query failures as historical-data failures', () => {
+  const reportsPage = readFileSync('src/pages/ReportsPage.tsx', 'utf8')
+  assert.match(reportsPage, /Some live report data is temporarily unavailable/)
+  assert.doesNotMatch(reportsPage, /Historical report data could not be loaded/)
 })
 
 test('SIGMAI separates canonical active profiles from active scholar assignments', () => {

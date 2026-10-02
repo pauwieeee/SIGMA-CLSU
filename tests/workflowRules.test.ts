@@ -41,3 +41,18 @@ test('duplicate flag requires same student, term, and two Active assignments', (
   assert.equal(shouldFlagMultipleActiveScholarships(left, { ...left, semester: '2nd Semester' }), false)
   assert.equal(shouldFlagMultipleActiveScholarships(left, { ...left, status: 'Inactive' }), false)
 })
+
+test('archive actions use SIGMA dialogs and the shared header remains sticky', () => {
+  const scholarships = readFileSync('src/pages/ScholarshipsPage.tsx', 'utf8')
+  const studentArchive = readFileSync('src/components/students/StudentArchiveModal.tsx', 'utf8')
+  const studentRecords = readFileSync('src/pages/StudentRecordsPage.tsx', 'utf8')
+  const styles = readFileSync('src/index.css', 'utf8')
+
+  assert.doesNotMatch(scholarships, /\b(?:window\.)?confirm\s*\(/)
+  assert.match(scholarships, /<ConfirmationDialog/)
+  assert.match(scholarships, /Scholarship archived successfully\./)
+  assert.match(studentArchive, /Archive Student/)
+  assert.match(studentArchive, /will not be permanently deleted/)
+  assert.match(studentRecords, /Student archived successfully\./)
+  assert.match(styles, /\.sigma-site-header\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/s)
+})

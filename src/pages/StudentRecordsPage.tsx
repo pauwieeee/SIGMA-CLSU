@@ -501,7 +501,7 @@ export default function StudentRecordsPage() {
           const action = showArchived ? 'restored' : 'archived'
           setArchiveTarget(null)
           await refetch()
-          pushToast(`Student record ${action} successfully.`)
+          pushToast(action === 'archived' ? 'Student archived successfully.' : 'Student restored successfully.')
         }}
       />
 

@@ -9,6 +9,7 @@ import {
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 import cobraMascot from '@/assets/cobra-assistant.png'
 import { SigmaAIWordmark } from '@/components/assistant/SigmaAIWordmark'
+import { AssistantPagination } from '@/components/assistant/AssistantPagination'
 
 const suggestedChips = ['Scholars per college', 'Expiring this month', 'Show duplicate list']
 
@@ -139,7 +140,7 @@ export function SigmaAssistant() {
     try {
       const response = await askAssistant(question, messages, queryContext)
       setQueryContext(response.context)
-      setMessages((m) => [...m, { role: 'assistant', text: response.answer || "Sorry, I couldn't find an answer." }])
+      setMessages((m) => [...m, { role: 'assistant', text: response.answer || "Sorry, I couldn't find an answer.", pagination: response.pagination, page: 1 }])
       reactToResponse()
     } catch (err) {
       const code = err instanceof AssistantError ? err.code : 'assistant_service_error'
@@ -153,6 +154,10 @@ export function SigmaAssistant() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     ask(input)
+  }
+
+  function changeMessagePage(messageIndex: number, page: number) {
+    setMessages((current) => current.map((message, index) => index === messageIndex ? { ...message, page } : message))
   }
 
   if (!open) {
@@ -223,7 +228,12 @@ export function SigmaAssistant() {
               >
                 {i === 0 ? (
                   <p>Hi! I am <SigmaAIWordmark className="sigma-ai-wordmark-inline" />, your virtual assistant. How can I help you today?</p>
-                ) : <AssistantMarkdown text={m.text} />}
+                ) : (
+                  <>
+                    <AssistantMarkdown text={m.text} />
+                    {m.pagination && <AssistantPagination data={m.pagination} page={m.page ?? 1} onPageChange={(page) => changeMessagePage(i, page)} />}
+                  </>
+                )}
               </div>
             </div>
           ),

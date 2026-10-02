@@ -205,7 +205,8 @@ body {
 
 /* Institutional application header and primary navigation */
 .sigma-site-header {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 45;
   box-shadow: 0 2px 12px rgba(11, 46, 19, 0.07);
 }

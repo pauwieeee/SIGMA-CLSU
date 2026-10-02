@@ -29,11 +29,22 @@ interface QueryResult {
   data: unknown
   answer?: string
   context?: AssistantQueryContext | null
+  pagination?: AssistantPagination
+}
+
+export interface AssistantPagination {
+  title: string
+  noun: string
+  pageSize: number
+  columns: Array<{ key: string; label: string }>
+  rows: Array<Record<string, string>>
 }
 
 export interface AssistantConversationMessage {
   role: 'assistant' | 'user'
   text: string
+  pagination?: AssistantPagination
+  page?: number
 }
 
 export interface AssistantScholarContext {
@@ -57,6 +68,7 @@ export type AssistantQueryContext = AssistantScholarContext
 export interface AssistantResponse {
   answer: string
   context: AssistantQueryContext | null
+  pagination?: AssistantPagination
 }
 
 function assertQuerySucceeded(error: { message: string } | null) {
@@ -323,6 +335,33 @@ function formatScholarList(assignments: any[], filterLabel: string): string {
   )}\n\n### Summary\n**Total Matching Scholars:** ${rows.length}`
 }
 
+function scholarPagination(assignments: any[], filterLabel: string): AssistantPagination {
+  const rows = distinctScholarRows(assignments)
+  const scholarshipsByStudent = new Map<string, Set<string>>()
+  for (const assignment of assignments) {
+    const studentId = assignment.students?.id
+    const scholarship = assignment.scholarships?.name
+    if (!studentId || !scholarship) continue
+    if (!scholarshipsByStudent.has(studentId)) scholarshipsByStudent.set(studentId, new Set())
+    scholarshipsByStudent.get(studentId)!.add(scholarship)
+  }
+  return {
+    title: `${filterLabel} Scholars`,
+    noun: 'students',
+    pageSize: 10,
+    columns: [
+      { key: 'student', label: 'Student' },
+      { key: 'studentId', label: 'Student ID' },
+      { key: 'scholarship', label: 'Scholarship' },
+    ],
+    rows: rows.map((row) => ({
+      student: studentName(row),
+      studentId: String(row.students?.student_number ?? '—'),
+      scholarship: [...(scholarshipsByStudent.get(row.students?.id) ?? [])].sort().join(', ') || '—',
+    })),
+  }
+}
+
 async function resolveIntent(
   question: string,
   history: AssistantConversationMessage[] = [],
@@ -432,7 +471,7 @@ async function resolveIntent(
     const resolved = /\bresolved?\b|\bclosed?\b/.test(contextualQ)
     const requestedFlagStatus = resolved ? 'Resolved' : 'Open'
     const mode = duplicateQueryMode(q)
-    const resultLimit = requestedDuplicateResultLimit(question)
+    const resultLimit = requestedDuplicateResultLimit(question, Number.MAX_SAFE_INTEGER)
     let duplicateQuery = supabase
       .from('duplicate_flags')
       .select(`id, reason, status, created_at,
@@ -482,11 +521,29 @@ async function resolveIntent(
     const intro = selected.length === 1
       ? 'One student with a duplicate scholarship:'
       : `${selected.length} students with duplicate scholarships:`
-    const answer = `${intro}\n\n${formatTable(
+    const answer = selected.length === 1 ? `${intro}\n\n${formatTable(
       ['Student ID', 'Name', 'Conflicting Scholarships', 'Academic Term', 'Status'],
       detailRows,
     )}\n\nThere are **${rows.length} total ${requestedFlagStatus.toLowerCase()} duplicate cases** currently${resolved ? '.' : ' requiring review.'}`
-    return { intent: 'duplicate_student_list', data: selected, answer }
+      : `**${selected.length} ${requestedFlagStatus} Duplicate Students Found**`
+    const pagination: AssistantPagination | undefined = selected.length > 1 ? {
+      title: `${requestedFlagStatus} Duplicate Students`,
+      noun: 'students',
+      pageSize: 10,
+      columns: [
+        { key: 'student', label: 'Student' },
+        { key: 'studentId', label: 'Student ID' },
+        { key: 'scholarship', label: 'Conflicting Scholarships' },
+        { key: 'term', label: 'Academic Term' },
+      ],
+      rows: selected.map((row) => ({
+        student: `${row.students?.first_name ?? ''} ${row.students?.last_name ?? ''}`.trim(),
+        studentId: String(row.students?.student_number ?? '—'),
+        scholarship: [row.a?.scholarships?.name, row.b?.scholarships?.name].filter(Boolean).join(' & ') || '—',
+        term: [row.a?.academic_year ?? row.b?.academic_year, row.a?.semester ?? row.b?.semester].filter(Boolean).join(' • ') || '—',
+      })),
+    } : undefined
+    return { intent: 'duplicate_student_list', data: selected, answer, pagination }
   }
 
   const profileCountScope = studentProfileCountScope(contextualQuestion)
@@ -535,7 +592,8 @@ async function resolveIntent(
     }
   }
 
-  if (contextualQ.includes('expiring') || contextualQ.includes('expire')) {
+  const asksForExpiringStudents = /\bstudents?\b|\bscholars?\b/.test(contextualQ)
+  if ((contextualQ.includes('expiring') || contextualQ.includes('expire')) && !asksForExpiringStudents) {
     const today = new Date()
     const asksThisMonth = /this month|current month/.test(contextualQ)
     const rangeStart = asksThisMonth ? new Date(today.getFullYear(), today.getMonth(), 1) : today
@@ -655,6 +713,7 @@ async function resolveIntent(
       ?? (isFollowUpQuestion(question) ? previousContext?.semester ?? null : null)
 
     const statusMatchers: [string, RegExp][] = [
+      ['Expiring Soon', /\bexpiring(?:\s+soon)?\b/i],
       ['For Renewal', /\b(?:for\s+)?renewal\b/i],
       ['Documents Incomplete', /\b(?:documents?\s+)?incomplete\b/i],
       ['Pending Verification', /\b(?:pending(?:\s+verification)?)\b/i],
@@ -849,7 +908,11 @@ async function resolveIntent(
     }
 
     if (mode === 'list') {
-      return { intent: 'scholar_list', data: scholarRows, answer: formatScholarList(filtered, filterLabel), context: scholarContext }
+      const pagination = scholarRows.length > 1 ? scholarPagination(filtered, filterLabel) : undefined
+      const answer = pagination
+        ? `**${scholarRows.length} ${filterLabel} Scholars Found**`
+        : formatScholarList(filtered, filterLabel)
+      return { intent: 'scholar_list', data: scholarRows, answer, context: scholarContext, pagination }
     }
     if (mode === 'count' || q.includes('scholar')) {
       const matchedScholarships = matchedByType.find((match) => match.type === 'scholarship')?.names ?? []
@@ -1040,7 +1103,7 @@ export async function askAssistant(
   // Known reports are formatted directly from database results. Gemini is
   // only used for the general dashboard summary, preventing it from changing
   // exact counts, names, filters, or dates returned by SIGMA.
-  if (result.answer) return { answer: result.answer, context: nextContext }
+  if (result.answer) return { answer: result.answer, context: nextContext, pagination: result.pagination }
 
   const conversation = recentHistory
     .map((message) => `${message.role === 'user' ? 'Admin' : 'SIGMA Assistant'}: ${message.text}`)

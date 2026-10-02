@@ -8,6 +8,9 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import type { ScholarshipCategoryName } from '@/types/database'
 import { logActivity } from '@/utils/logActivity'
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog'
+import { ToastStack } from '@/components/ui/Toast'
+import { useToasts } from '@/hooks/useToasts'
 
 const tabs: ScholarshipCategoryName[] = ['Institutional', 'Government', 'Private']
 
@@ -22,6 +25,8 @@ export default function ScholarshipsPage() {
   const [viewingScholars, setViewingScholars] = useState<ScholarshipRow | null>(null)
   const [changingId, setChangingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<ScholarshipRow | null>(null)
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts()
   const notificationEditId = searchParams.get('edit')
 
   const headerRef = useRef<HTMLDivElement>(null)
@@ -77,9 +82,14 @@ export default function ScholarshipsPage() {
     setModalOpen(true)
   }
 
-  async function handleArchive(row: ScholarshipRow) {
-    if (!confirm(`Archive "${row.name}"? It will be hidden from active lists but not deleted — find it again under "Show Archived".`))
-      return
+  function handleArchive(row: ScholarshipRow) {
+    setArchiveTarget(row)
+  }
+
+  async function confirmArchive() {
+    const row = archiveTarget
+    if (!row) return
+    setArchiveTarget(null)
     setChangingId(row.id)
     setActionError(null)
     const { error } = await (supabase as any).from('scholarships').update({ archived_at: new Date().toISOString(), status: 'Archived' }).eq('id', row.id)
@@ -90,6 +100,7 @@ export default function ScholarshipsPage() {
     }
     await Promise.all([refetch(), refetchTypeCounts()])
     setChangingId(null)
+    pushToast('Scholarship archived successfully.')
     void logActivity('archive', 'scholarship', `Archived scholarship "${row.name}".`, row.id)
       .catch((activityError) => console.error('Activity logging failed:', activityError))
   }
@@ -288,6 +299,18 @@ export default function ScholarshipsPage() {
         scholarshipName={viewingScholars?.name ?? ''}
         onClose={() => setViewingScholars(null)}
       />
+
+      <ConfirmationDialog
+        open={Boolean(archiveTarget)}
+        title="Archive Scholarship"
+        message={`Archive “${archiveTarget?.name ?? ''}”? This record will be removed from the active scholarship list but will not be permanently deleted. You can find it again under Archived Scholarships.`}
+        cancelLabel="Cancel"
+        confirmLabel="Archive"
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={() => { void confirmArchive() }}
+      />
+
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }

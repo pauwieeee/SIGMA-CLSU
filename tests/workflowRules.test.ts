@@ -123,3 +123,21 @@ test('enrollment review keeps selection separate from explicit enrollment decisi
   assert.match(modal, /\.eq\('academic_year', academicYear\)\.eq\('semester', semester\)/)
   assert.match(modal, /administrator confirmation is required/)
 })
+
+test('large workflow modals keep close controls outside their scrolling bodies', () => {
+  const enrollment = readFileSync('src/components/students/EnrollmentVerificationModal.tsx', 'utf8')
+  const importPreview = readFileSync('src/components/students/ImportPreviewModal.tsx', 'utf8')
+  const studentDetail = readFileSync('src/components/students/StudentDetailModal.tsx', 'utf8')
+  const scholarshipForm = readFileSync('src/components/scholarships/ScholarshipFormModal.tsx', 'utf8')
+
+  for (const source of [enrollment, importPreview, studentDetail, scholarshipForm]) {
+    assert.match(source, /flex max-h-\[calc\(100dvh-/)
+    assert.match(source, /sticky top-0 z-(?:10|20)[^"]*shrink-0/)
+    assert.match(source, /background:\s*'var\(--bg-card\)'/)
+    assert.match(source, /min-h-0 flex-1[^"]*overflow-y-auto/)
+  }
+  assert.match(enrollment, /aria-label="Close enrollment verification"/)
+  assert.match(importPreview, /aria-label="Close import preview"/)
+  assert.match(studentDetail, /aria-label="Close student record"/)
+  assert.match(scholarshipForm, /aria-label="Close scholarship form"/)
+})

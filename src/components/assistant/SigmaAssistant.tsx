@@ -10,8 +10,28 @@ import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown'
 import cobraMascot from '@/assets/cobra-assistant.png'
 import { SigmaAIWordmark } from '@/components/assistant/SigmaAIWordmark'
 import { AssistantPagination } from '@/components/assistant/AssistantPagination'
+import { useAuth } from '@/lib/authContext'
 
 const suggestedChips = ['Scholars per college', 'Expiring this month', 'Show duplicate list']
+const initialAssistantMessage: AssistantConversationMessage = {
+  role: 'assistant',
+  text: 'Hi! I am SIGMAI, your virtual assistant. How can I help you today?',
+}
+
+interface StoredAssistantConversation {
+  threadId: string
+  messages: AssistantConversationMessage[]
+  context: AssistantQueryContext | null
+}
+
+function readStoredConversation(key: string): StoredAssistantConversation | null {
+  try {
+    const value = sessionStorage.getItem(key)
+    return value ? JSON.parse(value) as StoredAssistantConversation : null
+  } catch {
+    return null
+  }
+}
 
 function errorMessageFor(code: string): string {
   switch (code) {
@@ -41,21 +61,20 @@ function errorMessageFor(code: string): string {
 }
 
 export function SigmaAssistant() {
+  const { user } = useAuth()
+  const conversationStorageKey = `sigma:assistant-conversation:${user?.id ?? 'anonymous'}`
+  const storedConversation = readStoredConversation(conversationStorageKey)
   const [open, setOpen] = useState(false)
   const [footerOffset, setFooterOffset] = useState(24)
   const [curious, setCurious] = useState(false)
   const [opening, setOpening] = useState(false)
   const [responding, setResponding] = useState(false)
   const [showMascotIntro, setShowMascotIntro] = useState(false)
-  const [messages, setMessages] = useState<AssistantConversationMessage[]>([
-    {
-      role: 'assistant',
-      text: 'Hi! I am SIGMAI, your virtual assistant. How can I help you today?',
-    },
-  ])
+  const [messages, setMessages] = useState<AssistantConversationMessage[]>(() => storedConversation?.messages?.length ? storedConversation.messages : [initialAssistantMessage])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [queryContext, setQueryContext] = useState<AssistantQueryContext | null>(null)
+  const [queryContext, setQueryContext] = useState<AssistantQueryContext | null>(() => storedConversation?.context ?? null)
+  const [conversationThreadId] = useState(() => storedConversation?.threadId ?? crypto.randomUUID())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const responseTimerRef = useRef<number | null>(null)
 
@@ -79,6 +98,16 @@ export function SigmaAssistant() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    const compactContext = queryContext ? { ...queryContext, assignments: [], studentIds: [] } : null
+    const compactMessages = messages.slice(-20).map(({ role, text }) => ({ role, text }))
+    sessionStorage.setItem(conversationStorageKey, JSON.stringify({
+      threadId: conversationThreadId,
+      messages: compactMessages,
+      context: compactContext,
+    }))
+  }, [conversationStorageKey, conversationThreadId, messages, queryContext])
 
   useEffect(() => {
     if (sessionStorage.getItem('sigmaMascotIntroShown')) return

@@ -73,6 +73,24 @@ test('assistant preserves an ambiguous program choice for the next conversationa
   assert.match(assistant, /pendingProgramQuestion: contextualQuestion/)
 })
 
+test('assistant keeps structured scholar filters for pronoun and enrollment follow-ups', () => {
+  assert.match(assistant, /continuesScholarContext && previousContext\?\.kind === 'scholars'/)
+  assert.match(assistant, /requestedEnrollment/)
+  assert.match(assistant, /enrollment: requestedEnrollment/)
+  assert.match(assistant, /previousResultCount: matchingStudentCount/)
+  assert.match(assistant, /program: String\(row\.students\?\.programs\?\.name/)
+  assert.match(assistant, /what scholarships\?\|what programs\?/)
+})
+
+test('assistant UI persists a user-scoped local conversation thread and compact query context', () => {
+  assert.match(assistantUi, /sigma:assistant-conversation:/)
+  assert.match(assistantUi, /threadId:/)
+  assert.match(assistantUi, /crypto\.randomUUID\(\)/)
+  assert.match(assistantUi, /assignments: \[\], studentIds: \[\]/)
+  assert.match(assistantUi, /messages\.slice\(-20\)/)
+  assert.match(assistantUi, /sessionStorage\.setItem/)
+})
+
 test('live database retrieval retries before reporting a precise service error', () => {
   assert.match(assistant, /retryAssistantOperation/)
   assert.match(assistant, /attempts: 3/)

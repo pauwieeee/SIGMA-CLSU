@@ -62,6 +62,8 @@ export interface AssistantScholarContext {
   scholarships: string[]
   colleges: string[]
   programs: string[]
+  enrollment: 'Enrolled' | 'Not Enrolled' | null
+  previousResultCount: number
   pendingPrograms?: ProgramReference[]
   pendingProgramQuestion?: string
 }
@@ -362,11 +364,13 @@ function scholarPagination(assignments: any[], filterLabel: string): AssistantPa
     columns: [
       { key: 'student', label: 'Student' },
       { key: 'studentId', label: 'Student ID' },
+      { key: 'program', label: 'Program' },
       { key: 'scholarship', label: 'Scholarship' },
     ],
     rows: rows.map((row) => ({
       student: studentName(row),
       studentId: String(row.students?.student_number ?? '—'),
+      program: String(row.students?.programs?.name ?? '—'),
       scholarship: [...(scholarshipsByStudent.get(row.students?.id) ?? [])].sort().join(', ') || '—',
     })),
   }
@@ -589,7 +593,7 @@ async function resolveIntent(
   }
 
   const enrollmentQuestion = /\benrolled\b/.test(contextualQ) && /\bstudents?\b|\bscholars?\b/.test(contextualQ)
-  if (enrollmentQuestion) {
+  if (enrollmentQuestion && !(continuesScholarContext && previousContext?.kind === 'scholars')) {
     const wantsNotEnrolled = /\bnot\s+enrolled\b|\bunenrolled\b/.test(contextualQ)
     const { data, error } = await supabase
       .from('student_scholarships')
@@ -642,7 +646,10 @@ async function resolveIntent(
   const scopedCountWithoutNoun = /\b(?:how\s+many|count|number|total)\b/.test(contextualQ)
     && /\b(?:under|in|from|with)\b/.test(contextualQ)
     && !/\bscholarships?\b/.test(contextualQ)
-  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ) || scopedCountWithoutNoun || resolvesPendingProgram
+  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ)
+    || scopedCountWithoutNoun
+    || resolvesPendingProgram
+    || Boolean(continuesScholarContext && previousContext?.kind === 'scholars')
 
   if (/\bscholarships?\b/.test(contextualQ) && !asksAboutPeople) {
     const { data, error } = await supabase
@@ -752,6 +759,13 @@ async function resolveIntent(
     const currentNeedsReview = /\bneeds?\s+review\b/i.test(normalizedCurrentQuestion)
     const requestedStatus = explicitlyRequestedStatus
       ?? (continuesScholarContext ? previousContext?.scholarshipStatus ?? null : null)
+    const explicitEnrollment = /\bnot\s+enrolled\b|\bunenrolled\b/i.test(normalizedCurrentQuestion)
+      ? 'Not Enrolled' as const
+      : /\benrolled\b/i.test(normalizedCurrentQuestion)
+        ? 'Enrolled' as const
+        : null
+    const requestedEnrollment = explicitEnrollment
+      ?? (continuesScholarContext ? previousContext?.enrollment ?? null : null)
     const needsReview = currentNeedsReview || Boolean(
       continuesScholarContext && !explicitlyRequestedStatus && previousContext?.needsReview,
     )
@@ -761,10 +775,12 @@ async function resolveIntent(
       semester: row.semester,
       assignmentStatus: row.status,
       scholarshipStatus: row.scholarships?.status,
+      isEnrolled: row.is_enrolled,
     }, {
       academicYear: appliedYear,
       semester: appliedSemester,
       status: needsReview ? null : requestedStatus,
+      enrollment: requestedEnrollment,
     }) && (!needsReview || openDuplicateStudentIds.has(row.students?.id)))
 
     type EntityType = 'program' | 'college' | 'scholarship' | 'agency' | 'category'
@@ -818,6 +834,8 @@ async function resolveIntent(
           scholarships: continuesScholarContext ? previousContext?.scholarships ?? [] : [],
           colleges: continuesScholarContext ? previousContext?.colleges ?? [] : [],
           programs: [],
+          enrollment: requestedEnrollment,
+          previousResultCount: 0,
           pendingPrograms: currentProgramMatches,
           pendingProgramQuestion: contextualQuestion,
         },
@@ -936,8 +954,8 @@ async function resolveIntent(
     )
     const matchingStudentCount = filteredPopulation.distinctStudents
     const statusLabel = needsReview ? 'Needs Review' : requestedStatus
-    const filterLabel = [statusLabel, matchedEntities.join(' / '), appliedYear, appliedSemester].filter(Boolean).join(', ') || 'all scholar records'
-    const asksToListNow = /list|show|who|names|which|give me|\ball\b/.test(q)
+    const filterLabel = [statusLabel, requestedEnrollment, matchedEntities.join(' / '), appliedYear, appliedSemester].filter(Boolean).join(', ') || 'all scholar records'
+    const asksToListNow = /list|show|who|names|which|give me|\ball\b|what scholarships?|what programs?/.test(q)
     const asksToCountNow = /how many|count|number|total/.test(q)
     const mode: ScholarQueryMode = asksToListNow ? 'list' : asksToCountNow ? 'count'
       : continuesScholarContext ? previousContext?.mode ?? 'count' : 'count'
@@ -955,6 +973,8 @@ async function resolveIntent(
       scholarships: matchedByType.find((match) => match.type === 'scholarship')?.names ?? [],
       colleges: matchedByType.find((match) => match.type === 'college')?.names ?? [],
       programs: matchedByType.find((match) => match.type === 'program')?.names ?? [],
+      enrollment: requestedEnrollment,
+      previousResultCount: matchingStudentCount,
     }
 
     if (q.includes('per college') || q.includes('by college')) {

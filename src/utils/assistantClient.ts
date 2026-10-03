@@ -12,7 +12,7 @@ import { duplicateQueryMode, normalizeAssistantQuestion, requestedDuplicateResul
 import { fetchCanonicalStudentCounts, isGenericStudentTotalQuestion, studentProfileCountScope, summarizeAssignmentPopulation } from '@/utils/studentAnalytics'
 import { matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 import { retryAssistantOperation } from '@/utils/assistantRetry'
-import { findProgramsInText, programLookupKeys } from '@/utils/programMatching'
+import { findProgramsInText, programLookupKeys, type ProgramReference } from '@/utils/programMatching'
 
 // Gemini credentials live only in the authenticated Edge Function.
 const GEMINI_API_KEY: string | undefined = undefined
@@ -62,6 +62,8 @@ export interface AssistantScholarContext {
   scholarships: string[]
   colleges: string[]
   programs: string[]
+  pendingPrograms?: ProgramReference[]
+  pendingProgramQuestion?: string
 }
 
 export type AssistantQueryContext = AssistantScholarContext
@@ -379,6 +381,14 @@ async function resolveIntent(
   const normalizedCurrentQuestion = stripScholarshipReferenceMetadata(normalizeAssistantQuestion(question))
   const currentQ = normalizedCurrentQuestion.toLowerCase()
   let contextualQuestion = normalizeAssistantQuestion(questionWithContext(question, history))
+  const pendingProgramMatches = previousContext?.pendingPrograms?.length
+    ? findProgramsInText(normalizedCurrentQuestion, previousContext.pendingPrograms)
+    : []
+  const resolvesPendingProgram = pendingProgramMatches.length === 1
+  const continuesScholarContext = isFollowUpQuestion(question) || resolvesPendingProgram
+  if (resolvesPendingProgram && previousContext?.pendingProgramQuestion) {
+    contextualQuestion = normalizeAssistantQuestion(`${previousContext.pendingProgramQuestion} ${question}`)
+  }
   const resolvedRelativeYear = previousContext?.kind === 'scholars'
     ? relativeAcademicYear(question, previousContext.academicYear)
     : null
@@ -632,7 +642,7 @@ async function resolveIntent(
   const scopedCountWithoutNoun = /\b(?:how\s+many|count|number|total)\b/.test(contextualQ)
     && /\b(?:under|in|from|with)\b/.test(contextualQ)
     && !/\bscholarships?\b/.test(contextualQ)
-  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ) || scopedCountWithoutNoun
+  const asksAboutPeople = /\bscholars?\b|\bstudents?\b/.test(contextualQ) || scopedCountWithoutNoun || resolvesPendingProgram
 
   if (/\bscholarships?\b/.test(contextualQ) && !asksAboutPeople) {
     const { data, error } = await supabase
@@ -722,9 +732,9 @@ async function resolveIntent(
           ? 'Summer'
           : null
     const appliedYear = lastAcademicYearText(normalizedCurrentQuestion)
-      ?? (isFollowUpQuestion(question) ? previousContext?.academicYear ?? null : null)
+      ?? (continuesScholarContext ? previousContext?.academicYear ?? null : null)
     const appliedSemester = semester
-      ?? (isFollowUpQuestion(question) ? previousContext?.semester ?? null : null)
+      ?? (continuesScholarContext ? previousContext?.semester ?? null : null)
 
     const statusMatchers: [string, RegExp][] = [
       ['Expiring Soon', /\bexpiring(?:\s+soon)?\b/i],
@@ -741,9 +751,9 @@ async function resolveIntent(
     const explicitlyRequestedStatus = requestedStatuses.at(-1)?.status ?? null
     const currentNeedsReview = /\bneeds?\s+review\b/i.test(normalizedCurrentQuestion)
     const requestedStatus = explicitlyRequestedStatus
-      ?? (isFollowUpQuestion(question) ? previousContext?.scholarshipStatus ?? null : null)
+      ?? (continuesScholarContext ? previousContext?.scholarshipStatus ?? null : null)
     const needsReview = currentNeedsReview || Boolean(
-      isFollowUpQuestion(question) && !explicitlyRequestedStatus && previousContext?.needsReview,
+      continuesScholarContext && !explicitlyRequestedStatus && previousContext?.needsReview,
     )
     const openDuplicateStudentIds = new Set((duplicateResult.data ?? []).map((row: any) => row.student_id))
     let filtered = assignments.filter((row) => matchesStudentRecordAssignment({
@@ -789,10 +799,28 @@ async function resolveIntent(
     }
     const currentProgramMatches = findProgramsInText(normalizedCurrentQuestion, programCatalog)
     if (currentProgramMatches.length > 1) {
+      const pendingMode: ScholarQueryMode = /list|show|who|names|which|give me|\ball\b/.test(q) ? 'list' : 'count'
       return {
         intent: 'ambiguous_program_filter',
         data: currentProgramMatches,
         answer: `I found multiple official programs that may match your question:\n\n${currentProgramMatches.map((program) => `- **${program.name}**${program.code ? ` (${program.code})` : ''}`).join('\n')}\n\nPlease choose one program so I can return the correct students.`,
+        context: {
+          kind: 'scholars',
+          filterLabel: 'program selection',
+          assignments: [],
+          studentIds: [],
+          mode: pendingMode,
+          academicYear: appliedYear,
+          semester: appliedSemester,
+          scholarshipStatus: requestedStatus,
+          needsReview,
+          categories: continuesScholarContext ? previousContext?.categories ?? [] : [],
+          scholarships: continuesScholarContext ? previousContext?.scholarships ?? [] : [],
+          colleges: continuesScholarContext ? previousContext?.colleges ?? [] : [],
+          programs: [],
+          pendingPrograms: currentProgramMatches,
+          pendingProgramQuestion: contextualQuestion,
+        },
       }
     }
     const matchedByType = (Object.keys(entityAliases) as EntityType[]).map((type) => {
@@ -813,7 +841,7 @@ async function resolveIntent(
             .filter(([name, aliases]) => includesEntity(contextualQuestion, name, [...aliases]))
             .map(([name]) => name)
       let names = currentQuestionMatches.length > 0 ? currentQuestionMatches : inheritedNames
-      if (isFollowUpQuestion(question) && currentQuestionMatches.length === 0 && previousContext) {
+      if (continuesScholarContext && currentQuestionMatches.length === 0 && previousContext) {
         if (type === 'category') names = previousContext.categories
         if (type === 'scholarship') names = previousContext.scholarships
         if (type === 'college') names = previousContext.colleges
@@ -912,7 +940,7 @@ async function resolveIntent(
     const asksToListNow = /list|show|who|names|which|give me|\ball\b/.test(q)
     const asksToCountNow = /how many|count|number|total/.test(q)
     const mode: ScholarQueryMode = asksToListNow ? 'list' : asksToCountNow ? 'count'
-      : isFollowUpQuestion(question) ? previousContext?.mode ?? 'count' : 'count'
+      : continuesScholarContext ? previousContext?.mode ?? 'count' : 'count'
     const scholarContext: AssistantScholarContext = {
       kind: 'scholars',
       filterLabel,

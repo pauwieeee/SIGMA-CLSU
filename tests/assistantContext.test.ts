@@ -22,7 +22,7 @@ test('relative academic-year follow-ups derive from structured context', () => {
 })
 
 test('required conversational phrases are classified as follow-ups', () => {
-  for (const question of ['How about 2023-2024?', 'And for 2024-2025?', 'How many for 2023-2024?', 'Who are they?', 'List them.', 'How many are active?']) {
+  for (const question of ['How about 2023-2024?', 'And for 2024-2025?', 'How many for 2023-2024?', 'Who are they?', 'List them.', 'How many are active?', 'How many are enrolled?', 'Who is enrolled?']) {
     assert.equal(isContextualFollowUp(question), true, question)
   }
   assert.equal(isContextualFollowUp('How many students are in BSIT?'), false)

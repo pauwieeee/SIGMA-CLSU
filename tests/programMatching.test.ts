@@ -49,6 +49,8 @@ test('natural-language program matching supports abbreviations, punctuation, and
   for (const question of [
     'students in Bachelor of Science in Information Technology',
     'how many BSIT scholars?',
+    'scholars in BS IT',
+    'scholars in bs it',
     'list scholars under B.S.I.T.',
     'students in information technlogy',
   ]) {
@@ -56,6 +58,15 @@ test('natural-language program matching supports abbreviations, punctuation, and
     assert.deepEqual(matches.map((program) => program.id), ['it'])
   }
   assert.deepEqual(findProgramsInText('students in imaginary studies', programs), [])
+})
+
+test('a full official program reply resolves one pending database program selection', () => {
+  const pendingPrograms = [
+    { id: 'ft', name: 'Bachelor of Science in Food Technology', code: 'BSFT' },
+    { id: 'it', name: 'Bachelor of Science in Information Technology', code: 'BSIT' },
+  ]
+  const matches = findProgramsInText('Bachelor of science in information technology', pendingPrograms)
+  assert.deepEqual(matches.map((program) => program.id), ['it'])
 })
 
 test('natural-language matching returns every plausible official program for disambiguation', () => {

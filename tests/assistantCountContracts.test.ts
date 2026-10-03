@@ -64,6 +64,15 @@ test('assistant resolves programs from the complete Supabase catalog with shared
   assert.match(assistant, /programCatalog/)
 })
 
+test('assistant preserves an ambiguous program choice for the next conversational reply', () => {
+  assert.match(assistant, /pendingPrograms\?: ProgramReference\[\]/)
+  assert.match(assistant, /pendingProgramQuestion\?: string/)
+  assert.match(assistant, /findProgramsInText\(normalizedCurrentQuestion, previousContext\.pendingPrograms\)/)
+  assert.match(assistant, /resolvesPendingProgram/)
+  assert.match(assistant, /pendingPrograms: currentProgramMatches/)
+  assert.match(assistant, /pendingProgramQuestion: contextualQuestion/)
+})
+
 test('live database retrieval retries before reporting a precise service error', () => {
   assert.match(assistant, /retryAssistantOperation/)
   assert.match(assistant, /attempts: 3/)

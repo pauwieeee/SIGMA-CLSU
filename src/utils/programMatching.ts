@@ -170,6 +170,18 @@ export function findProgramsInText<T extends ProgramReference>(text: string, pro
   const textWords = normalizedText.split(' ').filter(Boolean)
   const semanticTextWords = new Set(semanticProgramWords(text))
   const compactTextTokens = new Set(textWords.map((word) => word.replace(/[^a-z0-9]/g, '')))
+  // Treat spaced acronyms such as "BS IT" as the same database-derived
+  // code as "BSIT". Limit this to short adjacent tokens so ordinary program
+  // wording cannot become an overly broad substring match.
+  for (let start = 0; start < textWords.length; start += 1) {
+    let compact = ''
+    for (let end = start; end < Math.min(textWords.length, start + 4); end += 1) {
+      const token = textWords[end]
+      if (!/^[a-z0-9]{1,3}$/.test(token)) break
+      compact += token
+      if (end > start && compact.length >= 3 && compact.length <= 12) compactTextTokens.add(compact)
+    }
+  }
   for (let index = 0; index < textWords.length;) {
     if (textWords[index].length !== 1) { index += 1; continue }
     let end = index

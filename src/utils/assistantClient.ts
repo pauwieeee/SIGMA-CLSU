@@ -721,7 +721,7 @@ async function resolveIntent(
       supabase
         .from('duplicate_flags')
         .select('student_id')
-        .eq('status', 'Open'),
+        .in('status', ['Open', 'Under Review']),
     ])
     assertQuerySucceeded(assignmentResult.error)
     assertQuerySucceeded(scholarshipResult.error)

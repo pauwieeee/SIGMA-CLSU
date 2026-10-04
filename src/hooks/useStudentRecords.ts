@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { studentSearchText } from '@/utils/workflowRules'
 import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
+import { OPEN_DUPLICATE_STATUSES } from '@/utils/duplicateFlags'
 import { effectiveStudentRecordStatus, matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 
 export interface StudentRecordRow {
@@ -72,7 +73,7 @@ export function useStudentRecords(filters: Filters, showArchived = false) {
 
     const [{ data, error }, { data: dupRows }] = await Promise.all([
       studentsQuery.order('last_name', { ascending: true }),
-      supabase.from('duplicate_flags').select('student_id').eq('status', 'Open'),
+      supabase.from('duplicate_flags').select('student_id').in('status', [...OPEN_DUPLICATE_STATUSES]),
     ])
 
     if (error) {

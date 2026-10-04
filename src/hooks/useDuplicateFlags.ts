@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { notifyDataChanged } from '@/utils/dataSync'
+import { OPEN_DUPLICATE_STATUSES } from '@/utils/duplicateFlags'
 
 export interface DuplicateFlagRow {
   id: string
@@ -28,9 +30,11 @@ export interface DuplicateFlagRow {
 export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'Unresolved' | 'All' = 'Unresolved') {
   const [rows, setRows] = useState<DuplicateFlagRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchRows = useCallback(async () => {
     setLoading(true)
+    setError(null)
     let query = supabase
       .from('duplicate_flags')
       .select(
@@ -40,11 +44,13 @@ export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'Unresolved' | '
          b:student_scholarship_id_b ( academic_year, semester, status, scholarships ( name ) )`
       )
       .order('created_at', { ascending: false })
-    if (status === 'Unresolved') query = query.in('status', ['Open', 'Under Review'])
+    if (status === 'Unresolved') query = query.in('status', [...OPEN_DUPLICATE_STATUSES])
     else if (status !== 'All') query = query.eq('status', status)
     const { data, error } = await query
 
-    if (!error && data) {
+    if (error) {
+      setError(error.message)
+    } else if (data) {
       setRows(
         (data as any[]).map((r) => ({
           id: r.id,
@@ -99,6 +105,7 @@ export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'Unresolved' | '
     if (error) throw error
     // The database RPC records the review and audit event atomically.
     await fetchRows()
+    notifyDataChanged({ source: 'duplicate-flags' })
   }
 
   async function resolve(id: string, resolutionType: string, resolutionNotes: string) {
@@ -110,5 +117,5 @@ export function useDuplicateFlags(status: 'Open' | 'Resolved' | 'Unresolved' | '
     await review(id, 'Under Review', 'Further Verification Required', notes)
   }
 
-  return { rows, loading, resolve, markUnderReview, refetch: fetchRows }
+  return { rows, loading, error, resolve, markUnderReview, refetch: fetchRows }
 }

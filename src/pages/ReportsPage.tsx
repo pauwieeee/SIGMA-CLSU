@@ -31,6 +31,8 @@ import { usePrograms } from '@/hooks/usePrograms'
 import { DuplicateFlagsModal } from '@/components/reports/DuplicateFlagsModal'
 import { logActivity } from '@/utils/logActivity'
 import { useAuth } from '@/lib/authContext'
+import { OPEN_DUPLICATE_STATUSES } from '@/utils/duplicateFlags'
+import { notifyDataChanged } from '@/utils/dataSync'
 
 export default function ReportsPage() {
   const { user } = useAuth()
@@ -77,10 +79,11 @@ export default function ReportsPage() {
       const { count: openFlags, error: countError } = await supabase
         .from('duplicate_flags')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'Open')
+        .in('status', [...OPEN_DUPLICATE_STATUSES])
       if (countError) throw countError
       const openCount = openFlags ?? 0
       await logActivity('rescan', 'duplicate_flag', `Re-scanned all student records: ${newFlags} new duplicate flag(s) found; ${openCount} open flag(s) still require review.`)
+      notifyDataChanged({ source: 'duplicate-flags' })
       pushToast(`Scan completed — New duplicate flags found: ${newFlags}. Existing open duplicate flags: ${openCount}${openCount > 0 ? ' (still require review).' : '.'}`, 'success')
       await report.refetch()
     } catch (err) {

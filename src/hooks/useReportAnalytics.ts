@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { ScholarshipCategoryName, ScholarsPerCategory } from '@/types/database'
 import type { TrendPoint } from '@/hooks/useScholarsTrend'
 import { DATA_CHANGED_EVENT } from '@/utils/dataSync'
+import { isOpenDuplicateStatus, isResolvedDuplicateStatus } from '@/utils/duplicateFlags'
 import { countDistinctStudentIds, fetchCanonicalStudentCounts, summarizeAssignmentPopulation } from '@/utils/studentAnalytics'
 import { effectiveStudentRecordStatus, matchesStudentRecordAssignment } from '@/utils/studentRecordFilters'
 
@@ -99,9 +100,14 @@ export function useReportAnalytics(filters: ReportFilters) {
     const refresh = () => void load()
     window.addEventListener(DATA_CHANGED_EVENT, refresh)
     window.addEventListener('focus', refresh)
+    const duplicateChannel = supabase
+      .channel('analytics-duplicate-flags')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'duplicate_flags' }, refresh)
+      .subscribe()
     return () => {
       window.removeEventListener(DATA_CHANGED_EVENT, refresh)
       window.removeEventListener('focus', refresh)
+      void supabase.removeChannel(duplicateChannel)
     }
   }, [load])
 
@@ -222,8 +228,8 @@ export function useReportAnalytics(filters: ReportFilters) {
       expiredScholarships: filtered.filter((row) => effectiveStatus(row) === 'Expired').length,
       enrolledStudents: enrolled.size,
       notEnrolledStudents: notEnrolled.size,
-      openDuplicateFlags: scopedFlags.filter((flag) => ['Open', 'Under Review'].includes(flag.status)).length,
-      resolvedDuplicateFlags: scopedFlags.filter((flag) => ['Resolved', 'Confirmed Valid'].includes(flag.status)).length,
+      openDuplicateFlags: scopedFlags.filter((flag) => isOpenDuplicateStatus(flag.status)).length,
+      resolvedDuplicateFlags: scopedFlags.filter((flag) => isResolvedDuplicateStatus(flag.status)).length,
       totalDuplicateFlags: scopedFlags.length,
     }
   }, [duplicateFlags, filtered, filteredPopulation, filters, hasAssignmentFilter, totalStudents])

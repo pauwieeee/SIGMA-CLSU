@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, X } from 'lucide-react'
 import { useDuplicateFlags } from '@/hooks/useDuplicateFlags'
 import { StudentDetailModal } from '@/components/students/StudentDetailModal'
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog'
+import { Pagination } from '@/components/ui/Pagination'
+import { isOpenDuplicateStatus, isResolvedDuplicateStatus } from '@/utils/duplicateFlags'
+
+const PAGE_SIZE = 5
 
 const resolutionDescriptions: Record<string, string> = {
   'Scholarship Deactivated': 'One scholarship was made inactive.',
@@ -19,7 +24,7 @@ interface Props {
 }
 
 export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) {
-  const { rows, loading, resolve, markUnderReview, refetch } = useDuplicateFlags('All')
+  const { rows, loading, error: loadError, resolve, markUnderReview, refetch } = useDuplicateFlags('All')
   const [tab, setTab] = useState<'Open' | 'Resolved'>('Open')
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
@@ -28,18 +33,34 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [confirmingResolve, setConfirmingResolve] = useState(false)
 
-  const visibleRows = rows
-    .filter((row) => tab === 'Open' ? ['Open', 'Under Review'].includes(row.status) : ['Resolved', 'Confirmed Valid'].includes(row.status))
+  const tabRows = rows
+    .filter((row) => tab === 'Open' ? isOpenDuplicateStatus(row.status) : isResolvedDuplicateStatus(row.status))
     .sort((a, b) => Number(b.id === focusFlagId) - Number(a.id === focusFlagId))
-  const openCount = rows.filter((row) => ['Open', 'Under Review'].includes(row.status)).length
-  const resolvedCount = rows.filter((row) => ['Resolved', 'Confirmed Valid'].includes(row.status)).length
+  const totalPages = Math.max(1, Math.ceil(tabRows.length / PAGE_SIZE))
+  const visibleRows = tabRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const openCount = rows.filter((row) => isOpenDuplicateStatus(row.status)).length
+  const resolvedCount = rows.filter((row) => isResolvedDuplicateStatus(row.status)).length
   const reviewingRow = rows.find((row) => row.id === reviewingId) ?? null
 
   useEffect(() => {
     const focused = rows.find((row) => row.id === focusFlagId)
-    if (focused) setTab(['Open', 'Under Review'].includes(focused.status) ? 'Open' : 'Resolved')
+    if (focused) setTab(isOpenDuplicateStatus(focused.status) ? 'Open' : 'Resolved')
   }, [focusFlagId, rows])
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages))
+  }, [totalPages])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !reviewingRow && !viewingStudentId && !confirmingResolve) onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [confirmingResolve, onClose, reviewingRow, viewingStudentId])
 
   function beginReview(id: string) {
     setReviewingId(id)
@@ -68,11 +89,13 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
     }
 
     setResolvingId(id)
+    setConfirmingResolve(false)
     setError(null)
     try {
       await resolve(id, resolutionType, resolutionNotes.trim())
       setReviewingId(null)
       setTab('Resolved')
+      setCurrentPage(1)
       setSuccess(true)
       onChanged()
     } catch (err) {
@@ -101,9 +124,9 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-flags-title">
-      <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--divider-light)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-flags-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="flex max-h-[90dvh] w-[min(90vw,72rem)] max-w-full flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3 sm:px-5 sm:py-4" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
           <div>
             <h2 id="duplicate-flags-title" className="text-base font-bold" style={{ color: 'var(--nav-header-dark)' }}>
               Duplicate Flags
@@ -117,7 +140,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
           <div className="mb-4 flex gap-2 border-b" style={{ borderColor: 'var(--divider-light)' }}>
             {(['Open', 'Resolved'] as const).map((status) => {
               const count = status === 'Open' ? openCount : resolvedCount
@@ -126,6 +149,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                   key={status}
                   onClick={() => {
                     setTab(status)
+                    setCurrentPage(1)
                     setReviewingId(null)
                     setError(null)
                   }}
@@ -141,9 +165,9 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
             })}
           </div>
 
-          {error && (
+          {(error || loadError) && (
             <p role="alert" className="mb-4 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--status-incomplete-bg)', color: 'var(--status-incomplete-text)' }}>
-              Could not resolve the flag: {error}
+              {error ? `Could not resolve the flag: ${error}` : `Could not load duplicate flags: ${loadError}`}
             </p>
           )}
           {success && (
@@ -179,7 +203,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{row.student_name}</p>
-                            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={['Open', 'Under Review'].includes(row.status)
+                            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={isOpenDuplicateStatus(row.status)
                               ? { background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' }
                               : { background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>
                               {row.status}
@@ -204,7 +228,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                             Reason: Multiple Active Scholarships
                           </span>
                           <p className="mt-2 text-xs" style={{ color: 'var(--status-error-text)' }}>{row.reason}</p>
-                          {['Resolved', 'Confirmed Valid'].includes(row.status) && (
+                          {isResolvedDuplicateStatus(row.status) && (
                             <div className="mt-3 rounded-md px-3 py-2 text-xs" style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)' }}>
                               <p><strong>Resolution:</strong> {row.resolution_type ?? 'Not recorded'}</p>
                               <p><strong>Notes:</strong> {row.resolution_notes ?? 'No notes recorded'}</p>
@@ -226,7 +250,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                       >
                         View Student
                       </button>
-                      {['Open', 'Under Review'].includes(row.status) && (
+                      {isOpenDuplicateStatus(row.status) && (
                         <button
                           onClick={() => beginReview(row.id)}
                           className="rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-[var(--menu-hover-bg)]"
@@ -242,6 +266,14 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
             </div>
           )}
         </div>
+        {!loading && tabRows.length > 0 && (
+          <div className="sticky bottom-0 z-10 shrink-0" style={{ background: 'var(--bg-card)' }}>
+            <p className="px-4 pt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, tabRows.length)} of {tabRows.length} {tab.toLowerCase()} cases
+            </p>
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+          </div>
+        )}
       </div>
 
       {reviewingRow && (
@@ -249,7 +281,14 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              markResolved(reviewingRow.id)
+              if (!resolutionType) return setError('Select a resolution before confirming.')
+              if (!resolutionNotes.trim()) return setError('Add a short note explaining what was done.')
+              const bothStillActive = reviewingRow.scholarship_a_status === 'Active' && reviewingRow.scholarship_b_status === 'Active'
+              if (bothStillActive && !['Approved Exception', 'False Positive'].includes(resolutionType)) {
+                return setError('Both scholarships are still active. Open the student record and correct or deactivate one scholarship, or choose an approved exception/false positive resolution.')
+              }
+              setError(null)
+              setConfirmingResolve(true)
             }}
             className="w-full max-w-lg rounded-xl p-5 shadow-2xl"
             style={{ background: 'var(--bg-card)' }}
@@ -331,6 +370,16 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
           </form>
         </div>
       )}
+
+      <ConfirmationDialog
+        open={confirmingResolve}
+        title="Resolve Duplicate Flag?"
+        message="This will mark this duplicate case as resolved. Are you sure you want to continue?"
+        cancelLabel="Cancel"
+        confirmLabel="Resolve Flag"
+        onCancel={() => setConfirmingResolve(false)}
+        onConfirm={() => { if (reviewingRow) void markResolved(reviewingRow.id) }}
+      />
 
       {viewingStudentId && (
         <StudentDetailModal

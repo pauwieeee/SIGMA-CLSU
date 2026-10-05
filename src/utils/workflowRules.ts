@@ -37,9 +37,16 @@ export function isSameScholarshipTerm(
 }
 
 export function shouldFlagMultipleActiveScholarships(
-  left: { studentId: string; academicYear: string; semester: string; status: string },
-  right: { studentId: string; academicYear: string; semester: string; status: string },
+  left: { studentId: string; academicYear: string; semester: string; status: string; category: string },
+  right: { studentId: string; academicYear: string; semester: string; status: string; category: string },
 ) {
-  return left.studentId === right.studentId && left.academicYear === right.academicYear
-    && left.semester === right.semester && left.status === 'Active' && right.status === 'Active'
+  const categories = new Set([left.category, right.category])
+  return left.studentId === right.studentId
+    && left.academicYear === right.academicYear
+    && left.semester === right.semester
+    && left.status === 'Active'
+    && right.status === 'Active'
+    && categories.size === 2
+    && categories.has('Government')
+    && categories.has('Private')
 }

@@ -44,11 +44,14 @@ test('renewal duplicate validation matches scholarship, academic year, and semes
   assert.equal(isSameScholarshipTerm(source, { ...source, semester: '2nd Semester' }), false)
 })
 
-test('duplicate flag requires same student, term, and two Active assignments', () => {
-  const left = { studentId: 'student-1', academicYear: '2025-2026', semester: '1st Semester', status: 'Active' }
-  assert.equal(shouldFlagMultipleActiveScholarships(left, { ...left }), true)
-  assert.equal(shouldFlagMultipleActiveScholarships(left, { ...left, semester: '2nd Semester' }), false)
-  assert.equal(shouldFlagMultipleActiveScholarships(left, { ...left, status: 'Inactive' }), false)
+test('duplicate flag requires an Active Government and Active Private scholarship for the same student and term', () => {
+  const government = { studentId: 'student-1', academicYear: '2025-2026', semester: '1st Semester', status: 'Active', category: 'Government' }
+  const privateScholarship = { ...government, category: 'Private' }
+  assert.equal(shouldFlagMultipleActiveScholarships(government, privateScholarship), true)
+  assert.equal(shouldFlagMultipleActiveScholarships(government, { ...privateScholarship, semester: '2nd Semester' }), false)
+  assert.equal(shouldFlagMultipleActiveScholarships(government, { ...privateScholarship, status: 'Inactive' }), false)
+  assert.equal(shouldFlagMultipleActiveScholarships(government, { ...privateScholarship, category: 'Government' }), false)
+  assert.equal(shouldFlagMultipleActiveScholarships(government, { ...privateScholarship, category: 'Institutional' }), false)
 })
 
 test('archive actions use SIGMA dialogs and the shared header remains sticky', () => {

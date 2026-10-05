@@ -31,7 +31,7 @@ export function DuplicateFlagsCard({ className, metrics: suppliedMetrics, loadin
           </div>)}
         </div>
         <p className="mt-3 max-w-2xl text-xs leading-relaxed" style={{ color: '#66806F' }}>
-          {effectiveLoading ? 'Checking records…' : 'A duplicate flag is created when one student has 2 or more Active scholarships in the same Academic Year and Semester.'}
+          {effectiveLoading ? 'Checking records…' : 'A duplicate flag is created when one student has both an Active Government scholarship and an Active Private scholarship in the same Academic Year and Semester.'}
         </p>
       </div>
       <Link

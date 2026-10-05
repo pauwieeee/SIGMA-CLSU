@@ -13,6 +13,7 @@ const allMigrations = [
   'supabase/migrations/0035_fix_student_import_results.sql',
   'supabase/migrations/0036_separate_import_duplicates_and_flags.sql',
   'supabase/migrations/0037_separate_student_audit_from_duplicate_history.sql',
+  'supabase/migrations/0039_government_private_duplicate_rule.sql',
 ].map((path) => readFileSync(path, 'utf8')).join('\n')
 
 test('student create, edit, archive, and restore remain audit-backed', () => {
@@ -21,6 +22,15 @@ test('student create, edit, archive, and restore remain audit-backed', () => {
 
 test('enrollment, renewal, duplicate detection, and resolution database workflows exist', () => {
   for (const routine of ['apply_selective_enrollment_updates', 'renew_student_scholarship', 'detect_duplicates_for_student', 'review_duplicate_flag', 'trg_log_student_enrollment_change']) assert.match(allMigrations, new RegExp(routine))
+})
+
+test('latest duplicate rule requires active Government and Private scholarships in one term', () => {
+  const migration = readFileSync('supabase/migrations/0039_government_private_duplicate_rule.sql', 'utf8')
+  assert.match(migration, /ca\.name = 'Government' and cb\.name = 'Private'/)
+  assert.match(migration, /ca\.name = 'Private' and cb\.name = 'Government'/)
+  assert.match(migration, /a\.academic_year = b\.academic_year/)
+  assert.match(migration, /a\.semester = b\.semester/)
+  assert.match(migration, /a\.status = 'Active' and b\.status = 'Active'/)
 })
 
 test('import reports isolate bad rows and preserve successful rows', () => {

@@ -54,6 +54,30 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
     return () => cancelAnimationFrame(frame)
   }, [open, selectedStudents.length])
 
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setIdList('')
+      setManualStatuses({})
+      setPreview(null)
+      setReviewStage('closed')
+      setReviewDecisions({})
+      setReviewIncluded(new Set())
+      setVerificationResult(null)
+      setError(null)
+      setSuccess(null)
+      onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose, open])
+
   if (!open) return null
 
   const isManualMode = selectedStudents.length > 0
@@ -189,9 +213,9 @@ export function EnrollmentVerificationModal({ open, onClose, onDone, onVerificat
     } catch (updateError) { void notifySaveFailure('Applying enrollment verification', updateError); setError((updateError as Error).message) } finally { setRunning(false) }
   }
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="verify-enrollment-title">
-    <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl shadow-xl sm:max-h-[92vh]" style={{ background: 'var(--bg-card)' }}>
-      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}><h2 id="verify-enrollment-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{isManualMode ? 'Set Selected Enrollment' : 'Verify Enrollment'}</h2><button type="button" onClick={close} aria-label="Close enrollment verification" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors hover:bg-[var(--menu-hover-bg)] focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: 'var(--icon-muted)', outlineColor: 'var(--btn-primary-bg)' }}><X size={20} /></button></div>
+  return <div className="fixed inset-0 z-[90] flex items-center justify-center overflow-hidden bg-black/45 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="verify-enrollment-title">
+    <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl shadow-2xl sm:max-h-[calc(100dvh-2rem)]" style={{ background: 'var(--bg-card)' }}>
+      <div className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b px-4 py-3 sm:px-5" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)', boxShadow: '0 1px 8px rgba(0,0,0,0.08)' }}><h2 id="verify-enrollment-title" className="text-base font-bold" style={{ color: 'var(--nav-header-dark)' }}>{isManualMode ? 'Set Selected Enrollment' : 'Verify Enrollment'}</h2><button type="button" onClick={close} aria-label="Close enrollment verification" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors hover:bg-[var(--menu-hover-bg)] focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: 'var(--nav-header-dark)', borderColor: 'var(--border-default)', background: 'var(--bg-card)', outlineColor: 'var(--btn-primary-bg)' }}><X size={22} strokeWidth={2.5} /></button></div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-5">
         {isManualMode ? <div className="flex min-h-0 flex-col">
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Update the enrollment status of the selected students for their current scholarship record.</p>

@@ -34,6 +34,7 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [initialForm, setInitialForm] = useState<FormValues | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
+  const dirty = initialForm != null && (Object.keys(form) as Array<keyof FormValues>).some((key) => form[key] !== initialForm[key])
 
   useEffect(() => {
     if (!student) return
@@ -51,9 +52,26 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
     setError(null)
   }, [student])
 
+  useEffect(() => {
+    if (!student) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [student])
+
+  useEffect(() => {
+    if (!student || discardOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || saving) return
+      if (dirty) setDiscardOpen(true)
+      else onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [dirty, discardOpen, onClose, saving, student])
+
   if (!student) return null
 
-  const dirty = initialForm != null && (Object.keys(form) as Array<keyof FormValues>).some((key) => form[key] !== initialForm[key])
   const requestClose = () => {
     if (saving) return
     if (dirty) setDiscardOpen(true)
@@ -119,18 +137,18 @@ export function StudentFormModal({ student, onClose, onSaved }: Props) {
   }
 
   return <>
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="student-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
+      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
+          <h2 id="student-form-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             Edit Record — {student.full_name}
           </h2>
-          <button onClick={requestClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
-            <X size={18} />
+          <button onClick={requestClose} aria-label="Close" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
+            <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 px-5 py-4">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Year Level</label>

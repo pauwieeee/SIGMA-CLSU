@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { ImportPreview, ImportPreviewItem } from '@/utils/importStudents'
 
@@ -10,7 +11,17 @@ function Group({ title, items, color }: { title: string; items: ImportPreviewIte
 
 export function ImportPreviewModal({preview,processing,onCancel,onConfirm}:{preview:ImportPreview;processing:boolean;onCancel:()=>void;onConfirm:()=>void}) {
   const importable=preview.newRecords.length+preview.conflicts.length
-  return <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-black/45 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !processing) onCancel() }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onCancel, processing])
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-black/45 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
     <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl shadow-2xl sm:max-h-[92vh]" style={{background:'var(--bg-card)'}}>
       <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 py-4" style={{borderColor:'var(--divider-light)',background:'var(--bg-card)'}}><div className="min-w-0"><h2 id="import-preview-title" className="text-lg font-bold" style={{color:'var(--nav-header-dark)'}}>Import Preview</h2><p className="truncate text-xs" style={{color:'var(--text-muted)'}}>{preview.filename}</p></div><button type="button" onClick={onCancel} disabled={processing} aria-label="Close import preview" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors hover:bg-[var(--menu-hover-bg)] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50" style={{color:'var(--icon-muted)',outlineColor:'var(--btn-primary-bg)'}}><X size={20}/></button></div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4">

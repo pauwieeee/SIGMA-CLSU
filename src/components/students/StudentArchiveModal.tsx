@@ -18,10 +18,15 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
 
   useEffect(() => { setReasonChoice(''); setOtherReason(''); setError(null); setSaving(false) }, [student, mode])
   useEffect(() => {
-    if (!student || saving) return
-    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    if (!student) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !saving) onClose() }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [student, saving, onClose])
   if (!student) return null
 
@@ -52,13 +57,13 @@ export function StudentArchiveModal({ student, mode, onClose, onDone }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/40 p-3 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
-      <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{restoring ? 'Restore Student Record?' : 'Archive Student?'}</h2>
-          <button onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button>
+    <div className="fixed inset-0 z-[80] flex animate-[fadeIn_180ms_ease-out] items-center justify-center bg-black/40 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="student-archive-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
+          <h2 id="student-archive-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>{restoring ? 'Restore Student Record?' : 'Archive Student?'}</h2>
+          <button onClick={onClose} disabled={saving} aria-label="Close" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]"><X size={20} /></button>
         </div>
-        <div className="space-y-4 px-5 py-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {restoring
               ? <>Do you want to restore <strong>{student.name}</strong>? The student will appear in the active Student Records list again, and all existing historical information will remain preserved.</>

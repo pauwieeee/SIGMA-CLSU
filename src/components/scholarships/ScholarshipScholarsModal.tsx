@@ -54,22 +54,36 @@ export function ScholarshipScholarsModal({ scholarshipId, scholarshipName, onClo
       })
   }, [scholarshipId])
 
+  useEffect(() => {
+    if (!scholarshipId) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [scholarshipId, onClose])
+
   if (!scholarshipId) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="scholarship-scholars-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-xl sm:max-h-[85dvh]" style={{ background: 'var(--bg-card)' }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
           <div>
-            <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>Scholars</h2>
+            <h2 id="scholarship-scholars-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>Scholars</h2>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{scholarshipName}</p>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
-            <X size={18} />
+          <button onClick={onClose} aria-label="Close" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
+            <X size={20} />
           </button>
         </div>
 
-        <div className="px-5 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {loading ? (
             <p className="py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
           ) : rows.length === 0 ? (

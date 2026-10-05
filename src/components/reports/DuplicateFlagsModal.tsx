@@ -55,11 +55,16 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
   }, [totalPages])
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !reviewingRow && !viewingStudentId && !confirmingResolve) onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [confirmingResolve, onClose, reviewingRow, viewingStudentId])
 
   function beginReview(id: string) {
@@ -124,7 +129,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-flags-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-flags-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div className="flex max-h-[90dvh] w-[min(90vw,72rem)] max-w-full flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3 sm:px-5 sm:py-4" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
           <div>
@@ -135,7 +140,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
               Review students with multiple Active scholarships in the same academic term.
             </p>
           </div>
-          <button onClick={onClose} aria-label="Close duplicate flags" className="rounded-md p-1 hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
+          <button onClick={onClose} aria-label="Close duplicate flags" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
             <X size={20} />
           </button>
         </div>
@@ -277,7 +282,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
       </div>
 
       {reviewingRow && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-2 sm:p-4">
           <form
             onSubmit={(event) => {
               event.preventDefault()
@@ -290,7 +295,7 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
               setError(null)
               setConfirmingResolve(true)
             }}
-            className="w-full max-w-lg rounded-xl p-5 shadow-2xl"
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-xl p-5 shadow-2xl"
             style={{ background: 'var(--bg-card)' }}
           >
             <div className="flex items-start justify-between gap-3">
@@ -300,8 +305,8 @@ export function DuplicateFlagsModal({ onClose, onChanged, focusFlagId }: Props) 
                   {reviewingRow.student_name} · {reviewingRow.student_number}
                 </p>
               </div>
-              <button type="button" onClick={() => setReviewingId(null)} aria-label="Close resolution form" style={{ color: 'var(--icon-muted)' }}>
-                <X size={19} />
+              <button type="button" onClick={() => setReviewingId(null)} aria-label="Close resolution form" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
+                <X size={20} />
               </button>
             </div>
 

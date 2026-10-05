@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logActivity } from '@/utils/logActivity'
@@ -32,6 +32,20 @@ export function BatchUpdateModal({ open, students, onClose, onDone }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open, saving, onClose])
 
   if (!open) return null
 
@@ -84,19 +98,19 @@ export function BatchUpdateModal({ open, students, onClose, onDone }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
-        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)' }}>
-          <h2 className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="batch-update-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
+      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-xl shadow-xl" style={{ background: 'var(--bg-card)' }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b px-5 py-3" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}>
+          <h2 id="batch-update-title" className="text-sm font-bold" style={{ color: 'var(--nav-header-dark)' }}>
             Batch Update ({students.length} selected)
           </h2>
-          <button onClick={onClose} aria-label="Close" style={{ color: 'var(--icon-muted)' }}>
-            <X size={18} />
+          <button onClick={onClose} disabled={saving} aria-label="Close" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}>
+            <X size={20} />
           </button>
         </div>
 
         {!confirming ? (
-          <div className="space-y-4 px-5 py-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             <div>
               <label className="mb-1 block text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Action</label>
               <select
@@ -181,7 +195,7 @@ export function BatchUpdateModal({ open, students, onClose, onDone }: Props) {
             </div>
           </div>
         ) : (
-          <div className="space-y-4 px-5 py-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             <p className="rounded-lg px-3 py-2.5 text-sm" style={{ background: 'var(--menu-active-bg)', color: 'var(--nav-header-dark)' }}>
               {summary}
             </p>

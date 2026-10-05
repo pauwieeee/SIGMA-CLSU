@@ -59,6 +59,19 @@ export function ImportResultsModal({ result, onClose }: { result: ImportResult |
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState<ImportRowResult | null>(null)
   useEffect(() => {
+    if (!result) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !detail) onClose()
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [detail, onClose, result])
+  useEffect(() => {
     if (!detail) return
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setDetail(null)
@@ -92,7 +105,7 @@ export function ImportResultsModal({ result, onClose }: { result: ImportResult |
 
   return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="import-results-title">
     <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
-      <div className="flex shrink-0 items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--divider-light)' }}><div><h2 id="import-results-title" className="text-lg font-bold" style={{ color: 'var(--nav-header-dark)' }}>Import Results Report</h2><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{result.filename}</p></div><button onClick={onClose} aria-label="Close import report"><X size={19}/></button></div>
+      <div className="flex shrink-0 items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--divider-light)', background: 'var(--bg-card)' }}><div><h2 id="import-results-title" className="text-lg font-bold" style={{ color: 'var(--nav-header-dark)' }}>Import Results Report</h2><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{result.filename}</p></div><button onClick={onClose} aria-label="Close import report" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]"><X size={20}/></button></div>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <div className="mb-4 rounded-lg border px-4 py-3" style={bannerStyle}><p className="font-bold">{result.status === 'Completed' ? 'Import completed successfully' : 'Import completed with errors'}</p><p className="mt-1 text-sm">{importedCount} imported · {result.updatedExistingCount} updated · {result.existingCount} duplicate Excel rows skipped · {result.duplicateFlagsCreated} duplicate flags created · {result.validationErrorCount} validation errors{result.databaseErrorCount ? ` · ${result.databaseErrorCount} database errors` : ''}.</p>{result.databaseErrorCount > 0 && <p className="mt-1 text-xs">Database errors are listed below. No Excel changes are required for internal query errors.</p>}</div>
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-6">{cards.map(([label, value]) => {

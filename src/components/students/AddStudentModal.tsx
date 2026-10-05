@@ -204,6 +204,22 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   const defaultValues = emptyForm()
   const dirty = programText.trim() !== '' || (Object.keys(form) as Array<keyof FormValues>).some((key) => form[key] !== defaultValues[key])
 
+  useEffect(() => {
+    if (!open) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || saving || discardOpen) return
+      if (dirty) setDiscardOpen(true)
+      else onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [dirty, discardOpen, onClose, open, saving])
+
   function requestClose() {
     if (saving) return
     if (dirty) setDiscardOpen(true)
@@ -370,14 +386,14 @@ export function AddStudentModal({ open, onClose, onAdded }: Props) {
   const inputStyle = (hasError?: boolean) => ({ borderColor: hasError ? 'var(--status-error-text)' : 'var(--input-border)' })
 
   return <>
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="add-student-title">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="add-student-title" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose() }}>
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl shadow-2xl" style={{ background: 'var(--bg-card)' }}>
         <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--divider-light)' }}>
           <div>
             <h2 id="add-student-title" className="text-lg font-bold" style={{ color: 'var(--nav-header-dark)' }}>Add New Student</h2>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>Create one student record. Scholarship information is optional.</p>
           </div>
-          <button type="button" onClick={requestClose} aria-label="Close Add Student" style={{ color: 'var(--icon-muted)' }}><X size={20} /></button>
+          <button type="button" onClick={requestClose} aria-label="Close Add Student" title="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg hover:bg-[var(--menu-hover-bg)]" style={{ color: 'var(--icon-muted)' }}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5">

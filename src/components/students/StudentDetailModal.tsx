@@ -26,11 +26,16 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
 
   useEffect(() => {
     if (!studentId || editing || renewing) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [studentId, editing, renewing, onClose])
 
   if (!studentId) return null
@@ -73,7 +78,7 @@ export function StudentDetailModal({ studentId, onClose, onChanged }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3 sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !editing && !renewing) onClose()
       }}
@@ -314,7 +319,7 @@ function RenewScholarshipModal({ row, onClose, onSaved }: { row: ScholarshipHist
     if (rpcError) { void notifySaveFailure(`Renewing ${row.scholarship_name}`, rpcError); return setError(rpcError.message) }
     onSaved()
   }
-  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"><div className="w-full max-w-md rounded-xl p-5 shadow-xl" style={{ background: 'var(--bg-card)' }}>
+  return <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-3 sm:p-4" role="dialog" aria-modal="true"><div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-xl p-5 shadow-xl" style={{ background: 'var(--bg-card)' }}>
     <div className="flex items-center justify-between"><div><h3 className="font-bold" style={{ color: 'var(--nav-header-dark)' }}>Renew Scholarship</h3><p className="text-sm" style={{ color: 'var(--text-muted)' }}>{row.scholarship_name}</p></div><button onClick={onClose}><X size={18} /></button></div>
     <div className="mt-4 grid grid-cols-2 gap-3 text-sm"><label>Academic Year<input value={academicYear} onChange={e => setAcademicYear(e.target.value)} placeholder="2026-2027" className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label>Semester<select value={semester} onChange={e => setSemester(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2"><option>1st Semester</option><option>2nd Semester</option><option>Summer</option></select></label><label>Start Date<input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label>Expiration Date<input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="col-span-2">Status<select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2">{statusChoices.map(option => <option key={option}>{option}</option>)}</select></label></div>
     {error && <p className="mt-3 text-sm" style={{ color: 'var(--status-error-text)' }}>{error}</p>}

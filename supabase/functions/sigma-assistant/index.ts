@@ -123,7 +123,7 @@ async function resolveIntent(supabase: ReturnType<typeof createClient>, question
     const { data } = await supabase
       .from('duplicate_flags')
       .select('id, reason, students ( student_number, last_name, first_name )')
-      .eq('status', 'Open')
+      .in('status', ['Open', 'Under Review'])
       .limit(20)
     return { intent: 'duplicates', data }
   }

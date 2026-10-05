@@ -51,10 +51,16 @@ test('status, semester, category, and Needs Review use Student Records rules', (
   assert.match(assistant, /scholarships!inner\(name, code, status, archived_at/)
   assert.match(assistant, /currentNeedsReview/)
   assert.match(assistant, /openDuplicateStudentIds/)
-  assert.match(assistant, /\.eq\('status', 'Open'\)/)
+  assert.match(assistant, /\.in\('status', \['Open', 'Under Review'\]\)/)
   assert.match(assistant, /hasRecognizedFilter/)
   assert.match(assistant, /appliedSemester/)
   assert.match(assistant, /distinct students matching/)
+})
+
+test('SIGMAI Edge Function treats Open and Under Review as unresolved duplicate cases', () => {
+  const edgeFunction = readFileSync('supabase/functions/sigma-assistant/index.ts', 'utf8')
+  assert.match(edgeFunction, /\.in\('status', \['Open', 'Under Review'\]\)/)
+  assert.doesNotMatch(edgeFunction, /\.eq\('status', 'Open'\)/)
 })
 
 test('assistant resolves programs from the complete Supabase catalog with shared matching', () => {

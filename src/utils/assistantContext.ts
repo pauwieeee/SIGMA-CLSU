@@ -68,4 +68,5 @@ export function isContextualFollowUp(question: string): boolean {
     || /^who\s+(?:is|are)\s+(?:enrolled|not\s+enrolled|active|inactive)\b/i.test(trimmed)
     || /^(?:list them|show me the students|give me the list|show the scholars)\b/i.test(trimmed)
     || /^what (?:are )?their names\b/i.test(trimmed)
+    || /^(?:highest|lowest|most|least|top|summarize|summary)\s*[?.!]*$/i.test(trimmed)
 }

@@ -29,6 +29,18 @@ test('scholarship counts use the same non-archived assignment joins as Reports',
   assert.match(assistant, /distinctScholarRows\(filtered\)/)
 })
 
+test('scholarship rankings and summaries use distinct live beneficiaries instead of catalog counts', () => {
+  assert.match(assistant, /fetchScholarshipBeneficiarySummary/)
+  assert.match(assistant, /asksForScholarshipRanking/)
+  assert.match(assistant, /asksForScholarshipSummary/)
+  assert.match(assistant, /new Map<string, Set<string>>\(\)/)
+  assert.match(assistant, /beneficiaryIds\.get\(assignment\.scholarship_id\)!\.add\(assignment\.student_id\)/)
+  assert.match(assistant, /Highest Number of Beneficiaries/)
+  assert.match(assistant, /Top Scholarships by Distinct Beneficiaries/)
+  assert.match(assistant, /\.is\('students\.archived_at', null\)/)
+  assert.match(assistant, /\.is\('scholarships\.archived_at', null\)/)
+})
+
 test('scholar follow-ups persist category context and produce explicit category answers', () => {
   assert.match(assistant, /categories: string\[\]/)
   assert.match(assistant, /previousContext\.categories/)

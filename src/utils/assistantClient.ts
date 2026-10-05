@@ -376,6 +376,47 @@ function scholarPagination(assignments: any[], filterLabel: string): AssistantPa
   }
 }
 
+async function fetchScholarshipBeneficiarySummary() {
+  const [scholarshipResult, assignmentResult] = await Promise.all([
+    supabase
+      .from('scholarships')
+      .select('id, name, status, scholarship_categories(name)')
+      .is('archived_at', null),
+    supabase
+      .from('student_scholarships')
+      .select('student_id, scholarship_id, status, students!inner(archived_at), scholarships!inner(archived_at)')
+      .is('archived_at', null)
+      .is('students.archived_at', null)
+      .is('scholarships.archived_at', null),
+  ])
+  assertQuerySucceeded(scholarshipResult.error)
+  assertQuerySucceeded(assignmentResult.error)
+
+  const scholarships = (scholarshipResult.data ?? []) as any[]
+  const assignments = (assignmentResult.data ?? []) as any[]
+  const beneficiaryIds = new Map<string, Set<string>>()
+  const activeAssignmentCounts = new Map<string, number>()
+
+  for (const assignment of assignments) {
+    if (!beneficiaryIds.has(assignment.scholarship_id)) beneficiaryIds.set(assignment.scholarship_id, new Set())
+    beneficiaryIds.get(assignment.scholarship_id)!.add(assignment.student_id)
+    if (assignment.status === 'Active') {
+      activeAssignmentCounts.set(assignment.scholarship_id, (activeAssignmentCounts.get(assignment.scholarship_id) ?? 0) + 1)
+    }
+  }
+
+  const rows = scholarships.map((scholarship) => ({
+    id: scholarship.id,
+    name: scholarship.name,
+    category: scholarship.scholarship_categories?.name ?? 'Uncategorized',
+    status: scholarship.status,
+    beneficiaries: beneficiaryIds.get(scholarship.id)?.size ?? 0,
+    activeAssignments: activeAssignmentCounts.get(scholarship.id) ?? 0,
+  })).sort((left, right) => right.beneficiaries - left.beneficiaries || left.name.localeCompare(right.name))
+
+  return { scholarships, assignments, rows }
+}
+
 async function resolveIntent(
   question: string,
   history: AssistantConversationMessage[] = [],
@@ -650,6 +691,55 @@ async function resolveIntent(
     || scopedCountWithoutNoun
     || resolvesPendingProgram
     || Boolean(continuesScholarContext && previousContext?.kind === 'scholars')
+
+  const asksForScholarshipRanking = /\b(?:highest|most|top|largest)\b/.test(contextualQ)
+    && /\b(?:scholarships?|beneficiar(?:y|ies)|students?|scholars?)\b/.test(contextualQ)
+  const asksForScholarshipSummary = /\b(?:summari[sz]e|summary|overview)\b/.test(contextualQ)
+    && /\bscholarship(?:s|\s+data)?\b/.test(contextualQ)
+
+  if (asksForScholarshipRanking || asksForScholarshipSummary) {
+    const summary = await fetchScholarshipBeneficiarySummary()
+    const rowsWithBeneficiaries = summary.rows.filter((row) => row.beneficiaries > 0)
+    const distinctBeneficiaries = new Set(summary.assignments.map((assignment) => assignment.student_id)).size
+
+    if (asksForScholarshipRanking) {
+      if (rowsWithBeneficiaries.length === 0) {
+        return { intent: 'scholarship_beneficiary_ranking', data: [], answer: 'No scholarship beneficiaries were found in the current SIGMA records.' }
+      }
+      const highest = rowsWithBeneficiaries[0].beneficiaries
+      const leaders = rowsWithBeneficiaries.filter((row) => row.beneficiaries === highest)
+      const answer = leaders.length === 1
+        ? `**Highest Number of Beneficiaries:** ${leaders[0].name}\n\n**Distinct Students:** ${highest}\n\nThis count comes from current, non-archived scholarship assignments and counts each student only once for that scholarship.`
+        : `**Highest Number of Beneficiaries:** ${highest}\n\n${formatTable(
+            ['Scholarship', 'Category', 'Distinct Students'],
+            leaders.map((row) => [row.name, row.category, row.beneficiaries]),
+          )}\n\n${leaders.length} scholarships are tied for the highest beneficiary count.`
+      return { intent: 'scholarship_beneficiary_ranking', data: leaders, answer }
+    }
+
+    const categoryCounts = new Map<string, number>()
+    for (const scholarship of summary.rows) {
+      categoryCounts.set(scholarship.category, (categoryCounts.get(scholarship.category) ?? 0) + 1)
+    }
+    const activePrograms = summary.rows.filter((row) => row.status === 'Active').length
+    const activeAssignments = summary.assignments.filter((assignment) => assignment.status === 'Active').length
+    const categoryText = [...categoryCounts.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([category, count]) => `**${category}:** ${count}`)
+      .join('\n\n')
+    const topRows = rowsWithBeneficiaries.slice(0, 5)
+    const topSection = topRows.length > 0
+      ? `\n\n### Top Scholarships by Distinct Beneficiaries\n${formatTable(
+          ['Scholarship', 'Category', 'Distinct Students'],
+          topRows.map((row) => [row.name, row.category, row.beneficiaries]),
+        )}`
+      : ''
+    return {
+      intent: 'scholarship_summary',
+      data: summary.rows,
+      answer: `### Scholarship Summary\n**Available Scholarship Programs:** ${summary.rows.length}\n\n**Active Scholarship Programs:** ${activePrograms}\n\n**Distinct Beneficiaries:** ${distinctBeneficiaries}\n\n**Active Scholarship Assignments:** ${activeAssignments}\n\n### Programs by Category\n${categoryText}${topSection}`,
+    }
+  }
 
   if (/\bscholarships?\b/.test(contextualQ) && !asksAboutPeople) {
     const { data, error } = await supabase

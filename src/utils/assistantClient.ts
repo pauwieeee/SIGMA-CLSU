@@ -633,8 +633,14 @@ async function resolveIntent(
     }
   }
 
-  const enrollmentQuestion = /\benrolled\b/.test(contextualQ) && /\bstudents?\b|\bscholars?\b/.test(contextualQ)
-  if (enrollmentQuestion && !(continuesScholarContext && previousContext?.kind === 'scholars')) {
+  const enrollmentQuestion = /\benrolled\b/.test(currentQ) && /\bstudents?\b|\bscholars?\b/.test(currentQ)
+  const hasScopedEnrollmentFilter = Boolean(
+    explicitScholarshipCategory(normalizedCurrentQuestion)
+    || explicitCollegeName(normalizedCurrentQuestion)
+    || lastAcademicYearText(normalizedCurrentQuestion)
+    || /\b(?:under|program|college|category|scholarships?|semester|first\s+semester|second\s+semester|summer)\b/i.test(normalizedCurrentQuestion)
+  )
+  if (enrollmentQuestion && !hasScopedEnrollmentFilter && !(continuesScholarContext && previousContext?.kind === 'scholars')) {
     const wantsNotEnrolled = /\bnot\s+enrolled\b|\bunenrolled\b/.test(contextualQ)
     const { data, error } = await supabase
       .from('student_scholarships')
@@ -655,10 +661,12 @@ async function resolveIntent(
     }
   }
 
-  const asksForExpiringStudents = /\bstudents?\b|\bscholars?\b/.test(contextualQ)
-  if ((contextualQ.includes('expiring') || contextualQ.includes('expire')) && !asksForExpiringStudents) {
+  // Expiring scholarship-program questions are standalone catalog queries.
+  // Use only the current message so a previous scholar filter cannot leak in.
+  const asksForExpiringStudents = /\bstudents?\b|\bscholars?\b/.test(currentQ)
+  if ((currentQ.includes('expiring') || currentQ.includes('expire')) && !asksForExpiringStudents) {
     const today = new Date()
-    const asksThisMonth = /this month|current month/.test(contextualQ)
+    const asksThisMonth = /this month|current month/.test(currentQ)
     const rangeStart = asksThisMonth ? new Date(today.getFullYear(), today.getMonth(), 1) : today
     const cutoff = asksThisMonth ? new Date(today.getFullYear(), today.getMonth() + 1, 0) : new Date(today.getTime() + 30 * 86400000)
     const asDate = (date: Date) => date.toISOString().slice(0, 10)

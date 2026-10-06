@@ -14,6 +14,14 @@ test('assistant has dedicated live enrollment and resolved-duplicate count inten
   assert.match(assistant, /caseCount: rows\.length, studentCount: studentRows\.length/)
 })
 
+test('fresh expiring-program and filtered enrollment questions do not inherit unrelated context', () => {
+  assert.match(assistant, /const hasScopedEnrollmentFilter = Boolean/)
+  assert.match(assistant, /enrollmentQuestion && !hasScopedEnrollmentFilter/)
+  assert.match(assistant, /const asksForExpiringStudents = .*\.test\(currentQ\)/)
+  assert.match(assistant, /\(currentQ\.includes\('expiring'\) \|\| currentQ\.includes\('expire'\)\)/)
+  assert.match(assistant, /const asksThisMonth = .*\.test\(currentQ\)/)
+})
+
 test('scholarship counts use the complete live catalog so zero assignments remain a valid result', () => {
   assert.match(assistant, /stripScholarshipReferenceMetadata\(contextualQuestion\)/)
   assert.match(assistant, /from\('scholarships'\)/)

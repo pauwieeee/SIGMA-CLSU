@@ -27,6 +27,8 @@ test('required conversational phrases are classified as follow-ups', () => {
   }
   assert.equal(isContextualFollowUp('How many students are in BSIT?'), false)
   assert.equal(isContextualFollowUp('How many active students?'), false)
+  assert.equal(isContextualFollowUp('Which scholarships are expiring this month?'), false)
+  assert.equal(isContextualFollowUp('How many scholarships expire this academic year?'), false)
 })
 
 test('scholarship category wording is normalized for contextual switches', () => {
